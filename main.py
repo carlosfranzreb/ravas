@@ -13,13 +13,16 @@ if __name__ == "__main__":
         return av.VideoFrame.from_ndarray(flipped, format="bgr24")
 
     def convert(frame: av.AudioFrame) -> av.AudioFrame:
-        converted = model(frame.to_ndarray(), frame.sample_rate)
-        converted_scaled = (converted * 32767).round().astype("int16")
-        return av.AudioFrame.from_ndarray(converted_scaled, layout="mono")
+        audio = frame.to_ndarray()
+        converted = model(audio, frame.sample_rate)
+        new_frame = av.AudioFrame.from_ndarray(converted, layout=frame.layout.name)
+        new_frame.sample_rate = frame.sample_rate
+        print(f"returned {new_frame.samples} samples")
+        return new_frame
 
-    if __name__ == "__main__":
-        webrtc_streamer(
-            key="idk",
-            video_frame_callback=flip_frame,
-            audio_frame_callback=convert,
-        )
+    webrtc_streamer(
+        key="idk",
+        video_frame_callback=flip_frame,
+        audio_frame_callback=convert,
+        async_processing=True,
+    )
