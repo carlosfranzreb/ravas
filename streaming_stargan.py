@@ -18,15 +18,15 @@ MODEL_SR = 24000
 
 class StreamingSG:
     def __init__(self, target_id: int):
+        """
+        Initialize the StarGAN model and define the target speaker.
+        """
         (
             self.starganv2,
             self.F0_model,
             self.vocoder,
             self.style_vecs,
         ) = build_inference_pipeline(device="cpu")
-        """
-        Initialize the StarGAN model and define the target speaker.
-        """
         self.target = self.style_vecs["p" + str(target_id)][0]
         self.queue = Queue(maxsize=10)
         self.resample_to_model = Resample(INPUT_SR, MODEL_SR)
