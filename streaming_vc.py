@@ -1,3 +1,5 @@
+from queue import Queue
+
 import torch
 import torchaudio
 import numpy as np
@@ -6,7 +8,7 @@ from LLVC.infer import load_model
 
 
 class StreamingLLVC:
-    def __init__(self):
+    def __init__(self, queue_size: int = 5):
         """
         Initialize the LLVC model.
         """
@@ -23,6 +25,8 @@ class StreamingLLVC:
             self.convnet_pre_ctx = self.model.convnet_pre.init_ctx_buf(
                 1, torch.device("cpu")
             )
+        self.queue = Queue(maxsize=queue_size)
+        self.idx = 0
 
     def __call__(self, frame: np.ndarray, audio_sr: int) -> np.ndarray:
         """
@@ -34,10 +38,14 @@ class StreamingLLVC:
         frame = torchaudio.transforms.Resample(
             orig_freq=audio_sr, new_freq=self.model_sr
         )(torch.from_numpy(frame))
-        converted = self.convert(frame.squeeze(0))
+        self.idx += 1
+        self.queue.put(frame.squeeze(0))
+        frames = torch.cat(list(self.queue.queue))
+        converted = self.convert(frames)[:, -frame.shape[1] :]
         converted = torchaudio.transforms.Resample(
             orig_freq=self.model_sr, new_freq=audio_sr
         )(converted)
+
         out = (converted.numpy() * max_value).round().astype("int16")
         return out
 

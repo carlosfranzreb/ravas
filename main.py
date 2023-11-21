@@ -22,7 +22,8 @@ if __name__ == "__main__":
 
     webrtc_streamer(
         key="idk",
-        video_frame_callback=flip_frame,
+        # video_frame_callback=flip_frame,
         audio_frame_callback=convert,
+        audio_receiver_size=1024,
         async_processing=True,
     )
