@@ -1,0 +1,146 @@
+from multiprocessing import Process, Queue, Value
+import queue
+import time
+from typing import Any, Callable, Optional, Tuple
+import torch
+import numpy as np
+
+from steam_processing.utils import clear_queue
+
+
+class ProcessingQueues:
+    def __init__(self):
+        self.input_queue = Queue()
+        self.sync_queue = Queue()
+        self.output_queue = Queue()
+
+
+class ProcessingSyncState:
+    def __init__(self):
+        self.last_sample_time = Value("d", np.inf)
+        self.last_update = Value("d", 0)
+
+
+class Processor:
+    def __init__(
+        self,
+        queues: ProcessingQueues,
+        own_sync_state: ProcessingSyncState,
+        external_sync_state: ProcessingSyncState,
+        # callback take 2 tensors and as many kwargs as it wants
+        callback: Optional[
+            Callable[
+                [torch.Tensor, torch.Tensor, Any], Tuple[torch.Tensor, torch.Tensor]
+            ]
+        ] = None,
+        # init_callback can return as many values as it wants
+        init_callback: Optional[Callable[[], Any]] = None,
+        max_unsynced_time: Optional[float] = 0.1,
+    ):
+        """
+        Initialize a Processor object.
+        :param queues: ProcessingQueues object that contains all relevant queues for the processor.
+        :param own_sync_state: ProcessingSyncState object that contains the sync state of this processor.
+        :param external_sync_state: ProcessingSyncState object that contains the sync state of Processor object that is used for sync.
+        :param callback: Callback function that is called for processing the data.
+            the callback function gets the batched input time and data per sample and should return the batched time and data.
+        :param init_callback: Callback function that is called for initializing the callback function.
+            the function should return a list of arguments that are passed to the callback function.
+        :param max_unsynced_time: Maximum time that the data can be unsynced.
+        """
+        self.queues = queues
+        self.own_sync_state = own_sync_state
+        self.external_sync_state = external_sync_state
+        self.callback = callback
+        self.init_callback = init_callback
+        self.max_unsynced_time = max_unsynced_time
+
+    def read_input_stream(self):
+        """
+        Read the input stream and put the data and their corresponding time into the input queue.
+        """
+        raise NotImplementedError
+
+    def write_output_stream(self):
+        """
+        Write the data from the final output queue to the output stream.
+        """
+        raise NotImplementedError
+
+    def process(self):
+        """
+        Read the input queue and use the callback function to process the data and put the processed data into the sync queue.
+        """
+        args = self.init_callback() if self.init_callback is not None else []
+        clear_queue(self.queues.input_queue)
+        while True:
+            try:
+                ttime, data = self.queues.input_queue.get()
+                if self.callback is not None:
+                    ttime, data = self.callback(ttime, data, *args)
+                self.queues.sync_queue.put((ttime, data))
+            except queue.Empty:
+                pass
+
+    def sync(self):
+        """
+        Use the external sync state to sync the data of the sync queue and put the synced data into the output queue.
+        """
+        sync_buffer = []
+        clear_queue(self.queues.sync_queue)
+        while True:
+            if len(sync_buffer) > 0:
+                external_current_play_time = (
+                    self.external_sync_state.last_sample_time.value
+                    + (time.time() - self.external_sync_state.last_update.value)
+                )
+                next_sample_time = sync_buffer[0][0][0]
+                if (
+                    external_current_play_time
+                    > next_sample_time - self.max_unsynced_time
+                ):
+                    d_time, data = sync_buffer.pop(0)
+                    self.own_sync_state.last_sample_time.value = dtime[0]
+                    self.own_sync_state.last_update.value = time.time()
+                    self.queues.output_queue.put((d_time, data))
+            try:
+                dtime, data = self.queues.sync_queue.get_nowait()
+                sync_buffer.append((dtime, data))
+            except queue.Empty:
+                pass
+
+
+class ProcessorProcessHandler:
+    def __init__(self, processor: Processor):
+        """
+        Initialize a ProcessorProcessHandler object.
+        :param processor: Processor object that should be handled by the ProcessorProcessHandler.
+        """
+        self.processor = processor
+        # create the processes
+        self.read_input_stream_process = Process(
+            target=self.processor.read_input_stream
+        )
+        self.process_process = Process(target=self.processor.process)
+        self.sync_process = Process(target=self.processor.sync)
+        self.write_output_stream_process = Process(
+            target=self.processor.write_output_stream
+        )
+
+    def start(self):
+        """
+        Start all processes.
+        """
+        self.read_input_stream_process.start()
+        self.process_process.start()
+        self.sync_process.start()
+        self.write_output_stream_process.start()
+
+    def stop(self):
+        """
+        Terminate all processes.
+        """
+        self.read_input_stream_process.terminate()
+        self.process_process.terminate()
+        self.sync_process.terminate()
+        self.write_output_stream_process.terminate()

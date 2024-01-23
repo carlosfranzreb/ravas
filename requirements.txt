@@ -1,1 +1,5 @@
-streamlit-webrtc==0.47.1
+opencv-python
+torch
+pyaudio
+pyvirtualcam
+librosa

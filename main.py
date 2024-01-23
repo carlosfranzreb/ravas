@@ -1,28 +1,62 @@
-import av
-from streamlit_webrtc import webrtc_streamer
+import logging
+import time
 
-from streaming_vc import StreamingLLVC
+import cv2
+import torch
+from steam_processing.AudioVideoStreamer import AudioVideoStreamer
+import librosa
+import numpy as np
+
+
+def video_init_callback():
+    face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    return [face_cascade]
+
+
+def video_callback(time, data, face_cascade):
+    # detect faces
+    sample = data[0].numpy()
+    gray = cv2.cvtColor(sample, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    # draw bounding boxes
+    if len(faces) > 0:
+        x, y, w, h = faces[0]
+        data[:, y : y + h, x : x + w, :] = data[:, y : y + h, x : x + w, :] * 0.5
+
+    return time, data
+
+
+def audio_init_callback():
+    # call once before to load function
+    def call(y):
+        return librosa.effects.pitch_shift(y, sr=44100, n_steps=-5)
+
+    call(np.zeros(44100))
+    return [call]
+
+
+def audio_callback(dtime, data, pitch_shift):
+    # uint8 to float32
+    data = data.float() / 255
+    y = pitch_shift(data.numpy())
+    data = torch.from_numpy(y) * 255
+    return dtime, data
 
 
 if __name__ == "__main__":
-    model = StreamingLLVC()
-
-    def flip_frame(frame: av.VideoFrame) -> av.VideoFrame:
-        img = frame.to_ndarray(format="bgr24")
-        flipped = img[::-1, :, :]
-        return av.VideoFrame.from_ndarray(flipped, format="bgr24")
-
-    def convert(frame: av.AudioFrame) -> av.AudioFrame:
-        audio = frame.to_ndarray()
-        converted = model(audio, frame.sample_rate)
-        new_frame = av.AudioFrame.from_ndarray(converted, layout=frame.layout.name)
-        new_frame.sample_rate = frame.sample_rate
-        print(f"returned {new_frame.samples} samples")
-        return new_frame
-
-    webrtc_streamer(
-        key="idk",
-        video_frame_callback=flip_frame,
-        audio_frame_callback=convert,
-        async_processing=True,
+    audio_video_streamer = AudioVideoStreamer(
+        video_callback=video_callback,
+        video_init_callback=video_init_callback,
+        video_processing_size=4,
+        video_maximum_fps=20,
+        audio_processing_size=4096 * 8,
+        audio_callback=audio_callback,
+        audio_init_callback=audio_init_callback,
+        use_video=True,
     )
+    audio_video_streamer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        audio_video_streamer.stop()
