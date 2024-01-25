@@ -1,10 +1,10 @@
-from steam_processing.AudioProcessor import AudioProcessor
-from steam_processing.Processor import (
+from stream_processing.AudioProcessor import AudioProcessor
+from stream_processing.Processor import (
     ProcessingQueues,
     ProcessingSyncState,
     ProcessorProcessHandler,
 )
-from steam_processing.VideoProcessor import VideoProcessor
+from stream_processing.VideoProcessor import VideoProcessor
 
 
 class AudioVideoStreamer:
@@ -32,6 +32,8 @@ class AudioVideoStreamer:
 
         :param audio_callback: Callback function that is called for processing the audio data.
             the callback function gets the batched input time and data per sample and should return the batched time and data.
+        :param init_callback: Callback function that is called for initializing the callback function.
+            the function should return a list of arguments that are passed to the callback function.
         :param audio_processing_size: Size of the processing batch.
         :param audio_pyaudio_input_device_index: Index of the pyaudio input device.
         :param audio_sampling_rate: Sampling rate for the recording.

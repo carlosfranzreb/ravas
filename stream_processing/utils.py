@@ -16,7 +16,7 @@ def batchify_input_stream(
     last_frame_time: float = 0,
 ):
     """
-    Read from the input stream and batch the data.
+    Read from the input stream and batch the data. This function can be used for audio and video streams.
     :param read_callback: Callback function that reads from the input stream and returns the data.
     :param size of the desired output batch.
     :param input_shape: Shape of the input data returned by the read_callback.

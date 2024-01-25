@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional, Tuple
 import torch
 import numpy as np
 
-from steam_processing.utils import clear_queue
+from stream_processing.utils import clear_queue
 
 
 class ProcessingQueues:

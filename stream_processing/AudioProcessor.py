@@ -2,12 +2,12 @@ import time
 from typing import Any, Callable, Optional, Tuple
 import pyaudio
 import torch
-from steam_processing.Processor import (
+from stream_processing.Processor import (
     ProcessingQueues,
     ProcessingSyncState,
     Processor,
 )
-from steam_processing.utils import batchify_input_stream, clear_queue
+from stream_processing.utils import batchify_input_stream, clear_queue
 
 
 class AudioProcessor(Processor):

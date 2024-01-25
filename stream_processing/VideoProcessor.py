@@ -3,12 +3,12 @@ import time
 from typing import Any, Callable, Optional, Tuple
 import cv2
 import torch
-from steam_processing.Processor import (
+from stream_processing.Processor import (
     ProcessingQueues,
     ProcessingSyncState,
     Processor,
 )
-from steam_processing.utils import batchify_input_stream
+from stream_processing.utils import batchify_input_stream
 import pyvirtualcam
 
 

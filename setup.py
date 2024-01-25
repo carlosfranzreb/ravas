@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
 
 NAME = "steam_processing"
@@ -33,7 +33,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url=URL,
-    packages=["steam_processing"],
+    packages=["stream_processing"],
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
