@@ -2,7 +2,7 @@ import time
 
 import cv2
 import torch
-from steam_processing.AudioVideoStreamer import AudioVideoStreamer
+from stream_processing.AudioVideoStreamer import AudioVideoStreamer
 import librosa
 import numpy as np
 
@@ -10,7 +10,7 @@ import numpy as np
 # all callbacks have to be defined outside of the main function
 # use the init_callback to load the model and return it as a list to use it as an argument for the callback function
 def video_init_callback():
-    face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    face_cascade = cv2.CascadeClassifier("example/haarcascade_frontalface_default.xml")
     return [face_cascade]
 
 
@@ -48,7 +48,7 @@ def audio_callback(dtime, data, pitch_shift):
 
     # from numpy float32 to torch uint8
     data = torch.from_numpy(y) * 255
-    return dtime, data.to(torch.uint8)
+    return dtime, data
 
 
 if __name__ == "__main__":
