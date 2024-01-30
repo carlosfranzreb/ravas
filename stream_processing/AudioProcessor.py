@@ -3,6 +3,7 @@ from typing import Any, Callable, Optional, Tuple
 import pyaudio
 import torch
 from stream_processing.Processor import (
+    ProcessingCallback,
     ProcessingQueues,
     ProcessingSyncState,
     Processor,
@@ -16,10 +17,7 @@ class AudioProcessor(Processor):
         audio_queues: ProcessingQueues,
         audio_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
-        callback: Optional[
-            Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]
-        ] = None,
-        init_callback: Optional[Callable[[], Any]] = None,
+        callback: Optional[ProcessingCallback] = None,
         processing_size=1024,
         pyaudio_input_device_index=0,
         sampling_rate=44100,
@@ -33,10 +31,7 @@ class AudioProcessor(Processor):
         :param audio_queues: ProcessingQueues containing the audio queues.
         :param audio_sync_state: ProcessingSyncState containing the audio sync state.
         :param external_sync_state: ProcessingSyncState containing the external sync state to sync the audio.
-        :param callback: Callback function that is called for processing the data.
-            the callback function gets the batched input time and data per sample and should return the batched time and data.
-        :param init_callback: Callback function that is called for initializing the callback function.
-            the function should return a list of arguments that are passed to the callback function.
+        :param callback: Callback Object that is used for initializing the callback function and the callback function.
         :param processing_size: Size of the processing batch.
         :param pyaudio_input_device_index: Index of the pyaudio input device.
         :param sampling_rate: Sampling rate for the recording.
@@ -51,14 +46,11 @@ class AudioProcessor(Processor):
             audio_sync_state,
             external_sync_state,
             callback,
-            init_callback,
             max_unsynced_time,
         )
         self.audio_queues = audio_queues
         self.audio_sync_state = audio_sync_state
         self.external_sync_state = external_sync_state
-        self.callback = callback
-
         self.sampling_rate = sampling_rate
         self.record_buffersize = record_buffersize
         self.pyaudio_input_device_index = pyaudio_input_device_index

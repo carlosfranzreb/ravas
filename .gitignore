@@ -6,4 +6,6 @@ venv
 .venv
 models/stargan/models
 build
-steam_processing.egg-info
+stream_processing.egg-info
+.env
+LibriSpeech

@@ -41,7 +41,7 @@ class EmoStarganProcessor:
             index=6,
         )
         self.leading_zeros_length = st.slider("leading_zeros [s]", 0.0, 10.0, 0.0, 0.25)
-        self.leading_zeros_length = int(self.leading_zeros_length*24000)
+        self.leading_zeros_length = int(self.leading_zeros_length * 24000)
         self.pre_audio_length = st.slider("pre_audio [s]", 0.0, 10.0, 0.25, 0.25)
         self.pre_audio_length = int(self.pre_audio_length * 24000)
         self.st_image = st.image([])
@@ -56,9 +56,11 @@ class EmoStarganProcessor:
                 stargan_path,
                 stargan_config,
                 speaker_file,
-                speaker_nr=pseudo_nr[speaker_name]
-                if speaker_name != "None"
-                else pseudo_nr["Anna"],
+                speaker_nr=(
+                    pseudo_nr[speaker_name]
+                    if speaker_name != "None"
+                    else pseudo_nr["Anna"]
+                ),
                 device=device,
             )
 
