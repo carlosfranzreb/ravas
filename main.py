@@ -10,7 +10,7 @@ if __name__ == "__main__":
         video_maximum_fps=20,
         audio_sampling_rate=16000,
         audio_processing_size=16000,
-        audio_callback=KNNVC(),
+        audio_callback=KNNVC(ref_dir="models/knn_vc/LibriSpeechSamples"),
         audio_pyaudio_input_device_index=10,
         use_video=True,
         use_audio=True,
