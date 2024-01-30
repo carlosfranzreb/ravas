@@ -111,7 +111,7 @@ class Processor:
                     > next_sample_time - self.max_unsynced_time
                 ):
                     d_time, data = sync_buffer.pop(0)
-                    self.own_sync_state.last_sample_time.value = dtime[0]
+                    self.own_sync_state.last_sample_time.value = d_time[0]
                     self.own_sync_state.last_update.value = time.time()
                     self.queues.output_queue.put((d_time, data))
                 else:
