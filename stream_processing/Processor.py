@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue, Value
+from torch.multiprocessing import Process, Queue, Value
 import queue
 import time
 from typing import Any, Callable, Optional, Tuple
@@ -35,7 +35,7 @@ class Processor:
         ] = None,
         # init_callback can return as many values as it wants
         init_callback: Optional[Callable[[], Any]] = None,
-        max_unsynced_time: Optional[float] = 0.1,
+        max_unsynced_time: Optional[float] = 0.01,
     ):
         """
         Initialize a Processor object.
@@ -77,7 +77,11 @@ class Processor:
             try:
                 ttime, data = self.queues.input_queue.get()
                 if self.callback is not None:
-                    ttime, data = self.callback(ttime, data, *args)
+                    out = self.callback(ttime, data, *args)
+                    if out is not None:
+                        ttime, data = out
+                    else:
+                        continue
                 self.queues.sync_queue.put((ttime, data))
             except queue.Empty:
                 pass
@@ -89,6 +93,7 @@ class Processor:
         sync_buffer = []
         clear_queue(self.queues.sync_queue)
         while True:
+            left_time = None
             if len(sync_buffer) > 0:
                 external_current_play_time = (
                     self.external_sync_state.last_sample_time.value
@@ -103,8 +108,13 @@ class Processor:
                     self.own_sync_state.last_sample_time.value = dtime[0]
                     self.own_sync_state.last_update.value = time.time()
                     self.queues.output_queue.put((d_time, data))
+                else:
+                    left_time = next_sample_time.item()-self.max_unsynced_time - external_current_play_time
+                    if left_time < 0:
+                        left_time = None
+            
             try:
-                dtime, data = self.queues.sync_queue.get_nowait()
+                dtime, data = self.queues.sync_queue.get(timeout=left_time)
                 sync_buffer.append((dtime, data))
             except queue.Empty:
                 pass
