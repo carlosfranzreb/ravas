@@ -3,15 +3,20 @@ import time
 import unittest
 
 import torch
-from steam_processing.Processor import Processor, ProcessingQueues, ProcessingSyncState
+from stream_processing.Processor import (
+    ProcessingCallback,
+    Processor,
+    ProcessingQueues,
+    ProcessingSyncState,
+)
 
 
-def init_callback():
-    return [2]
+class TestCallback(ProcessingCallback):
+    def init_callback(self):
+        return [2]
 
-
-def callback(time, data, arg):
-    return time, data * arg
+    def callback(self, time, data, arg):
+        return time, data * arg
 
 
 class TestProcess(unittest.TestCase):
@@ -37,8 +42,7 @@ class TestProcess(unittest.TestCase):
             queues=self.queues,
             own_sync_state=self.own_sync_state,
             external_sync_state=self.external_sync_state,
-            init_callback=init_callback,
-            callback=callback,
+            callback=TestCallback(),
         )
         self.p = Process(target=self.processor.process)
         self.p.start()
