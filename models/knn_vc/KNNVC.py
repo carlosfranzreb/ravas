@@ -4,13 +4,19 @@ from stream_processing.Processor import ProcessingCallback
 
 
 class KNNVC(ProcessingCallback):
-    def __init__(self, ref_dir):
+    def __init__(self, ref_dir, device="cpu"):
         super().__init__()
         self.ref_dir = ref_dir
+        self.device = device
 
     def init_callback(self):
         knn_vc = torch.hub.load(
-            "bshall/knn-vc", "knn_vc", prematched=True, trust_repo=True, pretrained=True
+            "bshall/knn-vc",
+            "knn_vc",
+            prematched=True,
+            trust_repo=True,
+            pretrained=True,
+            device=self.device,
         )
         path = self.ref_dir
         ref_wav_paths = glob.glob(path + "/*.flac")

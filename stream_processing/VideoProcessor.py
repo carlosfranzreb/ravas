@@ -102,7 +102,9 @@ class VideoProcessor(Processor):
     def write_output_stream(self):
         # ensure fps of virtual cam is higher than the fps of the input stream
         if self.output_virtual_cam:
-            virtual_cam = pyvirtualcam.Camera(width=1280, height=720, fps=100, device="/dev/video4")
+            virtual_cam = pyvirtualcam.Camera(
+                width=1280, height=720, fps=100, device="/dev/video4"
+            )
         while True:
             try:
                 ttime, out = self.video_queues.output_queue.get()

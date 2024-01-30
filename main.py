@@ -11,13 +11,14 @@ if __name__ == "__main__":
         audio_sampling_rate=16000,
         audio_processing_size=16000,
         audio_callback=KNNVC(ref_dir="models/knn_vc/LibriSpeechSamples"),
-        audio_pyaudio_input_device_index=10,
+        audio_pyaudio_input_device_index=0,
         use_video=True,
         use_audio=True,
         video_output_virtual_cam=False,
         video_output_window=True,
-        audio_pyaudio_output_device_index=10,
+        audio_pyaudio_output_device_index=1,
     )
+
     audio_video_streamer.start()
     try:
         while True:
