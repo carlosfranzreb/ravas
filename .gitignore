@@ -1,4 +1,11 @@
 __pycache__
-checkpoints
-ap_demo
 venv
+*.pth
+*.pkl
+.vscode
+.venv
+models/stargan/models
+build
+stream_processing.egg-info
+.env
+LibriSpeech
