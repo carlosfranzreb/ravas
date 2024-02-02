@@ -58,7 +58,6 @@ class Processor:
         self.own_sync_state = own_sync_state
         self.external_sync_state = external_sync_state
         self.callback = callback
-        self.callback = callback
         self.max_unsynced_time = max_unsynced_time
 
     def read_input_stream(self):
