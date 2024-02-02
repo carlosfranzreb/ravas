@@ -4,7 +4,7 @@ from stream_processing.Processor import ProcessingCallback
 
 
 class KNNVC(ProcessingCallback):
-    def __init__(self, ref_dir, device="cpu"):
+    def __init__(self, ref_dir, device):
         super().__init__()
         self.ref_dir = ref_dir
         self.device = device
