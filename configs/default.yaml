@@ -1,0 +1,28 @@
+log_dir: logs
+
+video_callback:
+  cls: stream_processing.models.face_mask.FaceMask.FaceMask
+
+audio_callback:
+  cls: stream_processing.models.knnvc.converter.Converter
+  target_feats_path: target_feats/121123.pt
+  device: cpu
+  hifigan_cfg: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.json
+  hifigan_ckpt: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.ckpt
+  wavlm_ckpt: /Users/cafr02/repos/spkanon/checkpoints/WavLM-Large.ckpt
+  wavlm_layer: 6
+  n_neighbors: 4
+
+video:
+  use_video: True
+  processing_size: 1
+  maximum_fps: 20
+  output_virtual_cam: false
+  output_window: true
+
+audio:
+  use_audio: True
+  processing_size: 16000
+  sampling_rate: 16000
+  pyaudio_input_device_index: 3
+  pyaudio_output_device_index: 2

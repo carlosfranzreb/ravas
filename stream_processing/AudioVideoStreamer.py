@@ -1,4 +1,6 @@
 from typing import Optional
+import logging
+
 from stream_processing.AudioProcessor import AudioProcessor
 from stream_processing.Processor import (
     ProcessingCallback,
@@ -89,6 +91,7 @@ class AudioVideoStreamer:
             self.video_processor_process_handler = ProcessorProcessHandler(
                 video_processor
             )
+        logging.info("Initialized AudioVideoStreamer")
 
     def start(self):
         """
@@ -98,6 +101,7 @@ class AudioVideoStreamer:
             self.audio_processor_process_handler.start()
         if self.use_video:
             self.video_processor_process_handler.start()
+        logging.info("Started AudioVideoStreamer")
 
     def stop(self):
         """
@@ -107,3 +111,4 @@ class AudioVideoStreamer:
             self.audio_processor_process_handler.stop()
         if self.use_video:
             self.video_processor_process_handler.stop()
+        logging.info("Stopped AudioVideoStreamer")

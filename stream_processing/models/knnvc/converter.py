@@ -5,6 +5,7 @@ Selects targets based on speaker embeddings.
 import os
 import json
 from glob import glob
+import logging
 
 import torch
 from torch import Tensor
@@ -15,24 +16,36 @@ from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
 from stream_processing.models.knnvc.hifigan import Generator, AttrDict
 
 
-HIFIGAN_CFG = "/Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.json"
-HIFIGAN_CKPT = "/Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.pt"
-WAVLM_CKPT = "/Users/cafr02/repos/spkanon/checkpoints/WavLM-Large.pt"
-WAVLM_LAYER = 6
-N_NEIGHBORS = 4
-
-
 class Converter(ProcessingCallback):
-    def __init__(self, target_feats_path: str, device: str) -> None:
+    def __init__(
+        self,
+        target_feats_path: str,
+        device: str,
+        hifigan_cfg: str,
+        hifigan_ckpt: str,
+        wavlm_ckpt: str,
+        wavlm_layer: int,
+        n_neighbors: int,
+    ) -> None:
         """
         Args:
             target_feats: either a torch file with a speaker's target features or a
                 LibriSpeech directory of a speaker.
             device: the device where the model should run.
+            hifigan_cfg: the path to the HiFiGAN configuration file.
+            hifigan_ckpt: the path to the HiFiGAN checkpoint.
+            wavlm_ckpt: the path to the WavLM checkpoint.
+            wavlm_layer: the layer of the WavLM model to use for feature extraction.
+            n_neighbors: the number of neighbors to average when converting a feature.
         """
         super().__init__()
         self.device = device
         self.target_feats_path = target_feats_path
+        self.hifigan_cfg = hifigan_cfg
+        self.hifigan_ckpt = hifigan_ckpt
+        self.wavlm_ckpt = wavlm_ckpt
+        self.wavlm_layer = wavlm_layer
+        self.n_neighbors = n_neighbors
 
     def init_callback(self):
         """
@@ -43,15 +56,15 @@ class Converter(ProcessingCallback):
         dump them to a file in the `target_feats` directory.
         """
         # initialize the WavLM model
-        ckpt = torch.load(WAVLM_CKPT, map_location=self.device)
+        ckpt = torch.load(self.wavlm_ckpt, map_location=self.device)
         wavlm = WavLM(WavLMConfig(ckpt["cfg"]))
         wavlm.load_state_dict(ckpt["model"])
         wavlm.eval()
 
         # initialize the HiFiGAN model
-        hifigan = Generator(AttrDict(json.load(open(HIFIGAN_CFG))))
+        hifigan = Generator(AttrDict(json.load(open(self.hifigan_cfg))))
         hifigan.load_state_dict(
-            torch.load(HIFIGAN_CKPT, map_location=self.device)["generator"]
+            torch.load(self.hifigan_ckpt, map_location=self.device)["generator"]
         )
         hifigan.eval()
         hifigan.remove_weight_norm()
@@ -59,13 +72,14 @@ class Converter(ProcessingCallback):
         # if target_feats is a file, load the target features
         if os.path.isfile(self.target_feats_path):
             target_feats = torch.load(self.target_feats_path)
+            logging.info(f"Loaded {target_feats.shape[0]} target features")
             return
 
         # otherwise, compute the target features from the given LibriSpeech directory
         target_feats = list()
         for audiofile in glob(self.target_feats_path + "/*.flac"):
             audio = torchaudio.load(audiofile)[0].to(self.device)
-            feats = wavlm.extract_features(audio, output_layer=WAVLM_LAYER)[0]
+            feats = wavlm.extract_features(audio, output_layer=self.wavlm_layer)[0]
             target_feats.append(feats)
 
         # dump the features
@@ -74,14 +88,24 @@ class Converter(ProcessingCallback):
         )
         os.makedirs("target_feats", exist_ok=True)
         torch.save(target_feats, dump_file)
+        logging.info(f"Dumped {target_feats.shape[0]} target features to {dump_file}")
 
         history = []
         time_history = []
         return [wavlm, hifigan, target_feats, history, time_history]
 
     def callback(
-        self, dtime, audio, wavlm, hifigan, target_feats, history, time_history
-    ):
+        self,
+        dtime,
+        audio,
+        wavlm: WavLM,
+        hifigan: Generator,
+        target_feats: Tensor,
+        wavlm_layer: int,
+        n_neighbors: int,
+        history,
+        time_history,
+    ) -> tuple[list, Tensor]:
         """Convert the given audio"""
         # int16 to float32
         y = audio.to(torch.float32)
@@ -102,9 +126,9 @@ class Converter(ProcessingCallback):
             out = torch.zeros_like(audio)
         else:
             source_feats = wavlm.extract_features(
-                input.unsqueeze(0), output_layer=WAVLM_LAYER
+                input.unsqueeze(0), output_layer=wavlm_layer
             )[0]
-            conv_feats = convert_vecs(source_feats, target_feats)
+            conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
             out = hifigan(conv_feats)
 
             # get middle part of output
@@ -122,7 +146,7 @@ class Converter(ProcessingCallback):
         return out_time, out
 
 
-def convert_vecs(source_vecs: Tensor, target_vecs: Tensor) -> Tensor:
+def convert_vecs(source_vecs: Tensor, target_vecs: Tensor, n_neighbors: int) -> Tensor:
     """
     Given the WavLM vecs of the source and target audios, convert them with the
     KnnVC matching algorithm.
@@ -130,12 +154,13 @@ def convert_vecs(source_vecs: Tensor, target_vecs: Tensor) -> Tensor:
     Args:
         source_vec: tensor of shape (n_vecs_s, vec_dim)
         target_vecs: tensor of shape (n_vecs_t, vec_dim)
+        n_neighbors: the number of neighbors to average when converting a feature.
 
     Returns:
         converted wavLM vectors: tensor of shape (n_vecs_s, vec_dim)
     """
     cos_sim = cosine_similarity(source_vecs, target_vecs)
-    best = cos_sim.topk(k=N_NEIGHBORS, dim=1)
+    best = cos_sim.topk(k=n_neighbors, dim=1)
     return target_vecs[best.indices].mean(dim=1)
 
 

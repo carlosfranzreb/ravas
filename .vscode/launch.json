@@ -5,21 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
-      "type": "python",
+      "name": "Run",
+      "type": "debugpy",
       "request": "launch",
-      "program": "${file}",
+      "program": "main.py",
       "console": "integratedTerminal",
-      "justMyCode": true
-    },
-    {
-      "name": "streamlit",
-      "type": "python",
-      "request": "launch",
-      "module": "streamlit",
-      "args": ["run", "main.py"],
-      "console": "integratedTerminal",
-      "justMyCode": false
+      "args": "--config=configs/default.yaml"
     }
   ]
 }

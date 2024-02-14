@@ -1,6 +1,8 @@
 import queue
 import time
-from typing import Any, Callable, Optional, Tuple
+from typing import Optional
+import logging
+
 import cv2
 import torch
 from stream_processing.Processor import (
@@ -126,7 +128,9 @@ class VideoProcessor(Processor):
                     if self.output_virtual_cam:
                         virtual_cam.send(frame.numpy()[:, :, ::-1])
                     if i == 0:
-                        print("video output delay: ", time.time() - ttime[i].item())
+                        logging.info(
+                            "video output delay: ", time.time() - ttime[i].item()
+                        )
                     # sleep until the next frame should be sent (1/fps)
                     # virual_cam.sleep_until_next_frame()
             except queue.Empty:
