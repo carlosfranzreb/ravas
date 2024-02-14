@@ -1,7 +1,7 @@
 import time
 from stream_processing.AudioVideoStreamer import AudioVideoStreamer
-from models.face_mask.FaceMask import FaceMask
-from models.knn_vc.KNNVC import KNNVC
+from stream_processing.models.face_mask.FaceMask import FaceMask
+from stream_processing.models.knnvc.converter import Converter
 
 if __name__ == "__main__":
     audio_video_streamer = AudioVideoStreamer(
@@ -10,16 +10,16 @@ if __name__ == "__main__":
         video_maximum_fps=20,
         audio_sampling_rate=16000,
         audio_processing_size=16000,
-        audio_callback=KNNVC(
-            ref_dir="/Users/cafr02/datasets/LibriSpeech/dev-clean/84/121123",
+        audio_callback=Converter(
+            target_feats_path="/Users/cafr02/datasets/LibriSpeech/dev-clean/84/121123",
             device="cpu",
         ),
-        audio_pyaudio_input_device_index=1,
+        audio_pyaudio_input_device_index=3,
         use_video=True,
         use_audio=True,
         video_output_virtual_cam=False,
         video_output_window=True,
-        audio_pyaudio_output_device_index=0,
+        audio_pyaudio_output_device_index=2,
     )
 
     audio_video_streamer.start()

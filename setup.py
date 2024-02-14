@@ -1,7 +1,7 @@
 from setuptools import setup
 
 
-NAME = "steam_processing"
+NAME = "stream_processing"
 DESCRIPTION = "Framework for processing audio and video streams."
 URL = "https://github.com/carlosfranzreb/stream_processing"
 

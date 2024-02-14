@@ -25,6 +25,7 @@ The project is structured as follows:
     - `AudioVideoStreamer`: Provides an API to combine the `AudioProcessor` and `VideoProcessor` classes and share their sync state.
 
 ### Notes
+
 In the `AudioVideoStreamer` class, an `AudioProcessor`, `VideoProcessor`, `ProcessingSyncState`, and `ProcessingQueues` object is created for each processor. The queues are used in the corresponding processor to exchange data between the processes. The `ProcessingSyncState` object is used to synchronize the different processors (`AudioProcessor` and `VideoProcessor`). A `ProcessorProcessHandler` object is used to start and stop the processes of the `AudioProcessor` and `VideoProcessor` class. When calling the `start` function of the handler, each function of the `Processor` gets called in its own process (`read`, `process`, `sync`, `write`).
 
 The different processes communicate through the multiprocessing queues and synchronize through the multiprocessing values provided in the sync state. Due to multiprocessing, the `Processor` class is only allowed to have attributes that are pickable. Therefore, the callback and `init_callback` functions must be defined outside the main function (see example).

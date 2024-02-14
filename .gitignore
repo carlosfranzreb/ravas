@@ -9,3 +9,5 @@ build
 stream_processing.egg-info
 .env
 LibriSpeech
+.DS_Store
+target_feats

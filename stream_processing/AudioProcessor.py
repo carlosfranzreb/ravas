@@ -116,5 +116,5 @@ class AudioProcessor(Processor):
 
             data = data.to(torch.int16)
             bin_data = data.numpy().tobytes()
-            print("audio output delay: ", time.time() - tdata[0].item())
+            print("audio output delay: ", round(time.time() - tdata[0].item(), 2))
             output_stream.write(bin_data)
