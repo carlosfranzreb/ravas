@@ -5,15 +5,18 @@ import logging
 
 import cv2
 import torch
+import pyvirtualcam
+import cv2 as cv
+from torch.multiprocessing import Queue
+
 from stream_processing.Processor import (
     ProcessingCallback,
     ProcessingQueues,
     ProcessingSyncState,
     Processor,
 )
-import pyvirtualcam
 from stream_processing.utils import batchify_input_stream
-import cv2 as cv
+from stream_processing.dist_logging import worker_configurer
 
 
 class VideoProcessor(Processor):
@@ -29,6 +32,7 @@ class VideoProcessor(Processor):
         max_unsynced_time: Optional[float] = 0.01,
         output_virtual_cam: bool = True,
         output_window: bool = False,
+        log_queue: Optional[Queue] = None,
     ):
         """
         Initialize a AudioProcessor object.
@@ -50,6 +54,7 @@ class VideoProcessor(Processor):
             external_sync_state,
             callback,
             max_unsynced_time,
+            log_queue=log_queue,
         )
         self.video_queues = video_queues
         self.video_sync_state = video_sync_state
@@ -107,6 +112,12 @@ class VideoProcessor(Processor):
             virtual_cam = pyvirtualcam.Camera(
                 width=1280, height=720, fps=100, device="/dev/video4"
             )
+
+        # setup logging
+        worker_configurer(self.log_queue)
+        logger = logging.getLogger("worker")
+
+        # write the video stream from the output queue
         while True:
             try:
                 ttime, out = self.video_queues.output_queue.get()
@@ -128,9 +139,8 @@ class VideoProcessor(Processor):
                     if self.output_virtual_cam:
                         virtual_cam.send(frame.numpy()[:, :, ::-1])
                     if i == 0:
-                        logging.info(
-                            "video output delay: ", time.time() - ttime[i].item()
-                        )
+                        delay = round(time.time() - ttime[i].item(), 2)
+                        logger.info(f"video output delay: {delay} s")
                     # sleep until the next frame should be sent (1/fps)
                     # virual_cam.sleep_until_next_frame()
             except queue.Empty:

@@ -1,9 +1,10 @@
-from torch.multiprocessing import Process, Queue, Value
 import queue
 import time
-from typing import Any, Callable, Optional, Tuple
-import torch
+from typing import Optional
+import logging
+
 import numpy as np
+from torch.multiprocessing import Process, Queue, Value
 
 from stream_processing.utils import clear_queue
 
@@ -45,20 +46,28 @@ class Processor:
         external_sync_state: ProcessingSyncState,
         callback: Optional[ProcessingCallback] = None,
         max_unsynced_time: Optional[float] = 0.01,
+        log_queue: Optional[Queue] = None,
     ):
         """
         Initialize a Processor object.
-        :param queues: ProcessingQueues object that contains all relevant queues for the processor.
-        :param own_sync_state: ProcessingSyncState object that contains the sync state of this processor.
-        :param external_sync_state: ProcessingSyncState object that contains the sync state of Processor object that is used for sync.
-        :param callback: Callback Object that is used for initializing the callback function and the callback function.
+        :param queues: ProcessingQueues object that contains all relevant queues for
+            the processor.
+        :param own_sync_state: ProcessingSyncState object that contains the sync state
+            of this processor.
+        :param external_sync_state: ProcessingSyncState object that contains the sync
+            state of Processor object that is used for sync.
+        :param callback: Callback Object that is used for initializing the callback
+            function and the callback function.
         :param max_unsynced_time: Maximum time that the data can be unsynced.
+        :param log_queue: Queue for logging, e.g. used in the write_output_stream
+            function to log delays.
         """
         self.queues = queues
         self.own_sync_state = own_sync_state
         self.external_sync_state = external_sync_state
         self.callback = callback
         self.max_unsynced_time = max_unsynced_time
+        self.log_queue = log_queue
 
     def read_input_stream(self):
         """
@@ -136,7 +145,6 @@ class ProcessorProcessHandler:
         :param processor: Processor object that should be handled by the ProcessorProcessHandler.
         """
         self.processor = processor
-        # create the processes
         self.read_input_stream_process = Process(
             target=self.processor.read_input_stream
         )
@@ -150,16 +158,22 @@ class ProcessorProcessHandler:
         """
         Start all processes.
         """
-        self.read_input_stream_process.start()
-        self.process_process.start()
-        self.sync_process.start()
-        self.write_output_stream_process.start()
+        for proc in [
+            self.read_input_stream_process,
+            self.process_process,
+            self.sync_process,
+            self.write_output_stream_process,
+        ]:
+            proc.start()
 
     def stop(self):
         """
         Terminate all processes.
         """
-        self.read_input_stream_process.terminate()
-        self.process_process.terminate()
-        self.sync_process.terminate()
-        self.write_output_stream_process.terminate()
+        for proc in [
+            self.read_input_stream_process,
+            self.process_process,
+            self.sync_process,
+            self.write_output_stream_process,
+        ]:
+            proc.terminate()

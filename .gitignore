@@ -11,3 +11,4 @@ stream_processing.egg-info
 LibriSpeech
 .DS_Store
 target_feats
+logs

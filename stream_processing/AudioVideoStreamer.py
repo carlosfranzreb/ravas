@@ -1,5 +1,6 @@
 from typing import Optional
-import logging
+
+from torch.multiprocessing import Queue
 
 from stream_processing.AudioProcessor import AudioProcessor
 from stream_processing.Processor import (
@@ -30,6 +31,7 @@ class AudioVideoStreamer:
         video_output_window: bool = False,
         use_audio: bool = True,
         use_video: bool = True,
+        log_queue: Optional[Queue] = None,
     ):
         """
         Initialize a AudioVideoStreamer object.
@@ -70,6 +72,7 @@ class AudioVideoStreamer:
                 pyaudio_output_device_index=audio_pyaudio_output_device_index,
                 output_buffersize=audio_output_buffersize,
                 max_unsynced_time=max_unsynced_time,
+                log_queue=log_queue,
             )
             self.audio_processor_process_handler = ProcessorProcessHandler(
                 audio_processor
@@ -87,11 +90,11 @@ class AudioVideoStreamer:
                 max_unsynced_time=max_unsynced_time,
                 output_virtual_cam=video_output_virtual_cam,
                 output_window=video_output_window,
+                log_queue=log_queue,
             )
             self.video_processor_process_handler = ProcessorProcessHandler(
                 video_processor
             )
-        logging.info("Initialized AudioVideoStreamer")
 
     def start(self):
         """
@@ -101,7 +104,6 @@ class AudioVideoStreamer:
             self.audio_processor_process_handler.start()
         if self.use_video:
             self.video_processor_process_handler.start()
-        logging.info("Started AudioVideoStreamer")
 
     def stop(self):
         """
@@ -111,4 +113,3 @@ class AudioVideoStreamer:
             self.audio_processor_process_handler.stop()
         if self.use_video:
             self.video_processor_process_handler.stop()
-        logging.info("Stopped AudioVideoStreamer")

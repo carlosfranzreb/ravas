@@ -2,11 +2,12 @@ import time
 import yaml
 from argparse import ArgumentParser
 import importlib
-import logging
 import os
 import subprocess
+import multiprocessing
 
 from stream_processing.AudioVideoStreamer import AudioVideoStreamer
+from stream_processing.dist_logging import listener_process
 
 
 def get_cls(cls_str: str):
@@ -26,7 +27,7 @@ def main(config: dict) -> None:
     - Start the audio-video streamer with the given config.
     """
 
-    # create a logging directory, store the config and create a logging file
+    # create a logging directory and store the config
     log_dir = os.path.join(config["log_dir"], str(int(time.time())))
     os.makedirs(log_dir, exist_ok=True)
     config["commit_hash"] = (
@@ -35,12 +36,13 @@ def main(config: dict) -> None:
         .strip()
     )
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
-    logging.basicConfig(
-        filename=os.path.join(log_dir, "progress.log"),
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+
+    # start the logging
+    log_queue = multiprocessing.Queue(-1)
+    log_listener = multiprocessing.Process(
+        target=listener_process, args=(log_dir, log_queue)
     )
-    logging.info(f"Logging to {log_dir}")
+    log_listener.start()
 
     # start the audio-video streamer
     cb_video = get_cls(config["video_callback"].pop("cls"))
@@ -60,6 +62,7 @@ def main(config: dict) -> None:
         audio_pyaudio_output_device_index=config["audio"][
             "pyaudio_output_device_index"
         ],
+        log_queue=log_queue,
     )
 
     audio_video_streamer.start()

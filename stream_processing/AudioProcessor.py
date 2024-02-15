@@ -1,9 +1,11 @@
 import time
 import logging
 from typing import Optional
+from multiprocessing import Queue
 
 import pyaudio
 import torch
+
 from stream_processing.Processor import (
     ProcessingCallback,
     ProcessingQueues,
@@ -11,6 +13,7 @@ from stream_processing.Processor import (
     Processor,
 )
 from stream_processing.utils import batchify_input_stream, clear_queue
+from stream_processing.dist_logging import worker_configurer
 
 
 class AudioProcessor(Processor):
@@ -27,6 +30,7 @@ class AudioProcessor(Processor):
         pyaudio_output_device_index=1,
         output_buffersize=1024,
         max_unsynced_time: Optional[float] = 0.1,
+        log_queue: Optional[Queue] = None,
     ):
         """
         Initialize a AudioProcessor object.
@@ -49,6 +53,7 @@ class AudioProcessor(Processor):
             external_sync_state,
             callback,
             max_unsynced_time,
+            log_queue=log_queue,
         )
         self.audio_queues = audio_queues
         self.audio_sync_state = audio_sync_state
@@ -100,9 +105,8 @@ class AudioProcessor(Processor):
 
     def write_output_stream(self):
         # Create a PyAudio object to write the audio stream
-        p = pyaudio.PyAudio()
         # TODO: check if frames_per_buffer is correct
-        output_stream = p.open(
+        output_stream = pyaudio.PyAudio().open(
             format=pyaudio.paInt16,
             channels=1,
             rate=self.sampling_rate,
@@ -110,15 +114,19 @@ class AudioProcessor(Processor):
             frames_per_buffer=self.output_buffersize,
             output_device_index=self.pyaudio_output_device_index,
         )
+
         # clear the queue to avoid latency caused by an delay in the initialization of this process
         clear_queue(self.audio_queues.output_queue)
 
+        # setup logging
+        worker_configurer(self.log_queue)
+        logger = logging.getLogger("worker")
+
+        # write the audio stream from the output queue
         while True:
             tdata, data = self.audio_queues.output_queue.get()
-
             data = data.to(torch.int16)
             bin_data = data.numpy().tobytes()
-            logging.info(
-                "audio output delay: ", round(time.time() - tdata[0].item(), 2)
-            )
+            delay = round(time.time() - tdata[0].item(), 2)
+            logger.info(f"audio output delay: {delay} s")
             output_stream.write(bin_data)

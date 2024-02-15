@@ -73,26 +73,37 @@ class Converter(ProcessingCallback):
         if os.path.isfile(self.target_feats_path):
             target_feats = torch.load(self.target_feats_path)
             logging.info(f"Loaded {target_feats.shape[0]} target features")
-            return
 
         # otherwise, compute the target features from the given LibriSpeech directory
-        target_feats = list()
-        for audiofile in glob(self.target_feats_path + "/*.flac"):
-            audio = torchaudio.load(audiofile)[0].to(self.device)
-            feats = wavlm.extract_features(audio, output_layer=self.wavlm_layer)[0]
-            target_feats.append(feats)
+        else:
+            target_feats = list()
+            for audiofile in glob(self.target_feats_path + "/*.flac"):
+                audio = torchaudio.load(audiofile)[0].to(self.device)
+                feats = wavlm.extract_features(audio, output_layer=self.wavlm_layer)[0]
+                target_feats.append(feats.squeeze(0))
+            target_feats = torch.cat(target_feats, dim=0)
 
-        # dump the features
-        dump_file = os.path.join(
-            "target_feats", os.path.basename(self.target_feats_path) + ".pt"
-        )
-        os.makedirs("target_feats", exist_ok=True)
-        torch.save(target_feats, dump_file)
-        logging.info(f"Dumped {target_feats.shape[0]} target features to {dump_file}")
+            # dump the features
+            dump_file = os.path.join(
+                "target_feats", os.path.basename(self.target_feats_path) + ".pt"
+            )
+            os.makedirs("target_feats", exist_ok=True)
+            torch.save(target_feats, dump_file)
+            logging.info(
+                f"Dumped {target_feats.shape[0]} target features to {dump_file}"
+            )
 
         history = []
         time_history = []
-        return [wavlm, hifigan, target_feats, history, time_history]
+        return [
+            wavlm,
+            hifigan,
+            target_feats,
+            self.wavlm_layer,
+            self.n_neighbors,
+            history,
+            time_history,
+        ]
 
     def callback(
         self,
@@ -128,8 +139,11 @@ class Converter(ProcessingCallback):
             source_feats = wavlm.extract_features(
                 input.unsqueeze(0), output_layer=wavlm_layer
             )[0]
+            if source_feats.ndim == 3:
+                source_feats = source_feats.squeeze(0)
+
             conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
-            out = hifigan(conv_feats)
+            out = hifigan(conv_feats.unsqueeze(0))
 
             # get middle part of output
             out = out[sizes[0] : sizes[0] + sizes[1]]
