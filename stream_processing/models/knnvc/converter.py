@@ -127,8 +127,8 @@ class Converter(ProcessingCallback):
         time_history.append(dtime)
 
         # only process if we have enough history
-        if len(history) < 3:
-            return None
+        if len(history) < 3:  # TODO: why this number? Should it be a parameter?
+            return None  # ! the first chunk is never converted
         input = torch.cat(history, dim=0)
         tr = torch.cat(time_history, dim=0)
         sizes = [len(x) for x in history]
@@ -143,7 +143,7 @@ class Converter(ProcessingCallback):
                 source_feats = source_feats.squeeze(0)
 
             conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
-            out = hifigan(conv_feats.unsqueeze(0))
+            out = hifigan(conv_feats.unsqueeze(0)).squeeze()
 
             # get middle part of output
             out = out[sizes[0] : sizes[0] + sizes[1]]

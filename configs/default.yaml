@@ -22,7 +22,8 @@ video:
 
 audio:
   use_audio: True
-  processing_size: 16000
+  processing_size: 500
+  record_buffersize: 200
   sampling_rate: 16000
   pyaudio_input_device_index: 2
   pyaudio_output_device_index: 1

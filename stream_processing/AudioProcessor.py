@@ -26,7 +26,7 @@ class AudioProcessor(Processor):
         processing_size=1024,
         pyaudio_input_device_index=0,
         sampling_rate=44100,
-        record_buffersize=1024,
+        record_buffersize=540,
         pyaudio_output_device_index=1,
         output_buffersize=1024,
         max_unsynced_time: Optional[float] = 0.1,

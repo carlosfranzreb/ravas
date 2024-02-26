@@ -71,7 +71,8 @@ class Processor:
 
     def read_input_stream(self):
         """
-        Read the input stream and put the data and their corresponding time into the input queue.
+        Read the input stream and put the data and their corresponding time into the
+        input queue.
         """
         raise NotImplementedError
 
@@ -83,7 +84,8 @@ class Processor:
 
     def process(self):
         """
-        Read the input queue and use the callback function to process the data and put the processed data into the sync queue.
+        Read the input queue and use the callback function to process the data and put
+        the processed data into the sync queue.
         """
         args = self.callback.init_callback() if self.callback is not None else []
         clear_queue(self.queues.input_queue)
@@ -102,7 +104,8 @@ class Processor:
 
     def sync(self):
         """
-        Use the external sync state to sync the data of the sync queue and put the synced data into the output queue.
+        Use the external sync state to sync the data of the sync queue and put the
+        synced data into the output queue.
         """
         sync_buffer = []
         clear_queue(self.queues.sync_queue)
@@ -142,7 +145,8 @@ class ProcessorProcessHandler:
     def __init__(self, processor: Processor):
         """
         Initialize a ProcessorProcessHandler object.
-        :param processor: Processor object that should be handled by the ProcessorProcessHandler.
+        :param processor: Processor object that should be handled by the
+            ProcessorProcessHandler.
         """
         self.processor = processor
         self.read_input_stream_process = Process(
@@ -153,27 +157,19 @@ class ProcessorProcessHandler:
         self.write_output_stream_process = Process(
             target=self.processor.write_output_stream
         )
-
-    def start(self):
-        """
-        Start all processes.
-        """
-        for proc in [
+        self.procs = [
             self.read_input_stream_process,
             self.process_process,
             self.sync_process,
             self.write_output_stream_process,
-        ]:
+        ]
+
+    def start(self):
+        """Start all processes."""
+        for proc in self.procs:
             proc.start()
 
     def stop(self):
-        """
-        Terminate all processes.
-        """
-        for proc in [
-            self.read_input_stream_process,
-            self.process_process,
-            self.sync_process,
-            self.write_output_stream_process,
-        ]:
+        """Terminate all processes."""
+        for proc in self.procs:
             proc.terminate()

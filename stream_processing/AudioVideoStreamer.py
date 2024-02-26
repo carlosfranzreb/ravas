@@ -19,7 +19,7 @@ class AudioVideoStreamer:
         audio_processing_size: int = 1024,
         audio_pyaudio_input_device_index: int = 0,
         audio_sampling_rate: int = 44100,
-        audio_record_buffersize: int = 1024,
+        audio_record_buffersize: int = 540,
         audio_pyaudio_output_device_index: int = 1,
         audio_output_buffersize: int = 1024,
         video_callback: Optional[ProcessingCallback] = None,
