@@ -31,3 +31,9 @@ In the `AudioVideoStreamer` class, an `AudioProcessor`, `VideoProcessor`, `Proce
 The different processes communicate through the multiprocessing queues and synchronize through the multiprocessing values provided in the sync state. Due to multiprocessing, the `Processor` class is only allowed to have attributes that are pickable. Therefore, the callback and `init_callback` functions must be defined outside the main function (see example).
 
 To reduce latency between the streams, the data is converted into torch tensors. Torch tensors are stored in shared memory and can be accessed by all processes through the queues without copying the data. For numpy arrays, the data has to be pickled and unpickled to be sent through the queues, which is very slow.
+
+## Installation guide
+
+1. Install portaudio: `brew install portaudio`
+2. Install the package: `pip install .`
+3. Install a virtual audio loopback driver, e.g. `brew install blackhole-2ch`
