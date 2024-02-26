@@ -8,7 +8,7 @@
       "name": "Run",
       "type": "debugpy",
       "request": "launch",
-      "program": "main.py",
+      "program": "stream_processing/main.py",
       "console": "integratedTerminal",
       "args": "--config=configs/default.yaml"
     }
