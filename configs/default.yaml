@@ -1,5 +1,7 @@
 log_dir: logs
 
+max_unsynced_time: 0.01
+
 video_callback:
   cls: stream_processing.models.face_mask.FaceMask.FaceMask
 
@@ -14,6 +16,7 @@ audio_callback:
   n_neighbors: 4
 
 video:
+  input_device_index: 0
   use_video: True
   processing_size: 1
   maximum_fps: 20
@@ -22,8 +25,9 @@ video:
 
 audio:
   use_audio: True
-  processing_size: 500
-  record_buffersize: 200
+  output_buffersize: 600
+  processing_size: 1200
+  record_buffersize: 600
   sampling_rate: 16000
-  pyaudio_input_device_index: 2
-  pyaudio_output_device_index: 1
+  input_device: MacBook Pro-Mikrofon
+  output_device: BlackHole 2ch

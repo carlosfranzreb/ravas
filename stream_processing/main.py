@@ -1,10 +1,11 @@
-import time
-import yaml
-from argparse import ArgumentParser
 import importlib
+import multiprocessing
 import os
 import subprocess
-import multiprocessing
+import time
+from argparse import ArgumentParser
+
+import yaml
 
 from stream_processing.AudioVideoStreamer import AudioVideoStreamer
 from stream_processing.dist_logging import listener_process
@@ -53,26 +54,27 @@ def main(config: dict, runtime: int = None) -> None:
     )
     log_listener.start()
 
-    # start the audio-video streamer
+    # start the audio-video streamer with the given config
     cb_video = get_cls(config["video_callback"].pop("cls"))
     cv_audio = get_cls(config["audio_callback"].pop("cls"))
     audio_video_streamer = AudioVideoStreamer(
-        video_callback=cb_video(**config["video_callback"]),
-        video_processing_size=config["video"]["processing_size"],
-        video_maximum_fps=config["video"]["maximum_fps"],
-        audio_sampling_rate=config["audio"]["sampling_rate"],
-        audio_processing_size=config["audio"]["processing_size"],
-        audio_record_buffersize=config["audio"]["record_buffersize"],
-        audio_callback=cv_audio(**config["audio_callback"]),
-        audio_pyaudio_input_device_index=config["audio"]["pyaudio_input_device_index"],
-        use_video=config["video"]["use_video"],
-        use_audio=config["audio"]["use_audio"],
-        video_output_virtual_cam=config["video"]["output_virtual_cam"],
-        video_output_window=config["video"]["output_window"],
-        audio_pyaudio_output_device_index=config["audio"][
-            "pyaudio_output_device_index"
-        ],
-        log_queue=log_queue,
+        cv_audio(**config["audio_callback"]),
+        config["audio"]["input_device"],
+        config["audio"]["output_buffersize"],
+        config["audio"]["output_device"],
+        config["audio"]["processing_size"],
+        config["audio"]["record_buffersize"],
+        config["audio"]["sampling_rate"],
+        config["max_unsynced_time"],
+        log_queue,
+        config["audio"]["use_audio"],
+        config["video"]["use_video"],
+        cb_video(**config["video_callback"]),
+        config["video"]["input_device_index"],
+        config["video"]["maximum_fps"],
+        config["video"]["output_virtual_cam"],
+        config["video"]["output_window"],
+        config["video"]["processing_size"],
     )
 
     audio_video_streamer.start()
@@ -94,4 +96,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
-    main(config, runtime=50)
+    main(config, runtime=180)
