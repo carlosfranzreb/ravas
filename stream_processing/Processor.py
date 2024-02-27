@@ -18,6 +18,12 @@ class ProcessingQueues:
 
 class ProcessingSyncState:
     def __init__(self):
+        """
+        Sync state of the processor object.
+
+        last_sample_time: Timestamp of the last sample that was synced.
+        last_update: Timestamp of the last update of `last_sample_time`.
+        """
         self.last_sample_time = Value("d", np.inf)
         self.last_update = Value("d", 0)
 
@@ -105,40 +111,44 @@ class Processor:
     def sync(self):
         """
         Use the external sync state to sync the data of the sync queue and put the
-        synced data into the output queue.
+        synced data into the output queue. We check if the oldest batch is ready to be
+        synced by checking if its earliest timestamp is smaller than the last update
+        of the other stream, minus the max. unsync allowance. If it is, we pop the
+        corresponding sample from the sync queue and put it into the output queue. If
+        not, we pass the time left until it is ready to be synced to the sync queue's
+        `get` method as a timeout.
         """
+
+        def get_left_time(sync_buffer: list) -> float:
+            """Return the timestamp where the output should be at the current time."""
+            if len(sync_buffer) == 0:
+                return None
+            external_current_play_time = (
+                self.external_sync_state.last_sample_time.value
+                + (time.time() - self.external_sync_state.last_update.value)
+            )
+            next_sample_time = sync_buffer[0][0][0].item()
+            return (
+                next_sample_time - external_current_play_time - self.max_unsynced_time
+            )
+
         sync_buffer = []
         clear_queue(self.queues.sync_queue)
         while True:
-            left_time = None
-            if len(sync_buffer) > 0:
-                external_current_play_time = (
-                    self.external_sync_state.last_sample_time.value
-                    + (time.time() - self.external_sync_state.last_update.value)
-                )
-                next_sample_time = sync_buffer[0][0][0]
-                if (
-                    external_current_play_time
-                    > next_sample_time - self.max_unsynced_time
-                ):
-                    d_time, data = sync_buffer.pop(0)
-                    self.own_sync_state.last_sample_time.value = d_time[0]
-                    self.own_sync_state.last_update.value = time.time()
-                    self.queues.output_queue.put((d_time, data))
-                else:
-                    left_time = (
-                        next_sample_time.item()
-                        - self.max_unsynced_time
-                        - external_current_play_time
-                    )
-                    if left_time < 0:
-                        left_time = None
+            left_time = get_left_time(sync_buffer)
+            if left_time is not None and left_time <= 0:
+                d_time, data = sync_buffer.pop(0)
+                self.own_sync_state.last_sample_time.value = d_time[0]
+                self.own_sync_state.last_update.value = time.time()
+                self.queues.output_queue.put((d_time, data))
+                left_time = get_left_time(sync_buffer)
 
-            try:
-                dtime, data = self.queues.sync_queue.get(timeout=left_time)
-                sync_buffer.append((dtime, data))
-            except queue.Empty:
-                pass
+            if left_time is not None and left_time > 0:
+                try:
+                    dtime, data = self.queues.sync_queue.get(timeout=left_time)
+                    sync_buffer.append((dtime, data))
+                except queue.Empty:
+                    pass
 
 
 class ProcessorProcessHandler:
