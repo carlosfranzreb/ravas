@@ -33,6 +33,7 @@ class VideoProcessor(Processor):
         output_virtual_cam: bool = True,
         output_window: bool = False,
         log_queue: Optional[Queue] = None,
+        log_level: str = "INFO",
     ):
         """
         Initialize a AudioProcessor object.
@@ -46,7 +47,8 @@ class VideoProcessor(Processor):
         :param max_unsynced_time: Maximum time that the data can be unsynced.
         :param output_virtual_cam: Activate output to virtual cam.
         :param output_window: Activate output to window.
-
+        :param log_queue: log queue for logging messages.
+        :param log_level: log level for logging messages.
         """
         super().__init__(
             "video",
@@ -56,6 +58,7 @@ class VideoProcessor(Processor):
             callback,
             max_unsynced_time,
             log_queue=log_queue,
+            log_level=log_level,
         )
         self.video_queues = video_queues
         self.video_sync_state = video_sync_state

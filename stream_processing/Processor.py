@@ -54,6 +54,7 @@ class Processor:
         callback: ProcessingCallback,
         max_unsynced_time: float,
         log_queue: Queue,
+        log_level: str,
     ):
         """
         Initialize a Processor object.
@@ -70,6 +71,7 @@ class Processor:
         :param max_unsynced_time: Maximum time that the data can be unsynced.
         :param log_queue: Queue for logging, e.g. used in the write_output_stream
             function to log delays.
+        :param log_level: Log level for logging messages.
         """
         self.name = name
         self.queues = queues
@@ -78,6 +80,7 @@ class Processor:
         self.callback = callback
         self.max_unsynced_time = max_unsynced_time
         self.log_queue = log_queue
+        self.log_level = log_level
 
     def read_input_stream(self):
         """
@@ -99,10 +102,9 @@ class Processor:
         """
 
         # setup logging
-        worker_configurer(self.log_queue)
-        logger = logging.getLogger("process_logger")
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger(f"{self.name}_process")
         logger.info("Processing initialized")
-        print("Processing initialized")
 
         args = self.callback.init_callback() if self.callback is not None else []
         clear_queue(self.queues.input_queue)
@@ -117,7 +119,6 @@ class Processor:
                         continue
                 else:
                     logger.warning("No callback function defined")
-                    print("No callback function defined")
                 self.queues.sync_queue.put((ttime, data))
             except queue.Empty:
                 pass
@@ -134,7 +135,7 @@ class Processor:
         """
 
         # setup logging
-        worker_configurer(self.log_queue)
+        worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger(f"{self.name}_sync")
         logger.info("Syncing initialized")
 

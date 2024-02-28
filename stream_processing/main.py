@@ -66,6 +66,7 @@ def main(config: dict, runtime: int = None) -> None:
         config["audio"]["record_buffersize"],
         config["audio"]["sampling_rate"],
         log_queue,
+        config["log_level"],
         config["max_unsynced_time"],
         config["audio"]["use_audio"],
         config["video"]["use_video"],

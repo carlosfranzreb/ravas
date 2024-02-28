@@ -31,6 +31,7 @@ class AudioProcessor(Processor):
         output_buffersize=1024,
         max_unsynced_time: Optional[float] = 0.1,
         log_queue: Optional[Queue] = None,
+        log_level: str = "INFO",
     ):
         """
         Initialize a AudioProcessor object.
@@ -46,6 +47,7 @@ class AudioProcessor(Processor):
         :param output_buffersize: Size of the system output buffer.
         :param max_unsynced_time: Maximum time that the data can be unsynced.
         :param log_queue: log queue for logging messages.
+        :param log_level: log level for logging messages.
         """
         super().__init__(
             "audio",
@@ -55,6 +57,7 @@ class AudioProcessor(Processor):
             callback,
             max_unsynced_time,
             log_queue=log_queue,
+            log_level=log_level,
         )
         self.audio_queues = audio_queues
         self.audio_sync_state = audio_sync_state

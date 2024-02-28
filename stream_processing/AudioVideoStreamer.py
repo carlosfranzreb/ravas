@@ -24,6 +24,7 @@ class AudioVideoStreamer:
         audio_record_buffersize: int,
         audio_sampling_rate: int,
         log_queue: Optional[Queue],
+        log_level: str,
         max_unsynced_time: float,
         use_audio: bool,
         use_video: bool,
@@ -44,7 +45,8 @@ class AudioVideoStreamer:
         :param audio_processing_size: Size of the processing batch.
         :param audio_record_buffersize: Size of the system recording buffer.
         :param audio_sampling_rate: Sampling rate for the recording.
-        :param log_queue: Optional log queue for logging messages.
+        :param log_queue: log queue for logging messages.
+        :param log_level: log level for logging messages.
         :param max_unsynced_time: Maximum time that the data can be unsynced.
         :param use_audio: Use the audio processor.
         :param use_video: Use the video processor.
@@ -75,6 +77,7 @@ class AudioVideoStreamer:
                 output_buffersize=audio_output_buffersize,
                 max_unsynced_time=max_unsynced_time,
                 log_queue=log_queue,
+                log_level=log_level,
             )
             self.audio_processor_process_handler = ProcessorProcessHandler(
                 audio_processor
@@ -93,6 +96,7 @@ class AudioVideoStreamer:
                 output_virtual_cam=video_output_virtual_cam,
                 output_window=video_output_window,
                 log_queue=log_queue,
+                log_level=log_level,
             )
             self.video_processor_process_handler = ProcessorProcessHandler(
                 video_processor

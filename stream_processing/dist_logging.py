@@ -22,9 +22,7 @@ def listener_configurer(log_dir: str, log_level: str = "INFO"):
 
 
 def listener_process(log_dir: str, queue: Queue, log_level: str = "INFO"):
-    """
-    Configure the listener process.
-    """
+    """Configure the listener process."""
     listener_configurer(log_dir, log_level)
     while True:
         while not queue.empty():
@@ -34,8 +32,9 @@ def listener_process(log_dir: str, queue: Queue, log_level: str = "INFO"):
         sleep(1)
 
 
-def worker_configurer(queue: Queue):
+def worker_configurer(queue: Queue, log_level: str = "DEBUG"):
     """Add a queue handler to the root logger."""
     queue_handler = logging.handlers.QueueHandler(queue)
     root = logging.getLogger()
     root.addHandler(queue_handler)
+    root.setLevel(log_level)
