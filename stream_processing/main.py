@@ -28,8 +28,8 @@ def main(config: dict, runtime: int = None) -> None:
     - Start the audio-video streamer with the given config.
 
     Args:
-    - config: The base config.
-    - runtime: Stop the audio-video streamer after this time.
+    - config: The config for the demonstrator.
+    - runtime: Stop the audio-video streamer after `runtime` seconds.
     """
 
     # check if the config is valid
@@ -50,7 +50,7 @@ def main(config: dict, runtime: int = None) -> None:
     # start the logging
     log_queue = multiprocessing.Queue(-1)
     log_listener = multiprocessing.Process(
-        target=listener_process, args=(log_dir, log_queue)
+        target=listener_process, args=(log_dir, log_queue, config["log_level"])
     )
     log_listener.start()
 
@@ -76,8 +76,10 @@ def main(config: dict, runtime: int = None) -> None:
         config["video"]["output_window"],
         config["video"]["processing_size"],
     )
-
     audio_video_streamer.start()
+
+    # stop the streamer after `runtime` seconds or wait indefinitely until the user
+    # interrupts the program
     try:
         if runtime is not None:
             time.sleep(runtime)

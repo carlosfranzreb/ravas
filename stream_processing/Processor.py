@@ -7,6 +7,7 @@ import numpy as np
 from torch.multiprocessing import Process, Queue, Value
 
 from stream_processing.utils import clear_queue
+from stream_processing.dist_logging import worker_configurer
 
 
 class ProcessingQueues:
@@ -75,6 +76,11 @@ class Processor:
         self.max_unsynced_time = max_unsynced_time
         self.log_queue = log_queue
 
+        # setup logging
+        worker_configurer(self.log_queue)
+        self.logger = logging.getLogger("worker")
+        self.logger.info("Processor initialized")
+
     def read_input_stream(self):
         """
         Read the input stream and put the data and their corresponding time into the
@@ -128,9 +134,19 @@ class Processor:
                 + (time.time() - self.external_sync_state.last_update.value)
             )
             next_sample_time = sync_buffer[0][0][0].item()
-            return (
+
+            # log times for debugging before returning
+            left_time = (
                 next_sample_time - external_current_play_time - self.max_unsynced_time
             )
+            self.logger.debug(
+                f"external play time: {round(external_current_play_time, 2)} s"
+            )
+            self.logger.debug(
+                f"start time of next batch: {round(next_sample_time, 2)} s"
+            )
+            self.logger.debug(f"time left until sync: {round(left_time, 2)} s")
+            return left_time
 
         sync_buffer = []
         clear_queue(self.queues.sync_queue)

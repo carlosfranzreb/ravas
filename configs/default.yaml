@@ -1,5 +1,5 @@
 log_dir: logs
-
+log_level: DEBUG
 max_unsynced_time: 0.01
 
 video_callback:
