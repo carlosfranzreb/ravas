@@ -45,7 +45,7 @@ class AudioProcessor(Processor):
         :param pyaudio_output_device_index: Index of the pyaudio output device.
         :param output_buffersize: Size of the system output buffer.
         :param max_unsynced_time: Maximum time that the data can be unsynced.
-
+        :param log_queue: Optional log queue for logging messages.
         """
         super().__init__(
             audio_queues,

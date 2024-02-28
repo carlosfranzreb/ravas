@@ -1,6 +1,5 @@
 import queue
 import time
-from typing import Optional
 import logging
 
 import numpy as np
@@ -51,9 +50,9 @@ class Processor:
         queues: ProcessingQueues,
         own_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
-        callback: Optional[ProcessingCallback] = None,
-        max_unsynced_time: Optional[float] = 0.01,
-        log_queue: Optional[Queue] = None,
+        callback: ProcessingCallback,
+        max_unsynced_time: float,
+        log_queue: Queue,
     ):
         """
         Initialize a Processor object.
@@ -76,11 +75,6 @@ class Processor:
         self.max_unsynced_time = max_unsynced_time
         self.log_queue = log_queue
 
-        # setup logging
-        worker_configurer(self.log_queue)
-        self.logger = logging.getLogger("worker")
-        self.logger.info("Processor initialized")
-
     def read_input_stream(self):
         """
         Read the input stream and put the data and their corresponding time into the
@@ -99,6 +93,13 @@ class Processor:
         Read the input queue and use the callback function to process the data and put
         the processed data into the sync queue.
         """
+
+        # setup logging
+        worker_configurer(self.log_queue)
+        logger = logging.getLogger("process_logger")
+        logger.info("Processing initialized")
+        print("Processing initialized")
+
         args = self.callback.init_callback() if self.callback is not None else []
         clear_queue(self.queues.input_queue)
         while True:
@@ -110,6 +111,9 @@ class Processor:
                         ttime, data = out
                     else:
                         continue
+                else:
+                    logger.warning("No callback function defined")
+                    print("No callback function defined")
                 self.queues.sync_queue.put((ttime, data))
             except queue.Empty:
                 pass
@@ -125,9 +129,15 @@ class Processor:
         `get` method as a timeout.
         """
 
-        def get_left_time(sync_buffer: list) -> float:
+        # setup logging
+        worker_configurer(self.log_queue)
+        logger = logging.getLogger("sync_logger")
+        logger.info("Syncing initialized")
+
+        def get_left_time() -> float:
             """Return the timestamp where the output should be at the current time."""
             if len(sync_buffer) == 0:
+                logger.debug("Sync buffer is empty")
                 return None
             external_current_play_time = (
                 self.external_sync_state.last_sample_time.value
@@ -139,32 +149,32 @@ class Processor:
             left_time = (
                 next_sample_time - external_current_play_time - self.max_unsynced_time
             )
-            self.logger.debug(
-                f"external play time: {round(external_current_play_time, 2)} s"
-            )
-            self.logger.debug(
-                f"start time of next batch: {round(next_sample_time, 2)} s"
-            )
-            self.logger.debug(f"time left until sync: {round(left_time, 2)} s")
+            logger.debug(f"time left until sync: {round(left_time, 2)} s")
             return left_time
 
         sync_buffer = []
         clear_queue(self.queues.sync_queue)
         while True:
-            left_time = get_left_time(sync_buffer)
+            left_time = get_left_time()
+
+            # if there is a sample to sync, sync it
             if left_time is not None and left_time <= 0:
                 d_time, data = sync_buffer.pop(0)
                 self.own_sync_state.last_sample_time.value = d_time[0]
                 self.own_sync_state.last_update.value = time.time()
                 self.queues.output_queue.put((d_time, data))
-                left_time = get_left_time(sync_buffer)
+                left_time = get_left_time()
 
-            if left_time is not None and left_time > 0:
-                try:
-                    dtime, data = self.queues.sync_queue.get(timeout=left_time)
-                    sync_buffer.append((dtime, data))
-                except queue.Empty:
-                    pass
+            # if there is a sample to sync, skip the fetching
+            if left_time is not None and left_time < 0:
+                continue
+
+            # fetch the next sample
+            try:
+                dtime, data = self.queues.sync_queue.get(timeout=left_time)
+                sync_buffer.append((dtime, data))
+            except queue.Empty:
+                pass
 
 
 class ProcessorProcessHandler:

@@ -17,14 +17,14 @@ audio_callback:
 
 video:
   input_device_index: 0
-  use_video: True
+  use_video: true
   processing_size: 1
   maximum_fps: 20
   output_virtual_cam: false
   output_window: true
 
 audio:
-  use_audio: True
+  use_audio: true
   output_buffersize: 600
   processing_size: 1200
   record_buffersize: 600
