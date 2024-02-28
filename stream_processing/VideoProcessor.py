@@ -49,6 +49,7 @@ class VideoProcessor(Processor):
 
         """
         super().__init__(
+            "video",
             video_queues,
             video_sync_state,
             external_sync_state,
@@ -115,7 +116,7 @@ class VideoProcessor(Processor):
 
         # setup logging
         worker_configurer(self.log_queue)
-        logger = logging.getLogger("worker")
+        logger = logging.getLogger("video_output")
 
         # write the video stream from the output queue
         while True:
@@ -140,7 +141,7 @@ class VideoProcessor(Processor):
                         virtual_cam.send(frame.numpy()[:, :, ::-1])
                     if i == 0:
                         delay = round(time.time() - ttime[i].item(), 2)
-                        logger.info(f"video output delay: {delay} s")
+                        logger.info(f"delay: {delay} s")
                     # sleep until the next frame should be sent (1/fps)
                     # virual_cam.sleep_until_next_frame()
             except queue.Empty:

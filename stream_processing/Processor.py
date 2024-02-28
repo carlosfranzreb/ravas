@@ -47,6 +47,7 @@ class ProcessingCallback:
 class Processor:
     def __init__(
         self,
+        name: str,
         queues: ProcessingQueues,
         own_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
@@ -56,6 +57,8 @@ class Processor:
     ):
         """
         Initialize a Processor object.
+
+        :param name: Name of the processor.
         :param queues: ProcessingQueues object that contains all relevant queues for
             the processor.
         :param own_sync_state: ProcessingSyncState object that contains the sync state
@@ -68,6 +71,7 @@ class Processor:
         :param log_queue: Queue for logging, e.g. used in the write_output_stream
             function to log delays.
         """
+        self.name = name
         self.queues = queues
         self.own_sync_state = own_sync_state
         self.external_sync_state = external_sync_state
@@ -131,7 +135,7 @@ class Processor:
 
         # setup logging
         worker_configurer(self.log_queue)
-        logger = logging.getLogger("sync_logger")
+        logger = logging.getLogger(f"{self.name}_sync")
         logger.info("Syncing initialized")
 
         def get_left_time() -> float:

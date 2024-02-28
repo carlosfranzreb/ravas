@@ -45,9 +45,10 @@ class AudioProcessor(Processor):
         :param pyaudio_output_device_index: Index of the pyaudio output device.
         :param output_buffersize: Size of the system output buffer.
         :param max_unsynced_time: Maximum time that the data can be unsynced.
-        :param log_queue: Optional log queue for logging messages.
+        :param log_queue: log queue for logging messages.
         """
         super().__init__(
+            "audio",
             audio_queues,
             audio_sync_state,
             external_sync_state,
@@ -120,7 +121,7 @@ class AudioProcessor(Processor):
 
         # setup logging
         worker_configurer(self.log_queue)
-        logger = logging.getLogger("worker")
+        logger = logging.getLogger("audio_output")
 
         # write the audio stream from the output queue
         while True:
@@ -128,5 +129,5 @@ class AudioProcessor(Processor):
             data = data.to(torch.int16)
             bin_data = data.numpy().tobytes()
             delay = round(time.time() - tdata[0].item(), 2)
-            logger.info(f"audio output delay: {delay} s")
+            logger.info(f"delay: {delay} s")
             output_stream.write(bin_data)
