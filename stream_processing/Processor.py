@@ -31,15 +31,17 @@ class ProcessingSyncState:
 class ProcessingCallback:
     def init_callback(self):
         """
-        Callback function that is called for initializing the callback function.
-        the function should return a list of arguments that are passed to the callback function.
+        Callback function that is called for initializing the callback function. The
+        function should return a list of arguments that are passed to the callback
+        function.
         """
         raise NotImplementedError
 
     def callback(self, ttime, data, *args):
         """
-        Callback function that is called for processing the data.
-        the callback function gets the batched input time and data per sample and should return the batched time and data.
+        Callback function that is called for processing the data. The callback function
+        gets the batched input time and data per sample and should return the batched
+        time and data.
         """
         raise NotImplementedError
 
@@ -57,7 +59,14 @@ class Processor:
         log_level: str,
     ):
         """
-        Initialize a Processor object.
+        Initialize a Processor object. It includes four processes:
+        1. "read": reads the input stream and puts the data and their corresponding
+            time into the input queue.
+        2. "process": reads the input queue, processes the data and puts the processed
+            data into the sync queue.
+        3. "sync": uses the external sync state to sync the data of the sync queue and
+            puts the synced data into the output queue.
+        4. "write": writes the data from the final output queue to the output stream.
 
         :param name: Name of the processor.
         :param queues: ProcessingQueues object that contains all relevant queues for
