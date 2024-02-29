@@ -107,57 +107,47 @@ class Converter(ProcessingCallback):
 
     def callback(
         self,
-        dtime,
-        audio,
+        dtime: Tensor,
+        audio: Tensor,
         wavlm: WavLM,
         hifigan: Generator,
         target_feats: Tensor,
         wavlm_layer: int,
         n_neighbors: int,
-        history,
-        time_history,
+        history: list,
+        time_history: list,
     ) -> tuple[list, Tensor]:
         """Convert the given audio"""
-        # int16 to float32
-        y = audio.to(torch.float32)
-        y = y / 32768.0
+        audio = audio.to(torch.float32) / 32768
 
-        # append to history
-        history.append(y)
-        time_history.append(dtime)
+        # if energy is too low, return silence
+        frame_length = 2048  # TODO: make this a config parameter
+        hop_length = 512  # TODO: make this a config parameter
+        energy = rms(audio, frame_length, hop_length)
+        if torch.max(energy) < 0.023:  # TODO: make this a config parameter
+            history = [audio]
+            return dtime, torch.zeros_like(audio, dtype=torch.int16)
 
-        # only process if we have enough history
-        if len(history) < 3:  # TODO: why this number? Should it be a parameter?
-            return None  # ! the first chunk is never converted
-        input = torch.cat(history, dim=0)
-        tr = torch.cat(time_history, dim=0)
-        sizes = [len(x) for x in history]
+        # append the old audio
+        audio_concat = torch.cat(history + [audio], dim=0)
 
-        if torch.max(torch.abs(input)) < 0.1:
-            out = torch.zeros_like(audio)
-        else:
-            source_feats = wavlm.extract_features(
-                input.unsqueeze(0), output_layer=wavlm_layer
-            )[0]
-            if source_feats.ndim == 3:
-                source_feats = source_feats.squeeze(0)
+        # convert the audio
+        source_feats = wavlm.extract_features(
+            audio_concat.unsqueeze(0), output_layer=wavlm_layer
+        )[0]
+        if source_feats.ndim == 3:
+            source_feats = source_feats.squeeze(0)
+        conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
+        out = hifigan(conv_feats.unsqueeze(0)).squeeze()
 
-            conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
-            out = hifigan(conv_feats.unsqueeze(0)).squeeze()
-
-            # get middle part of output
-            out = out[sizes[0] : sizes[0] + sizes[1]]
-        # get middle part of time
-        out_time = tr[sizes[0] : sizes[0] + sizes[1]]
-
-        history.pop(0)
-        time_history.pop(0)
+        # extract the converted audio and update the history
+        out = out[: audio.shape[0]]
+        history = [audio]
 
         # float32 to int16
         out = torch.clamp(out, -1.0, 1.0)
-        out = out * 32768.0
-        out = out.to(torch.int16)
-        return out_time, out
+        out = (audio * 32768).to(torch.int16)
+        return dtime, out
 
 
 def convert_vecs(source_vecs: Tensor, target_vecs: Tensor, n_neighbors: int) -> Tensor:
@@ -194,3 +184,25 @@ def cosine_similarity(tensor_a: Tensor, tensor_b: Tensor) -> Tensor:
     target_norm = torch.norm(tensor_b, dim=-1)
     cos_sim = dot_product / torch.outer(source_norm, target_norm)
     return cos_sim
+
+
+def rms(audio: Tensor, frame_length: int, hop_length: int) -> Tensor:
+    """
+    Compute root-mean-square (RMS) value for each frame from the audio samples.
+
+    Args:
+        audio (shape (n)): audio time series.
+        frame_length : no. of samples for energy calculation.
+        hop_length : hop length for STFT.
+
+    Returns:
+        rms (shape (t)): RMS value for each frame
+    """
+
+    # if the audio comprises only one frame, return its RMS
+    if audio.shape[0] <= frame_length:
+        return audio.pow(2).mean().sqrt()
+
+    return torch.sqrt(
+        torch.mean(audio.unfold(0, frame_length, hop_length).pow(2), dim=-1)
+    )
