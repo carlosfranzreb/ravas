@@ -1,29 +1,20 @@
 log_dir: logs
 log_level: DEBUG
-max_unsynced_time: 0.01
-
-video_callback:
-  cls: stream_processing.models.face_mask.FaceMask.FaceMask
-
-audio_callback:
-  cls: stream_processing.models.knnvc.converter.Converter
-  target_feats_path: target_feats/135887.pt
-  device: cpu
-  hifigan_cfg: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.json
-  hifigan_ckpt: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.pt
-  wavlm_ckpt: /Users/cafr02/repos/spkanon/checkpoints/WavLM-Large.pt
-  wavlm_layer: 6
-  n_neighbors: 4
+define: &max_unsynced_time 0.01
 
 video:
-  input_device_index: 0
+  max_unsynced_time: *max_unsynced_time
+  input_device: 0
   use_video: true
   processing_size: 1
   maximum_fps: 20
   output_virtual_cam: false
   output_window: true
+  converter:
+    cls: stream_processing.models.FaceMask
 
 audio:
+  max_unsynced_time: *max_unsynced_time
   use_audio: true
   output_buffersize: 600
   processing_size: 1200
@@ -31,3 +22,16 @@ audio:
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
   output_device: BlackHole 2ch
+  converter:
+    cls: stream_processing.models.KnnVC
+    target_feats_path: target_feats/135887.pt
+    device: cpu
+    hifigan_cfg: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.json
+    hifigan_ckpt: /Users/cafr02/repos/spkanon/checkpoints/knnvc/hifigan.pt
+    wavlm_ckpt: /Users/cafr02/repos/spkanon/checkpoints/WavLM-Large.pt
+    wavlm_layer: 6
+    n_neighbors: 4
+    vad:
+      frame_length: 2048
+      hop_length: 512
+      threshold: 0.025

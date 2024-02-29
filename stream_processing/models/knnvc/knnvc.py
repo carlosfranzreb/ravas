@@ -6,68 +6,66 @@ import os
 import json
 from glob import glob
 import logging
+import queue
 
 import torch
 from torch import Tensor
+from torch.multiprocessing import Queue
 import torchaudio
 
-from stream_processing.Processor import ProcessingCallback
+from stream_processing.processor import Converter
 from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
 from stream_processing.models.knnvc.hifigan import Generator, AttrDict
+from stream_processing.utils import clear_queue
 
 
-class Converter(ProcessingCallback):
+class KnnVC(Converter):
     def __init__(
         self,
-        target_feats_path: str,
-        device: str,
-        hifigan_cfg: str,
-        hifigan_ckpt: str,
-        wavlm_ckpt: str,
-        wavlm_layer: int,
-        n_neighbors: int,
+        name: str,
+        config: dict,
+        input_queue: Queue,
+        output_queue: Queue,
+        log_queue: Queue,
+        log_level: str,
     ) -> None:
         """
-        Args:
-            target_feats: either a torch file with a speaker's target features or a
-                LibriSpeech directory of a speaker.
-            device: the device where the model should run.
-            hifigan_cfg: the path to the HiFiGAN configuration file.
-            hifigan_ckpt: the path to the HiFiGAN checkpoint.
-            wavlm_ckpt: the path to the WavLM checkpoint.
-            wavlm_layer: the layer of the WavLM model to use for feature extraction.
-            n_neighbors: the number of neighbors to average when converting a feature.
-        """
-        super().__init__()
-        self.device = device
-        self.target_feats_path = target_feats_path
-        self.hifigan_cfg = hifigan_cfg
-        self.hifigan_ckpt = hifigan_ckpt
-        self.wavlm_ckpt = wavlm_ckpt
-        self.wavlm_layer = wavlm_layer
-        self.n_neighbors = n_neighbors
-
-    def init_callback(self):
-        """
-        Initialize and return the model and target features.
+        Initialize WavLM and the HiFiGAN models, and load the target features.
 
         If `target_feats_path` is a file, load the target features from it.
         Otherwise, compute the target features from the given LibriSpeech directory, and
         dump them to a file in the `target_feats` directory.
         """
+        super().__init__(name, config, input_queue, output_queue, log_queue, log_level)
+
+        # model config
+        self.device = config["device"]
+        self.target_feats_path = config["target_feats_path"]
+        self.wavlm_layer = config["wavlm_layer"]
+        self.n_neighbors = config["n_neighbors"]
+
+        # VAD config
+        self.vad_frame_length = config["vad"]["frame_length"]
+        self.vad_hop_length = config["vad"]["hop_length"]
+        self.vad_threshold = config["vad"]["threshold"]
+
+        # initialize the time and audio arrays
+        self.audio_input = list()
+        self.timestamps = list()
+
         # initialize the WavLM model
-        ckpt = torch.load(self.wavlm_ckpt, map_location=self.device)
-        wavlm = WavLM(WavLMConfig(ckpt["cfg"]))
-        wavlm.load_state_dict(ckpt["model"])
-        wavlm.eval()
+        ckpt = torch.load(config["wavlm_ckpt"], map_location=self.device)
+        self.wavlm = WavLM(WavLMConfig(ckpt["cfg"]))
+        self.wavlm.load_state_dict(ckpt["model"])
+        self.wavlm.eval()
 
         # initialize the HiFiGAN model
-        hifigan = Generator(AttrDict(json.load(open(self.hifigan_cfg))))
-        hifigan.load_state_dict(
-            torch.load(self.hifigan_ckpt, map_location=self.device)["generator"]
+        self.hifigan = Generator(AttrDict(json.load(open(config["hifigan_cfg"]))))
+        self.hifigan.load_state_dict(
+            torch.load(config["hifigan_ckpt"], map_location=self.device)["generator"]
         )
-        hifigan.eval()
-        hifigan.remove_weight_norm()
+        self.hifigan.eval()
+        self.hifigan.remove_weight_norm()
 
         # if target_feats is a file, load the target features
         if os.path.isfile(self.target_feats_path):
@@ -79,7 +77,9 @@ class Converter(ProcessingCallback):
             target_feats = list()
             for audiofile in glob(self.target_feats_path + "/*.flac"):
                 audio = torchaudio.load(audiofile)[0].to(self.device)
-                feats = wavlm.extract_features(audio, output_layer=self.wavlm_layer)[0]
+                feats = self.wavlm.extract_features(
+                    audio, output_layer=config["wavlm_layer"]
+                )[0]
                 target_feats.append(feats.squeeze(0))
             target_feats = torch.cat(target_feats, dim=0)
 
@@ -93,52 +93,43 @@ class Converter(ProcessingCallback):
                 f"Dumped {target_feats.shape[0]} target features to {dump_file}"
             )
 
-        history = []
-        time_history = []
-        return [
-            wavlm,
-            hifigan,
-            target_feats,
-            self.wavlm_layer,
-            self.n_neighbors,
-            history,
-            time_history,
-        ]
+    def convert(self) -> None:
+        """
+        Read the input queue, convert the data and put the converted data into the
+        sync queue.
+        """
+        clear_queue(self.input_queue)
+        while True:
+            try:
+                ttime, data = self.queues.input_queue.get()
+                out = self.convert_audio(data)
+                self.output_queue.put((ttime, out))
+            except queue.Empty:
+                pass
 
-    def callback(
-        self,
-        dtime: Tensor,
-        audio: Tensor,
-        wavlm: WavLM,
-        hifigan: Generator,
-        target_feats: Tensor,
-        wavlm_layer: int,
-        n_neighbors: int,
-        history: list,
-        time_history: list,
-    ) -> tuple[list, Tensor]:
-        """Convert the given audio"""
+    def convert_audio(self, audio: Tensor) -> Tensor:
+        """
+        Convert the audio to the target speaker.
+        """
         audio = audio.to(torch.float32) / 32768
 
         # if energy is too low, return silence
-        frame_length = 2048  # TODO: make this a config parameter
-        hop_length = 512  # TODO: make this a config parameter
-        energy = rms(audio, frame_length, hop_length)
-        if torch.max(energy) < 0.023:  # TODO: make this a config parameter
+        energy = rms(audio, self.vad_frame_length, self.vad_hop_length)
+        if torch.max(energy) < self.vad_threshold:
             history = [audio]
-            return dtime, torch.zeros_like(audio, dtype=torch.int16)
+            return torch.zeros_like(audio, dtype=torch.int16)
 
         # append the old audio
         audio_concat = torch.cat(history + [audio], dim=0)
 
         # convert the audio
-        source_feats = wavlm.extract_features(
-            audio_concat.unsqueeze(0), output_layer=wavlm_layer
+        source_feats = self.wavlm.extract_features(
+            audio_concat.unsqueeze(0), output_layer=self.wavlm_layer
         )[0]
         if source_feats.ndim == 3:
             source_feats = source_feats.squeeze(0)
-        conv_feats = convert_vecs(source_feats, target_feats, n_neighbors)
-        out = hifigan(conv_feats.unsqueeze(0)).squeeze()
+        conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
+        out = self.hifigan(conv_feats.unsqueeze(0)).squeeze()
 
         # extract the converted audio and update the history
         out = out[: audio.shape[0]]
@@ -147,7 +138,7 @@ class Converter(ProcessingCallback):
         # float32 to int16
         out = torch.clamp(out, -1.0, 1.0)
         out = (audio * 32768).to(torch.int16)
-        return dtime, out
+        return out
 
 
 def convert_vecs(source_vecs: Tensor, target_vecs: Tensor, n_neighbors: int) -> Tensor:

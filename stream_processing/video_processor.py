@@ -1,6 +1,5 @@
 import queue
 import time
-from typing import Optional
 import logging
 
 import cv2
@@ -9,12 +8,7 @@ import pyvirtualcam
 import cv2 as cv
 from torch.multiprocessing import Queue
 
-from stream_processing.Processor import (
-    ProcessingCallback,
-    ProcessingQueues,
-    ProcessingSyncState,
-    Processor,
-)
+from stream_processing.processor import ProcessingSyncState, Processor
 from stream_processing.utils import batchify_input_stream
 from stream_processing.dist_logging import worker_configurer
 
@@ -22,58 +16,36 @@ from stream_processing.dist_logging import worker_configurer
 class VideoProcessor(Processor):
     def __init__(
         self,
-        video_queues: ProcessingQueues,
+        config: dict,
         video_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
-        callback: Optional[ProcessingCallback] = None,
-        maximum_fps=30,
-        processing_size=10,
-        opencv_input_device_index=0,
-        max_unsynced_time: Optional[float] = 0.01,
-        output_virtual_cam: bool = True,
-        output_window: bool = False,
-        log_queue: Optional[Queue] = None,
-        log_level: str = "INFO",
+        log_queue: Queue,
+        log_level: str,
     ):
         """
         Initialize a AudioProcessor object.
-        :param video_queues: ProcessingQueues containing the video queues.
+        :param name: Name of the processor.
+        :param config: The config for the processor.
         :param video_sync_state: ProcessingSyncState containing the video sync state.
         :param external_sync_state: ProcessingSyncState containing the external sync state to sync the video.
-        :param callback: Callback Object that is used for initializing the callback function and the callback function.
-        :param maximum_fps: Maximum fps of the video stream.
-        :param processing_size: Size of the processing batch.
-        :param opencv_input_device_index: Index of the opencv input device.
-        :param max_unsynced_time: Maximum time that the data can be unsynced.
-        :param output_virtual_cam: Activate output to virtual cam.
-        :param output_window: Activate output to window.
         :param log_queue: log queue for logging messages.
         :param log_level: log level for logging messages.
         """
         super().__init__(
-            "video",
-            video_queues,
-            video_sync_state,
-            external_sync_state,
-            callback,
-            max_unsynced_time,
-            log_queue=log_queue,
-            log_level=log_level,
+            "video", config, video_sync_state, external_sync_state, log_queue, log_level
         )
-        self.video_queues = video_queues
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
 
-        self.maximum_fps = maximum_fps
-        self.processing_size = processing_size
-        self.opencv_input_device_index = opencv_input_device_index
+        self.maximum_fps = config["maximum_fps"]
+        self.processing_size = config["processing_size"]
+        self.input_device = config["input_device"]
+        self.output_virtual_cam = config["output_virtual_cam"]
+        self.output_window = config["output_window"]
 
-        self.output_virtual_cam = output_virtual_cam
-        self.output_window = output_window
-
-    def read_input_stream(self):
+    def read(self):
         # Create a VideoCapture object to read the video stream
-        video_capture = cv2.VideoCapture(self.opencv_input_device_index)
+        video_capture = cv2.VideoCapture(self.input_device)
         frame_size = (
             int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -108,9 +80,9 @@ class VideoProcessor(Processor):
             )
             last_frame_time = processing_time[-1].item()
 
-            self.video_queues.input_queue.put((processing_time, processing_data))
+            self.queues.input_queue.put((processing_time, processing_data))
 
-    def write_output_stream(self):
+    def write(self):
         # ensure fps of virtual cam is higher than the fps of the input stream
         if self.output_virtual_cam:
             virtual_cam = pyvirtualcam.Camera(
@@ -124,7 +96,7 @@ class VideoProcessor(Processor):
         # write the video stream from the output queue
         while True:
             try:
-                ttime, out = self.video_queues.output_queue.get()
+                ttime, out = self.queues.output_queue.get()
 
                 start_time = time.time()
                 # send each frame separately to the virtual cam

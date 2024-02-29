@@ -1,4 +1,3 @@
-import importlib
 import multiprocessing
 import os
 import subprocess
@@ -7,18 +6,8 @@ from argparse import ArgumentParser
 
 import yaml
 
-from stream_processing.AudioVideoStreamer import AudioVideoStreamer
+from stream_processing.streamer import AudioVideoStreamer
 from stream_processing.dist_logging import listener_process
-
-
-def get_cls(cls_str: str):
-    """
-    Import the module and return the class. `cls_str` should be in the format
-    `module.class`.
-    """
-    module_str, cls_str = cls_str.rsplit(".", 1)
-    module = importlib.import_module(module_str)
-    return getattr(module, cls_str)
 
 
 def main(config: dict, runtime: int = None) -> None:
@@ -55,28 +44,7 @@ def main(config: dict, runtime: int = None) -> None:
     log_listener.start()
 
     # start the audio-video streamer with the given config
-    cb_video = get_cls(config["video_callback"].pop("cls"))
-    cv_audio = get_cls(config["audio_callback"].pop("cls"))
-    audio_video_streamer = AudioVideoStreamer(
-        cv_audio(**config["audio_callback"]),
-        config["audio"]["input_device"],
-        config["audio"]["output_buffersize"],
-        config["audio"]["output_device"],
-        config["audio"]["processing_size"],
-        config["audio"]["record_buffersize"],
-        config["audio"]["sampling_rate"],
-        log_queue,
-        config["log_level"],
-        config["max_unsynced_time"],
-        config["audio"]["use_audio"],
-        config["video"]["use_video"],
-        cb_video(**config["video_callback"]),
-        config["video"]["input_device_index"],
-        config["video"]["maximum_fps"],
-        config["video"]["output_virtual_cam"],
-        config["video"]["output_window"],
-        config["video"]["processing_size"],
-    )
+    audio_video_streamer = AudioVideoStreamer(config, log_queue)
     audio_video_streamer.start()
 
     # stop the streamer after `runtime` seconds or wait indefinitely until the user
