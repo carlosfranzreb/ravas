@@ -101,7 +101,7 @@ class KnnVC(Converter):
         clear_queue(self.input_queue)
         while True:
             try:
-                ttime, data = self.queues.input_queue.get()
+                ttime, data = self.input_queue.get()
                 out = self.convert_audio(data)
                 self.output_queue.put((ttime, out))
             except queue.Empty:
