@@ -17,7 +17,7 @@ audio:
   max_unsynced_time: *max_unsynced_time
   use_audio: true
   output_buffersize: 600
-  processing_size: 1200
+  processing_size: 3200
   record_buffersize: 600
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
@@ -33,7 +33,9 @@ audio:
     n_neighbors: 4
     prev_audio_queue:
       max_samples: 16000
-      interpolation_samples: 50
+    interpolator:
+      n_samples: 200
+      weight: 0.5
     vad:
       frame_length: 2048
       hop_length: 512
