@@ -31,6 +31,9 @@ audio:
     wavlm_ckpt: /Users/cafr02/repos/spkanon/checkpoints/WavLM-Large.pt
     wavlm_layer: 6
     n_neighbors: 4
+    prev_audio_queue:
+      max_samples: 16000
+      interpolation_samples: 50
     vad:
       frame_length: 2048
       hop_length: 512

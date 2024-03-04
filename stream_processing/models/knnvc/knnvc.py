@@ -14,9 +14,11 @@ from torch.multiprocessing import Queue
 import torchaudio
 
 from stream_processing.processor import Converter
-from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
-from stream_processing.models.knnvc.hifigan import Generator, AttrDict
 from stream_processing.utils import clear_queue
+
+from .wavlm.model import WavLM, WavLMConfig
+from .hifigan import Generator, AttrDict
+from .prev_audio_queue import PrevAudioQueue
 
 
 class KnnVC(Converter):
@@ -49,9 +51,8 @@ class KnnVC(Converter):
         self.vad_hop_length = config["vad"]["hop_length"]
         self.vad_threshold = config["vad"]["threshold"]
 
-        # initialize the time and audio arrays
-        self.audio_input = list()
-        self.timestamps = list()
+        # initialize the audio queue
+        self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
 
         # initialize the WavLM model
         ckpt = torch.load(config["wavlm_ckpt"], map_location=self.device)
@@ -69,28 +70,28 @@ class KnnVC(Converter):
 
         # if target_feats is a file, load the target features
         if os.path.isfile(self.target_feats_path):
-            target_feats = torch.load(self.target_feats_path)
-            logging.info(f"Loaded {target_feats.shape[0]} target features")
+            self.target_feats = torch.load(self.target_feats_path)
+            logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
         # otherwise, compute the target features from the given LibriSpeech directory
         else:
-            target_feats = list()
+            self.target_feats = list()
             for audiofile in glob(self.target_feats_path + "/*.flac"):
                 audio = torchaudio.load(audiofile)[0].to(self.device)
                 feats = self.wavlm.extract_features(
                     audio, output_layer=config["wavlm_layer"]
                 )[0]
-                target_feats.append(feats.squeeze(0))
-            target_feats = torch.cat(target_feats, dim=0)
+                self.target_feats.append(feats.squeeze(0))
+            self.target_feats = torch.cat(self.target_feats, dim=0)
 
             # dump the features
             dump_file = os.path.join(
                 "target_feats", os.path.basename(self.target_feats_path) + ".pt"
             )
             os.makedirs("target_feats", exist_ok=True)
-            torch.save(target_feats, dump_file)
+            torch.save(self.target_feats, dump_file)
             logging.info(
-                f"Dumped {target_feats.shape[0]} target features to {dump_file}"
+                f"Dumped {self.target_feats.shape[0]} target features to {dump_file}"
             )
 
     def convert(self) -> None:
@@ -98,31 +99,33 @@ class KnnVC(Converter):
         Read the input queue, convert the data and put the converted data into the
         sync queue.
         """
+        self.logger.info("Start converting audio")
         clear_queue(self.input_queue)
         while True:
             try:
-                ttime, data = self.input_queue.get()
+                ttime, data = self.input_queue.get(timeout=1)
+                self.logger.debug(f"Received audio of shape {data.shape}")
                 out = self.convert_audio(data)
                 self.output_queue.put((ttime, out))
             except queue.Empty:
+                self.logger.debug("Input queue is empty")
                 pass
 
-    def convert_audio(self, audio: Tensor) -> Tensor:
+    def convert_audio(self, audio_in: Tensor) -> Tensor:
         """
         Convert the audio to the target speaker.
         """
-        audio = audio.to(torch.float32) / 32768
+        audio_in = (audio_in / 32768).to(torch.float32)
+        self.audio_queue.add(audio_in)
 
         # if energy is too low, return silence
-        energy = rms(audio, self.vad_frame_length, self.vad_hop_length)
+        energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
         if torch.max(energy) < self.vad_threshold:
-            history = [audio]
-            return torch.zeros_like(audio, dtype=torch.int16)
-
-        # append the old audio
-        audio_concat = torch.cat(history + [audio], dim=0)
+            self.logger.debug(f"Energy too low ({torch.max(energy)}).")
+            return torch.zeros_like(audio_in, dtype=torch.int16)
 
         # convert the audio
+        audio_concat = self.audio_queue.get()
         source_feats = self.wavlm.extract_features(
             audio_concat.unsqueeze(0), output_layer=self.wavlm_layer
         )[0]
@@ -131,14 +134,14 @@ class KnnVC(Converter):
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
         out = self.hifigan(conv_feats.unsqueeze(0)).squeeze()
 
-        # extract the converted audio and update the history
-        out = out[: audio.shape[0]]
-        history = [audio]
+        # interpolate the converted audio with the previous samples
+        audio_out = out[-audio_in.shape[0] :]
+        audio_out = self.audio_queue.interpolate(audio_out)
 
-        # float32 to int16
-        out = torch.clamp(out, -1.0, 1.0)
-        out = (audio * 32768).to(torch.int16)
-        return out
+        # transform and return the converted audio
+        audio_out = torch.clamp(audio_out, -1.0, 1.0)
+        audio_out = (audio_out * 32768).to(torch.int16)
+        return audio_out
 
 
 def convert_vecs(source_vecs: Tensor, target_vecs: Tensor, n_neighbors: int) -> Tensor:
