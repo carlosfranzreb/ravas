@@ -19,6 +19,7 @@ from stream_processing.utils import clear_queue
 from .wavlm.model import WavLM, WavLMConfig
 from .hifigan import Generator, AttrDict
 from .prev_audio_queue import PrevAudioQueue
+from .interpolator import Interpolator
 
 
 class KnnVC(Converter):
@@ -51,8 +52,9 @@ class KnnVC(Converter):
         self.vad_hop_length = config["vad"]["hop_length"]
         self.vad_threshold = config["vad"]["threshold"]
 
-        # initialize the audio queue
+        # initialize the audio queue and the interpolator
         self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
+        self.interpolator = Interpolator(config["interpolator"])
 
         # initialize the WavLM model
         ckpt = torch.load(config["wavlm_ckpt"], map_location=self.device)
@@ -136,7 +138,7 @@ class KnnVC(Converter):
 
         # interpolate the converted audio with the previous samples
         audio_out = out[-audio_in.shape[0] :]
-        audio_out = self.audio_queue.interpolate(audio_out)
+        audio_out = self.interpolator.interpolate(audio_out)
 
         # transform and return the converted audio
         audio_out = torch.clamp(audio_out, -1.0, 1.0)
