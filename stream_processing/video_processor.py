@@ -90,7 +90,7 @@ class VideoProcessor(Processor):
             )
 
         # setup logging
-        worker_configurer(self.log_queue)
+        worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("video_output")
 
         # write the video stream from the output queue

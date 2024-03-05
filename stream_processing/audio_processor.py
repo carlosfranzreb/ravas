@@ -37,9 +37,9 @@ class AudioProcessor(Processor):
 
         self.sampling_rate = config["sampling_rate"]
         self.record_buffersize = config["record_buffersize"]
-        self.input_device = get_device_idx(config["input_device"])
+        self.input_device = get_device_idx(config["input_device"], True)
         self.processing_size = config["processing_size"]
-        self.output_device = get_device_idx(config["output_device"])
+        self.output_device = get_device_idx(config["output_device"], False)
         self.output_buffersize = config["output_buffersize"]
 
     def read(self):
@@ -91,12 +91,11 @@ class AudioProcessor(Processor):
             output_device_index=self.output_device,
         )
 
-        # clear the queue to avoid latency caused by an delay in the initialization
-        # of this process
+        # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
 
         # setup logging
-        worker_configurer(self.log_queue)
+        worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("audio_output")
 
         # write the audio stream from the output queue
@@ -109,10 +108,13 @@ class AudioProcessor(Processor):
             output_stream.write(bin_data)
 
 
-def get_device_idx(device_name: str) -> int:
+def get_device_idx(device_name: str, is_input: bool) -> int:
     """Retrieve the device index from the device name with sounddevice."""
     devices = sd.query_devices()
     for idx, device in enumerate(devices):
         if device["name"] == device_name:
-            return idx
+            if is_input and device["max_input_channels"] > 0:
+                return idx
+            elif not is_input and device["max_output_channels"] > 0:
+                return idx
     raise ValueError(f"Device {device_name} not found.")

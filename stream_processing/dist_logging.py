@@ -32,7 +32,7 @@ def listener_process(log_dir: str, queue: Queue, log_level: str = "INFO"):
         sleep(1)
 
 
-def worker_configurer(queue: Queue, log_level: str = "DEBUG"):
+def worker_configurer(queue: Queue, log_level):
     """Add a queue handler to the root logger."""
     queue_handler = logging.handlers.QueueHandler(queue)
     root = logging.getLogger()
