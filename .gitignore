@@ -2,6 +2,7 @@ __pycache__
 venv
 *.pth
 *.pkl
+*.onnx
 .vscode
 .venv
 models/stargan/models

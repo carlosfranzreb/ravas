@@ -11,7 +11,7 @@ from torch import Tensor
 class PrevAudioQueue:
     def __init__(self, config: dict):
         self.max_samples = config["max_samples"]
-        self.queue = torch.zeros(1)
+        self.queue = torch.zeros(self.max_samples, dtype=torch.float32)
 
     def add(self, audio: Tensor) -> None:
         """

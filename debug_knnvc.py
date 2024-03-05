@@ -77,15 +77,16 @@ def main():
 
     # dump the result
     out = list()
-    max_wait = 5
+    max_wait = 3
+    current_wait = 0
     while True:
         try:
             ttime, data = output_queue.get(timeout=1)
             out.append(data)
-            max_wait = 5
+            current_wait = 0
         except Empty:
-            max_wait -= 1
-            if max_wait == 0:
+            current_wait += 1
+            if current_wait == max_wait:
                 break
 
     if len(out) == 0:

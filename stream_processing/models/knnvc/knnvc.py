@@ -3,7 +3,6 @@ Selects targets based on speaker embeddings.
 """
 
 import os
-import json
 from glob import glob
 import logging
 import queue
@@ -12,12 +11,11 @@ import torch
 from torch import Tensor
 from torch.multiprocessing import Queue
 import torchaudio
+import onnxruntime as ort
 
 from stream_processing.processor import Converter
 from stream_processing.utils import clear_queue
 
-from .wavlm.model import WavLM, WavLMConfig
-from .hifigan import Generator, AttrDict
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
 
@@ -44,7 +42,6 @@ class KnnVC(Converter):
         # model config
         self.device = config["device"]
         self.target_feats_path = config["target_feats_path"]
-        self.wavlm_layer = config["wavlm_layer"]
         self.n_neighbors = config["n_neighbors"]
 
         # VAD config
@@ -56,19 +53,9 @@ class KnnVC(Converter):
         self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
         self.interpolator = Interpolator(config["interpolator"])
 
-        # initialize the WavLM model
-        ckpt = torch.load(config["wavlm_ckpt"], map_location=self.device)
-        self.wavlm = WavLM(WavLMConfig(ckpt["cfg"]))
-        self.wavlm.load_state_dict(ckpt["model"])
-        self.wavlm.eval()
-
-        # initialize the HiFiGAN model
-        self.hifigan = Generator(AttrDict(json.load(open(config["hifigan_cfg"]))))
-        self.hifigan.load_state_dict(
-            torch.load(config["hifigan_ckpt"], map_location=self.device)["generator"]
-        )
-        self.hifigan.eval()
-        self.hifigan.remove_weight_norm()
+        # initialize the WavLM and HiFiGAN models
+        self.wavlm = ort.InferenceSession(config["wavlm_ckpt"])
+        self.hifigan = ort.InferenceSession(config["hifigan_ckpt"])
 
         # if target_feats is a file, load the target features
         if os.path.isfile(self.target_feats_path):
@@ -80,9 +67,7 @@ class KnnVC(Converter):
             self.target_feats = list()
             for audiofile in glob(self.target_feats_path + "/*.flac"):
                 audio = torchaudio.load(audiofile)[0].to(self.device)
-                feats = self.wavlm.extract_features(
-                    audio, output_layer=config["wavlm_layer"]
-                )[0]
+                feats = self.wavlm.run(["output"], {"input": audio})[0]
                 self.target_feats.append(feats.squeeze(0))
             self.target_feats = torch.cat(self.target_feats, dim=0)
 
@@ -127,14 +112,16 @@ class KnnVC(Converter):
             return torch.zeros_like(audio_in, dtype=torch.int16)
 
         # convert the audio
-        audio_concat = self.audio_queue.get()
-        source_feats = self.wavlm.extract_features(
-            audio_concat.unsqueeze(0), output_layer=self.wavlm_layer
-        )[0]
+        audio_concat = self.audio_queue.get().unsqueeze(0)
+        source_feats = self.wavlm.run(["output"], {"input": audio_concat.numpy()})[0]
+        source_feats = torch.tensor(source_feats, dtype=torch.float32)
         if source_feats.ndim == 3:
             source_feats = source_feats.squeeze(0)
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
-        out = self.hifigan(conv_feats.unsqueeze(0)).squeeze()
+        out = self.hifigan.run(["output"], {"input": conv_feats.unsqueeze(0).numpy()})[
+            0
+        ]
+        out = torch.tensor(out, dtype=torch.float32).squeeze()
 
         # interpolate the converted audio with the previous samples
         audio_out = out[-audio_in.shape[0] :]
