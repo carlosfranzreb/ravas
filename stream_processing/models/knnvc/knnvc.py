@@ -66,9 +66,8 @@ class KnnVC(Converter):
                 config["hifigan_cfg"],
                 config["hifigan_ckpt"],
             )
-
-        self.wavlm = ort.InferenceSession(config["wavlm_ckpt"])
-        self.hifigan = ort.InferenceSession(config["hifigan_ckpt"])
+        self.wavlm = ort.InferenceSession(wavlm_ckpt)
+        self.hifigan = ort.InferenceSession(hifigan_ckpt)
 
         # if target_feats is a file, load the target features
         if os.path.isfile(self.target_feats_path):
@@ -111,6 +110,7 @@ class KnnVC(Converter):
                 self.logger.debug("Input queue is empty")
                 pass
 
+    @torch.inference_mode()
     def convert_audio(self, audio_in: Tensor) -> Tensor:
         """
         Convert the audio to the target speaker.
