@@ -17,7 +17,7 @@
       "request": "launch",
       "program": "stream_processing/main.py",
       "console": "integratedTerminal",
-      "args": "--config=configs/default.yaml"
+      "args": "--config=configs/onnx_models.yaml"
     }
   ]
 }
