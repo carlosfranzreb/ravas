@@ -18,6 +18,7 @@ from stream_processing.utils import clear_queue
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
+from .compile_models import compile_onnx
 
 
 class KnnVC(Converter):
@@ -53,7 +54,19 @@ class KnnVC(Converter):
         self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
         self.interpolator = Interpolator(config["interpolator"])
 
-        # initialize the WavLM and HiFiGAN models
+        # initialize the WavLM and HiFiGAN models, compiling them if needed
+        input_size = config["prev_audio_queue"]["max_samples"]
+        wavlm_ckpt = f"onnx/wavlm_{input_size}.onnx"
+        hifigan_ckpt = f"onnx/hifigan_{input_size}.onnx"
+        if not os.path.isfile(wavlm_ckpt) or not os.path.isfile(hifigan_ckpt):
+            compile_onnx(
+                input_size,
+                config["wavlm_ckpt"],
+                config["wavlm_layer"],
+                config["hifigan_cfg"],
+                config["hifigan_ckpt"],
+            )
+
         self.wavlm = ort.InferenceSession(config["wavlm_ckpt"])
         self.hifigan = ort.InferenceSession(config["hifigan_ckpt"])
 

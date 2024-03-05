@@ -12,7 +12,7 @@ from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
 from stream_processing.models.knnvc.hifigan import Generator, AttrDict
 
 
-def main(
+def compile_onnx(
     input_size: int,
     wavlm_ckpt: str,
     wavlm_layer: int,
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--hifigan_cfg", help="Path to the HiFi-GAN config.")
     parser.add_argument("--hifigan_ckpt", help="Path to the HiFi-GAN checkpoint.")
     args = parser.parse_args()
-    main(
+    compile_onnx(
         args.input_size,
         args.wavlm_ckpt,
         args.wavlm_layer,
