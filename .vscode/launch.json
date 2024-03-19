@@ -5,21 +5,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
-      "type": "python",
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
       "request": "launch",
       "program": "${file}",
-      "console": "integratedTerminal",
-      "justMyCode": true
+      "console": "integratedTerminal"
     },
     {
-      "name": "streamlit",
-      "type": "python",
+      "name": "Run",
+      "type": "debugpy",
       "request": "launch",
-      "module": "streamlit",
-      "args": ["run", "main.py"],
+      "program": "stream_processing/main.py",
       "console": "integratedTerminal",
-      "justMyCode": false
+      "args": "--config=configs/onnx_models.yaml"
     }
   ]
 }

@@ -53,7 +53,7 @@ def batchify_input_stream(
             if time.time() - last_frame_time < 1 / upper_bound_fps:
                 continue
 
-        # calculate the time corosponding to each sample in current chunk
+        # calculate the time coresponding to each sample in current chunk
         chunk_end_time = time.time()
         last_frame_time = chunk_end_time
         chunk_start_time = chunk_end_time - (in_chunk_size - 1) / sampling_rate
@@ -62,7 +62,8 @@ def batchify_input_stream(
             chunk_start_time, chunk_end_time, in_chunk_size, dtype=torch.float64
         )
 
-        # if the chunk is larger than the desired batch size, split the chunk and save the rest for the next batch
+        # if the chunk is larger than the desired batch size, split the chunk and save
+        # the rest for the next batch
         if in_chunk_size + num_samples_in_batched_data > out_batch_size:
             missing_chunk_size = out_batch_size - num_samples_in_batched_data
             new_chunk_part_for_next = chunk[missing_chunk_size:]
