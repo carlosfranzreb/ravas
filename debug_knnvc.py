@@ -43,7 +43,7 @@ def listener_process(log_queue, log_level):
 def main():
     """Initialize the converter and pass it an audio sample."""
 
-    with open("configs/default.yaml") as f:
+    with open("configs/onnx_models.yaml") as f:
         config = yaml.safe_load(f)
 
     input_queue = Queue()

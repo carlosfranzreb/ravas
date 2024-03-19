@@ -67,4 +67,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
-    main(config, runtime=180)
+    main(config, runtime=1000)
