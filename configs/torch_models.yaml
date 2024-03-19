@@ -1,3 +1,6 @@
+# Our code expects ONNX models.
+# This file only serves as a reference for the model paths
+
 log_dir: logs
 log_level: DEBUG
 define: &max_unsynced_time 0.01
