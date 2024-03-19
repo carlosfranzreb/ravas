@@ -1,5 +1,8 @@
 """
 Selects targets based on speaker embeddings.
+
+TODO: Optimize interpolation. If glitchiness persists, look into VAD through WavLM
+feature classification, as done in URithmic.
 """
 
 import os

@@ -63,7 +63,7 @@ def main(config: dict, runtime: int = None) -> None:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/default.yaml")
+    parser.add_argument("--config", type=str, default="configs/onnx_models.yaml")
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
