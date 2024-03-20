@@ -1,10 +1,13 @@
 from queue import Queue
 import logging
 import time
+import os
 
 import pyaudio
 import sounddevice as sd
 import torch
+
+import wave
 
 from stream_processing.processor import Processor, ProcessingSyncState
 from stream_processing.utils import batchify_input_stream, clear_queue
@@ -41,11 +44,14 @@ class AudioProcessor(Processor):
         self.processing_size = config["processing_size"]
         self.output_device = get_device_idx(config["output_device"], False)
         self.output_buffersize = config["output_buffersize"]
+        self.store = config["store"]
+
+        if self.store:
+            self.store_path = os.path.join(config["log_dir"], "audio.wav")
 
     def read(self):
         # Create a PyAudio object to read the audio stream
-        p = pyaudio.PyAudio()
-        input_stream = p.open(
+        input_stream = pyaudio.PyAudio().open(
             format=pyaudio.paInt16,
             channels=1,
             rate=self.sampling_rate,
@@ -90,6 +96,8 @@ class AudioProcessor(Processor):
             frames_per_buffer=self.output_buffersize,
             output_device_index=self.output_device,
         )
+        if self.store:
+            wav = get_wav_obj(self.store_path, self.sampling_rate)
 
         # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
@@ -107,6 +115,9 @@ class AudioProcessor(Processor):
             logger.info(f"delay: {delay} s")
             output_stream.write(bin_data)
 
+            if self.store:
+                wav.writeframes(bin_data)
+
 
 def get_device_idx(device_name: str, is_input: bool) -> int:
     """Retrieve the device index from the device name with sounddevice."""
@@ -118,3 +129,14 @@ def get_device_idx(device_name: str, is_input: bool) -> int:
             elif not is_input and device["max_output_channels"] > 0:
                 return idx
     raise ValueError(f"Device {device_name} not found.")
+
+
+def get_wav_obj(path: str, sample_rate: int) -> wave.Wave_write:
+    """Return a wave.Wave_write object for the given path."""
+    mode = "wb" if not os.path.isfile(path) else "ab"
+    wav = wave.open(path, mode)
+    if mode == "wb":
+        wav.setnchannels(1)
+        wav.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
+        wav.setframerate(sample_rate)
+    return wav

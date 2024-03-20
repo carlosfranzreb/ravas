@@ -1,5 +1,5 @@
 log_dir: logs
-log_level: WARNING
+log_level: INFO
 define: &max_unsynced_time 0.01
 
 video:
@@ -10,6 +10,7 @@ video:
   maximum_fps: 20
   output_virtual_cam: false
   output_window: true
+  store: true
   converter:
     cls: stream_processing.models.FaceMask
 
@@ -21,7 +22,8 @@ audio:
   record_buffersize: 600
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
-  output_device: WF-C500
+  output_device: MacBook Pro-Lautsprecher
+  store: true # Store audio in a file
   converter:
     cls: stream_processing.models.KnnVC
     target_feats_path: target_feats/135887.pt
@@ -30,8 +32,8 @@ audio:
     prev_audio_queue:
       max_samples: 9600
     interpolator:
-      n_samples: 200
-      weight: 0.5
+      n_samples: 450
+      weight: 0.75
     vad:
       frame_length: 2048
       hop_length: 512

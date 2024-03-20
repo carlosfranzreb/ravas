@@ -35,6 +35,8 @@ def main(config: dict, runtime: int = None) -> None:
         .strip()
     )
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
+    config["audio"]["log_dir"] = log_dir
+    config["video"]["log_dir"] = log_dir
 
     # start the logging
     log_queue = multiprocessing.Queue(-1)
@@ -56,9 +58,39 @@ def main(config: dict, runtime: int = None) -> None:
         else:
             while True:
                 time.sleep(1)
-    except KeyboardInterrupt:
+    finally:
         audio_video_streamer.stop()
-    log_listener.terminate()
+        log_listener.terminate()
+        if config["audio"]["store"] and config["video"]["store"]:
+            merge_audio_video(log_dir)
+
+
+def merge_audio_video(log_dir: str) -> None:
+    """
+    Merge the audio and video files into a single file.
+
+    Args:
+    - log_dir: The directory where the audio and video files are stored.
+    """
+    audio_file = os.path.join(log_dir, "audio.wav")
+    video_file = os.path.join(log_dir, "video.mp4")
+    output_file = os.path.join(log_dir, "merged.mp4")
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-i",
+            audio_file,
+            "-i",
+            video_file,
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-strict",
+            "experimental",
+            output_file,
+        ]
+    )
 
 
 if __name__ == "__main__":
@@ -67,4 +99,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
-    main(config, runtime=1000)
+    main(config, runtime=20)
+    # merge_audio_video("/Users/cafr02/repos/stream_processing/logs/1710942368")

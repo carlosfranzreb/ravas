@@ -1,6 +1,8 @@
 import queue
 import time
 import logging
+import os
+import signal
 
 import cv2
 import torch
@@ -42,6 +44,9 @@ class VideoProcessor(Processor):
         self.input_device = config["input_device"]
         self.output_virtual_cam = config["output_virtual_cam"]
         self.output_window = config["output_window"]
+        self.store = config["store"]
+        if self.store:
+            self.store_path = os.path.join(config["log_dir"], "video.mp4")
 
     def read(self):
         # Create a VideoCapture object to read the video stream
@@ -89,6 +94,15 @@ class VideoProcessor(Processor):
                 width=1280, height=720, fps=100, device="/dev/video4"
             )
 
+        if self.store:
+            file_writer = cv2.VideoWriter(
+                self.store_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.maximum_fps,
+                (1280, 720),
+            )
+            signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
+
         # setup logging
         worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("video_output")
@@ -109,11 +123,15 @@ class VideoProcessor(Processor):
                     sleep_time = delta_time - current_ptime
                     if sleep_time > 0:
                         time.sleep(sleep_time.item())
+
+                    frame = frame.numpy()
+                    if self.store:
+                        file_writer.write(frame)
                     if self.output_window:
-                        cv.imshow("frame", frame.numpy())
+                        cv.imshow("frame", frame)
                         cv.waitKey(1)
                     if self.output_virtual_cam:
-                        virtual_cam.send(frame.numpy()[:, :, ::-1])
+                        virtual_cam.send(frame[:, :, ::-1])
                     if i == 0:
                         delay = round(time.time() - ttime[i].item(), 2)
                         logger.info(f"delay: {delay} s")
