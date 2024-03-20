@@ -2,6 +2,7 @@ from queue import Queue
 import logging
 import time
 import os
+import subprocess
 
 import pyaudio
 import sounddevice as sd
@@ -38,34 +39,61 @@ class AudioProcessor(Processor):
         self.audio_sync_state = audio_sync_state
         self.external_sync_state = external_sync_state
 
-        self.sampling_rate = config["sampling_rate"]
-        self.record_buffersize = config["record_buffersize"]
+        self.config = config
         self.input_device = get_device_idx(config["input_device"], True)
-        self.processing_size = config["processing_size"]
         self.output_device = get_device_idx(config["output_device"], False)
-        self.output_buffersize = config["output_buffersize"]
-        self.store = config["store"]
 
-        if self.store:
-            self.store_path = os.path.join(config["log_dir"], "audio.wav")
+        if self.config["store"]:
+            self.store_path = os.path.join(self.config["log_dir"], "audio.wav")
 
     def read(self):
         # Create a PyAudio object to read the audio stream
-        input_stream = pyaudio.PyAudio().open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=self.sampling_rate,
-            input=True,
-            frames_per_buffer=self.record_buffersize,
-            input_device_index=self.input_device,
-        )
+        if self.config["video_file"]:
+            # extract the audio from the video file with ffmpeg
+            audio_path = os.path.join(self.config["log_dir"], "input_audio.wav")
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i",
+                    self.config["video_file"],
+                    "-vn",
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ar",
+                    str(self.config["sampling_rate"]),
+                    "-ac",
+                    "1",
+                    "-f",
+                    "wav",
+                    audio_path,
+                ]
+            )
+            input_stream = wave.open(audio_path, "rb")
+        else:
+            input_stream = pyaudio.PyAudio().open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=self.config["sampling_rate"],
+                input=True,
+                frames_per_buffer=self.config["record_buffersize"],
+                input_device_index=self.input_device,
+            )
 
         def read_audio():
-            bin_data = input_stream.read(
-                self.record_buffersize, exception_on_overflow=False
-            )
-            data = torch.frombuffer(bin_data, dtype=torch.int16)
-            return data
+            if isinstance(input_stream, wave.Wave_read):
+                bin_data = input_stream.readframes(self.config["record_buffersize"])
+            else:
+                bin_data = input_stream.read(
+                    self.config["record_buffersize"], exception_on_overflow=False
+                )
+            try:
+                data = torch.frombuffer(bin_data, dtype=torch.int16)
+                return data
+            except ValueError as err:
+                if isinstance(input_stream, wave.Wave_read):
+                    return torch.zeros(0, dtype=torch.int16)
+                else:
+                    raise ValueError(f"Error reading audio: {err}")
 
         # read the audio stream and put the batches into the input queue
         chunk_part_for_next = None
@@ -76,9 +104,9 @@ class AudioProcessor(Processor):
                 chunk_part_for_next,
             ) = batchify_input_stream(
                 read_callback=read_audio,
-                out_batch_size=self.processing_size,
-                input_shape=(self.record_buffersize,),
-                sampling_rate=self.sampling_rate,
+                out_batch_size=self.config["processing_size"],
+                input_shape=(self.config["record_buffersize"],),
+                sampling_rate=self.config["sampling_rate"],
                 chunk_part_for_next_times=chunk_part_for_next_times,
                 chunk_part_for_next=chunk_part_for_next,
                 dtype=torch.int16,
@@ -91,13 +119,13 @@ class AudioProcessor(Processor):
         output_stream = pyaudio.PyAudio().open(
             format=pyaudio.paInt16,
             channels=1,
-            rate=self.sampling_rate,
+            rate=self.config["sampling_rate"],
             output=True,
-            frames_per_buffer=self.output_buffersize,
+            frames_per_buffer=self.config["output_buffersize"],
             output_device_index=self.output_device,
         )
-        if self.store:
-            wav = get_wav_obj(self.store_path, self.sampling_rate)
+        if self.config["store"]:
+            wav = get_wav_obj(self.store_path, self.config["sampling_rate"])
 
         # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
@@ -115,7 +143,7 @@ class AudioProcessor(Processor):
             logger.info(f"delay: {delay} s")
             output_stream.write(bin_data)
 
-            if self.store:
+            if self.config["store"]:
                 wav.writeframes(bin_data)
 
 

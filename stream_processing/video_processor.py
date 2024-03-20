@@ -45,24 +45,39 @@ class VideoProcessor(Processor):
         self.output_virtual_cam = config["output_virtual_cam"]
         self.output_window = config["output_window"]
         self.store = config["store"]
+        self.video_file = config["video_file"]
+
         if self.store:
             self.store_path = os.path.join(config["log_dir"], "video.mp4")
 
     def read(self):
         # Create a VideoCapture object to read the video stream
-        video_capture = cv2.VideoCapture(self.input_device)
+        if self.video_file:
+            video_reader = cv2.VideoCapture(self.video_file)
+        else:
+            video_reader = cv2.VideoCapture(self.input_device)
+
         frame_size = (
-            int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-            int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            int(video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)),
             3,
         )
 
         def read_video():
-            ret, frame = video_capture.read()
+            ret, frame = video_reader.read()
             if ret:
+                # save frame to file
+                file_writer = cv2.VideoWriter(
+                    "input_video.mp4",
+                    cv2.VideoWriter_fourcc(*"mp4v"),
+                    self.maximum_fps,
+                    (frame_size[1], frame_size[0]),
+                )
+                file_writer.write(frame)
+                file_writer.release()
                 return torch.from_numpy(frame[None])
             else:
-                raise Exception("Video capture failed")
+                return torch.empty((0, *frame_size))
 
         # read the video stream and put the batches into the input queue
         chunk_part_for_next = torch.empty((0, *frame_size))
@@ -90,8 +105,10 @@ class VideoProcessor(Processor):
     def write(self):
         # ensure fps of virtual cam is higher than the fps of the input stream
         if self.output_virtual_cam:
-            virtual_cam = pyvirtualcam.Camera(
-                width=1280, height=720, fps=100, device="/dev/video4"
+            virtual_cam = (
+                pyvirtualcam.Camera(  # TODO: copy frame size from input stream
+                    width=1280, height=720, fps=100, device="/dev/video4"
+                )
             )
 
         if self.store:
