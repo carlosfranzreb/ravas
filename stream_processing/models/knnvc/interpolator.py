@@ -10,8 +10,9 @@ from torch import Tensor
 class Interpolator:
     def __init__(self, config: dict):
         self.lerp_n = config["n_samples"]
-        self.weight = config["weight"]
-        self.lerp_samples = torch.zeros(1)
+        increase = torch.linspace(0, config["weight"], self.lerp_n // 2)
+        self.weight = torch.cat((increase, increase.flip(0)))
+        self.lerp_samples = torch.zeros(self.lerp_n, dtype=torch.float32)
 
     def interpolate(self, audio_conv: Tensor) -> Tensor:
         """
@@ -29,9 +30,9 @@ class Interpolator:
         if min_samples == 0:
             return audio_conv
 
-        audio_samples = audio_conv[:min_samples]
-        interpolated = torch.lerp(self.lerp_samples, audio_samples, self.weight)
-        audio_conv[:min_samples] = interpolated
+        audio_conv[:min_samples] = torch.lerp(
+            audio_conv[:min_samples], self.lerp_samples, self.weight
+        )
 
         self.lerp_samples = torch.cat((self.lerp_samples, audio_conv))
         if self.lerp_samples.shape[0] > self.lerp_n:
