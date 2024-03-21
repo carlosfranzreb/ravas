@@ -46,7 +46,7 @@ def batchify_input_stream(
         num_samples_in_batched_data = len(chunk_part_for_next)
 
     while num_samples_in_batched_data < out_batch_size:
-        chunk = read_callback()
+        chunk, chunk_end_time = read_callback()
         in_chunk_size = len(chunk)
         # if a lower fps is desired, wait until the desired time has passed
         if upper_bound_fps is not None:
@@ -54,7 +54,6 @@ def batchify_input_stream(
                 continue
 
         # calculate the time coresponding to each sample in current chunk
-        chunk_end_time = time.time()
         last_frame_time = chunk_end_time
         chunk_start_time = chunk_end_time - (in_chunk_size - 1) / sampling_rate
 

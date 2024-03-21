@@ -102,5 +102,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
-    main(config, runtime=20)
+    main(config, runtime=100)
     # merge_audio_video("/Users/cafr02/repos/stream_processing/logs/1710942368")

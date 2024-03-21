@@ -42,6 +42,10 @@ class VideoProcessor(Processor):
             self.store_path = os.path.join(config["log_dir"], "video.mp4")
 
     def read(self):
+        # setup logging
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger("video_input")
+
         # Create a VideoCapture object to read the video stream
         if self.config["video_file"]:
             video_reader = cv2.VideoCapture(self.config["video_file"])
@@ -53,13 +57,24 @@ class VideoProcessor(Processor):
             int(video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)),
             3,
         )
+        sampling_rate = self.get_sampling_rate()
 
         def read_video():
+            """
+            Return the next frame and it's timestamp. If the video comes from a stream,
+            the timestamp is now. If the video comes from a file, the timestamp is the
+            time of the frame in the video.
+            """
             ret, frame = video_reader.read()
             if ret:
-                return torch.from_numpy(frame[None])
+                logger.warning(f"frame shape: {frame[None].shape}")
+                if self.config["video_file"]:
+                    ts = video_reader.get(cv2.CAP_PROP_POS_MSEC)
+                else:
+                    ts = time.time()
+                return torch.from_numpy(frame[None]), ts
             else:
-                return torch.empty((0, *frame_size))
+                return torch.empty((0, *frame_size)), time.time()
 
         # read the video stream and put the batches into the input queue
         chunk_part_for_next = torch.empty((0, *frame_size))
@@ -73,15 +88,17 @@ class VideoProcessor(Processor):
                 read_callback=read_video,
                 out_batch_size=self.config["processing_size"],
                 input_shape=(1, *frame_size),
-                sampling_rate=self.config["maximum_fps"],
+                sampling_rate=sampling_rate,
                 chunk_part_for_next_times=chunk_part_for_next_times,
                 chunk_part_for_next=chunk_part_for_next,
                 dtype=torch.uint8,
-                upper_bound_fps=self.config["maximum_fps"],
+                upper_bound_fps=(
+                    None if self.config["video_file"] else self.config["max_fps"]
+                ),
                 last_frame_time=last_frame_time,
             )
             last_frame_time = processing_time[-1].item()
-
+            logger.warning(f"in shape: {processing_data.shape}")
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
@@ -91,19 +108,19 @@ class VideoProcessor(Processor):
         logger = logging.getLogger("video_output")
 
         # ensure fps of virtual cam is higher than the fps of the input stream
+        sampling_rate = self.get_sampling_rate()
         if self.config["output_virtual_cam"]:
             virtual_cam = pyvirtualcam.Camera(
                 width=self.config["width"],
                 height=self.config["height"],
-                fps=self.config["maximum_fps"],
+                fps=sampling_rate,
                 device="/dev/video4",
             )
-
         if self.config["store"]:
             file_writer = cv2.VideoWriter(
                 self.store_path,
                 cv2.VideoWriter_fourcc(*"mp4v"),
-                self.config["maximum_fps"],
+                sampling_rate,
                 (self.config["width"], self.config["height"]),
             )
             signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
@@ -112,6 +129,7 @@ class VideoProcessor(Processor):
         while True:
             try:
                 ttime, out = self.queues.output_queue.get()
+                logger.warning(f"out shape: {out.shape}")
 
                 start_time = time.time()
                 # send each frame separately to the virtual cam
@@ -138,3 +156,11 @@ class VideoProcessor(Processor):
                         logger.info(f"delay: {delay} s")
             except queue.Empty:
                 pass
+
+    def get_sampling_rate(self) -> float:
+        """Return the sampling rate of the input video."""
+        if self.config["video_file"]:
+            video_reader = cv2.VideoCapture(self.config["video_file"])
+        else:
+            video_reader = cv2.VideoCapture(self.config["input_device"])
+        return video_reader.get(cv2.CAP_PROP_FPS)

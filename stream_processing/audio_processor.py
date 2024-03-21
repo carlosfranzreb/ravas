@@ -71,9 +71,9 @@ class AudioProcessor(Processor):
                     stdout=f,
                     stderr=f,
                 )
-            input_stream = wave.open(audio_path, "rb")
+            audio_reader = wave.open(audio_path, "rb")
         else:
-            input_stream = pyaudio.PyAudio().open(
+            audio_reader = pyaudio.PyAudio().open(
                 format=pyaudio.paInt16,
                 channels=1,
                 rate=self.config["sampling_rate"],
@@ -83,18 +83,23 @@ class AudioProcessor(Processor):
             )
 
         def read_audio():
-            if isinstance(input_stream, wave.Wave_read):
-                bin_data = input_stream.readframes(self.config["record_buffersize"])
+            if isinstance(audio_reader, wave.Wave_read):
+                bin_data = audio_reader.readframes(self.config["record_buffersize"])
+                ts = audio_reader.tell() / self.config["sampling_rate"]
             else:
-                bin_data = input_stream.read(
+                bin_data = audio_reader.read(
                     self.config["record_buffersize"], exception_on_overflow=False
                 )
+                ts = time.time()
+
             try:
                 data = torch.frombuffer(bin_data, dtype=torch.int16)
-                return data
+                return data, ts
             except ValueError as err:
-                if isinstance(input_stream, wave.Wave_read):
-                    return torch.zeros(0, dtype=torch.int16)
+                # if the audio stream is finished, return an empty tensor
+                if isinstance(audio_reader, wave.Wave_read):
+                    return torch.zeros(0, dtype=torch.int16), time.time()
+                # otherwise, this error is unexpected
                 else:
                     raise ValueError(f"Error reading audio: {err}")
 
