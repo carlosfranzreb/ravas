@@ -75,22 +75,25 @@ def merge_audio_video(log_dir: str) -> None:
     audio_file = os.path.join(log_dir, "audio.wav")
     video_file = os.path.join(log_dir, "video.mp4")
     output_file = os.path.join(log_dir, "merged.mp4")
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-i",
-            audio_file,
-            "-i",
-            video_file,
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-strict",
-            "experimental",
-            output_file,
-        ]
-    )
+    with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-i",
+                audio_file,
+                "-i",
+                video_file,
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-strict",
+                "experimental",
+                output_file,
+            ],
+            stdout=f,
+            stderr=f,
+        )
 
 
 if __name__ == "__main__":

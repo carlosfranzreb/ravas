@@ -51,23 +51,26 @@ class AudioProcessor(Processor):
         if self.config["video_file"]:
             # extract the audio from the video file with ffmpeg
             audio_path = os.path.join(self.config["log_dir"], "input_audio.wav")
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-i",
-                    self.config["video_file"],
-                    "-vn",
-                    "-acodec",
-                    "pcm_s16le",
-                    "-ar",
-                    str(self.config["sampling_rate"]),
-                    "-ac",
-                    "1",
-                    "-f",
-                    "wav",
-                    audio_path,
-                ]
-            )
+            with open(os.path.join(self.config["log_dir"], "ffmpeg.log"), "a") as f:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-i",
+                        self.config["video_file"],
+                        "-vn",
+                        "-acodec",
+                        "pcm_s16le",
+                        "-ar",
+                        str(self.config["sampling_rate"]),
+                        "-ac",
+                        "1",
+                        "-f",
+                        "wav",
+                        audio_path,
+                    ],
+                    stdout=f,
+                    stderr=f,
+                )
             input_stream = wave.open(audio_path, "rb")
         else:
             input_stream = pyaudio.PyAudio().open(
