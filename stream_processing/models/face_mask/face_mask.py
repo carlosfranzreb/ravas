@@ -48,14 +48,14 @@ class FaceMask(Converter):
 
     def convert_frame(self, data: np.ndarray) -> np.ndarray:
         image = resize_image(
-            data[0].numpy(), self.config["width"], self.config["height"]
+            data[0].numpy(), self.config["height"], self.config["width"]
         )
         image.flags.writeable = False
         results = self.face_mesh.process(image)
 
         # annotate image
         black_bg = np.zeros(
-            (self.config["width"], self.config["height"], 3), dtype="uint8"
+            (self.config["height"], self.config["width"], 3), dtype="uint8"
         )
         if results.multi_face_landmarks:
             black_bg = annotate(black_bg, results)
@@ -90,7 +90,7 @@ def annotate(frame, results):
     return frame
 
 
-def resize_image(image: np.array, desired_width: int, desired_height: int) -> np.array:
+def resize_image(image: np.array, desired_height: int, desired_width: int) -> np.array:
     """
     Pad the image to the desired height and width. If the image is smaller than the
     desired height and width, the image is centered in the padded image. If the image

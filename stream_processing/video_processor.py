@@ -85,6 +85,11 @@ class VideoProcessor(Processor):
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
+
+        # setup logging
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger("video_output")
+
         # ensure fps of virtual cam is higher than the fps of the input stream
         if self.config["output_virtual_cam"]:
             virtual_cam = pyvirtualcam.Camera(
@@ -102,10 +107,6 @@ class VideoProcessor(Processor):
                 (self.config["width"], self.config["height"]),
             )
             signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
-
-        # setup logging
-        worker_configurer(self.log_queue, self.log_level)
-        logger = logging.getLogger("video_output")
 
         # write the video stream from the output queue
         while True:
@@ -126,7 +127,6 @@ class VideoProcessor(Processor):
 
                     frame = frame.numpy()
                     if self.config["store"]:
-                        logger.error(frame.shape)
                         file_writer.write(frame)
                     if self.config["output_window"]:
                         cv.imshow("frame", frame)
