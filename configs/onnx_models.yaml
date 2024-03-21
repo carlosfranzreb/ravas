@@ -2,10 +2,14 @@ log_dir: logs
 log_level: WARNING
 define: &max_unsynced_time 0.01
 define: &video_file ./mourinho.mp4
+define: &video_width 1280
+define: &video_height 720
 
 video:
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
+  width: *video_width
+  height: *video_height
   input_device: 0
   use_video: true
   processing_size: 1
@@ -15,6 +19,8 @@ video:
   store: true
   converter:
     cls: stream_processing.models.FaceMask
+    width: *video_width
+    height: *video_height
 
 audio:
   max_unsynced_time: *max_unsynced_time
@@ -25,7 +31,7 @@ audio:
   record_buffersize: 600
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
-  output_device: MacBook Pro-Lautsprecher
+  output_device: WF-C500
   store: true # Store audio in a file
   converter:
     cls: stream_processing.models.KnnVC
