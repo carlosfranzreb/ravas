@@ -38,24 +38,15 @@ class VideoProcessor(Processor):
         )
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
-
-        self.maximum_fps = config["maximum_fps"]
-        self.processing_size = config["processing_size"]
-        self.input_device = config["input_device"]
-        self.output_virtual_cam = config["output_virtual_cam"]
-        self.output_window = config["output_window"]
-        self.store = config["store"]
-        self.video_file = config["video_file"]
-
-        if self.store:
+        if self.config["store"]:
             self.store_path = os.path.join(config["log_dir"], "video.mp4")
 
     def read(self):
         # Create a VideoCapture object to read the video stream
-        if self.video_file:
-            video_reader = cv2.VideoCapture(self.video_file)
+        if self.config["video_file"]:
+            video_reader = cv2.VideoCapture(self.config["video_file"])
         else:
-            video_reader = cv2.VideoCapture(self.input_device)
+            video_reader = cv2.VideoCapture(self.config["input_device"])
 
         frame_size = (
             int(video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT)),
@@ -66,15 +57,6 @@ class VideoProcessor(Processor):
         def read_video():
             ret, frame = video_reader.read()
             if ret:
-                # save frame to file
-                file_writer = cv2.VideoWriter(
-                    "input_video.mp4",
-                    cv2.VideoWriter_fourcc(*"mp4v"),
-                    self.maximum_fps,
-                    (frame_size[1], frame_size[0]),
-                )
-                file_writer.write(frame)
-                file_writer.release()
                 return torch.from_numpy(frame[None])
             else:
                 return torch.empty((0, *frame_size))
@@ -89,13 +71,13 @@ class VideoProcessor(Processor):
                 chunk_part_for_next,
             ) = batchify_input_stream(
                 read_callback=read_video,
-                out_batch_size=self.processing_size,
+                out_batch_size=self.config["processing_size"],
                 input_shape=(1, *frame_size),
-                sampling_rate=self.maximum_fps,
+                sampling_rate=self.config["maximum_fps"],
                 chunk_part_for_next_times=chunk_part_for_next_times,
                 chunk_part_for_next=chunk_part_for_next,
                 dtype=torch.uint8,
-                upper_bound_fps=self.maximum_fps,
+                upper_bound_fps=self.config["maximum_fps"],
                 last_frame_time=last_frame_time,
             )
             last_frame_time = processing_time[-1].item()
@@ -104,19 +86,20 @@ class VideoProcessor(Processor):
 
     def write(self):
         # ensure fps of virtual cam is higher than the fps of the input stream
-        if self.output_virtual_cam:
-            virtual_cam = (
-                pyvirtualcam.Camera(  # TODO: copy frame size from input stream
-                    width=1280, height=720, fps=100, device="/dev/video4"
-                )
+        if self.config["output_virtual_cam"]:
+            virtual_cam = pyvirtualcam.Camera(
+                width=self.config["width"],
+                height=self.config["height"],
+                fps=self.config["maximum_fps"],
+                device="/dev/video4",
             )
 
-        if self.store:
+        if self.config["store"]:
             file_writer = cv2.VideoWriter(
                 self.store_path,
                 cv2.VideoWriter_fourcc(*"mp4v"),
-                self.maximum_fps,
-                (1280, 720),
+                self.config["maximum_fps"],
+                (self.config["width"], self.config["height"]),
             )
             signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
 
@@ -142,17 +125,16 @@ class VideoProcessor(Processor):
                         time.sleep(sleep_time.item())
 
                     frame = frame.numpy()
-                    if self.store:
+                    if self.config["store"]:
+                        logger.error(frame.shape)
                         file_writer.write(frame)
-                    if self.output_window:
+                    if self.config["output_window"]:
                         cv.imshow("frame", frame)
                         cv.waitKey(1)
-                    if self.output_virtual_cam:
+                    if self.config["output_virtual_cam"]:
                         virtual_cam.send(frame[:, :, ::-1])
                     if i == 0:
                         delay = round(time.time() - ttime[i].item(), 2)
                         logger.info(f"delay: {delay} s")
-                    # sleep until the next frame should be sent (1/fps)
-                    # virual_cam.sleep_until_next_frame()
             except queue.Empty:
                 pass

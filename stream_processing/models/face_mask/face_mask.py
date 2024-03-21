@@ -47,18 +47,16 @@ class FaceMask(Converter):
                 pass
 
     def convert_frame(self, data: np.ndarray) -> np.ndarray:
-        # get one sample per batch
-        # resize image to 720p
-        image = data[0].numpy()
-        image = cv2.resize(image, (1280, 720), interpolation=cv2.BORDER_DEFAULT)
-        black_bg = np.zeros((720, 1280, 3), dtype="uint8")
-
-        # to improve performance mark the image as not writeable to pass by reference
+        image = resize_image(
+            data[0].numpy(), self.config["width"], self.config["height"]
+        )
         image.flags.writeable = False
-        # detect face landmarks
         results = self.face_mesh.process(image)
 
         # annotate image
+        black_bg = np.zeros(
+            (self.config["width"], self.config["height"], 3), dtype="uint8"
+        )
         if results.multi_face_landmarks:
             black_bg = annotate(black_bg, results)
 
@@ -90,3 +88,50 @@ def annotate(frame, results):
             connection_drawing_spec=drawing_styles.get_default_face_mesh_iris_connections_style(),
         )
     return frame
+
+
+def resize_image(image: np.array, desired_width: int, desired_height: int) -> np.array:
+    """
+    Pad the image to the desired height and width. If the image is smaller than the
+    desired height and width, the image is centered in the padded image. If the image
+    is larger than the desired height and width, it is resized first to match the
+    desired height and width.
+    """
+    height, width, _ = image.shape
+
+    # handle the height
+    vertical_pad = desired_height - height
+    top_pad = vertical_pad // 2
+    bottom_pad = vertical_pad - top_pad
+    if vertical_pad < 0:
+        width = int(width * (desired_height / height))
+        image = cv2.resize(image, (width, desired_height))
+        height = desired_height
+        top_pad = 0
+        bottom_pad = 0
+
+    # handle the width
+    horizontal_pad = desired_width - width
+    left_pad = horizontal_pad // 2
+    right_pad = horizontal_pad - left_pad
+    if horizontal_pad < 0:
+        height = int(height * (desired_width / width))
+        image = cv2.resize(image, (desired_width, height))
+        left_pad = 0
+        right_pad = 0
+        vertical_pad = desired_height - height
+        top_pad = vertical_pad // 2
+        bottom_pad = vertical_pad - top_pad
+
+    if horizontal_pad > 0 or vertical_pad > 0:
+        return cv2.copyMakeBorder(
+            image,
+            top_pad,
+            bottom_pad,
+            left_pad,
+            right_pad,
+            cv2.BORDER_CONSTANT,
+            value=0,
+        )
+    else:
+        return image
