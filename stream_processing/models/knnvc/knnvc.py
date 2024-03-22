@@ -102,11 +102,10 @@ class KnnVC(Converter):
         sync queue.
         """
         self.logger.info("Start converting audio")
-        clear_queue(self.input_queue)
+        # clear_queue(self.input_queue) TODO: is this really necessary?
         while True:
             try:
                 ttime, data = self.input_queue.get(timeout=1)
-                self.logger.debug(f"Received audio of shape {data.shape}")
                 out = self.convert_audio(data)
                 self.output_queue.put((ttime, out))
             except queue.Empty:

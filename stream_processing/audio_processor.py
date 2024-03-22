@@ -122,6 +122,10 @@ class AudioProcessor(Processor):
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
+        # setup logging
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger("audio_output")
+
         # Create a PyAudio object to write the audio stream
         # TODO: check if frames_per_buffer is correct
         output_stream = pyaudio.PyAudio().open(
@@ -137,10 +141,6 @@ class AudioProcessor(Processor):
 
         # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
-
-        # setup logging
-        worker_configurer(self.log_queue, self.log_level)
-        logger = logging.getLogger("audio_output")
 
         # write the audio stream from the output queue
         while True:

@@ -1,7 +1,7 @@
 log_dir: logs
-log_level: WARNING
+log_level: DEBUG
 define: &max_unsynced_time 0.01
-define: &video_file ./mourinho.mp4
+define: &video_file ./videos/frau_jammert.mp4
 define: &video_width 1280
 define: &video_height 720
 
@@ -13,7 +13,7 @@ video:
   input_device: 0
   use_video: true
   processing_size: 1
-  maximum_fps: 20
+  max_fps: 20
   output_virtual_cam: false
   output_window: true
   store: true
@@ -31,7 +31,7 @@ audio:
   record_buffersize: 600
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
-  output_device: WF-C500
+  output_device: MacBook Pro-Lautsprecher
   store: true # Store audio in a file
   converter:
     cls: stream_processing.models.KnnVC

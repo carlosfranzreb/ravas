@@ -42,10 +42,6 @@ class VideoProcessor(Processor):
             self.store_path = os.path.join(config["log_dir"], "video.mp4")
 
     def read(self):
-        # setup logging
-        worker_configurer(self.log_queue, self.log_level)
-        logger = logging.getLogger("video_input")
-
         # Create a VideoCapture object to read the video stream
         if self.config["video_file"]:
             video_reader = cv2.VideoCapture(self.config["video_file"])
@@ -67,9 +63,8 @@ class VideoProcessor(Processor):
             """
             ret, frame = video_reader.read()
             if ret:
-                logger.warning(f"frame shape: {frame[None].shape}")
                 if self.config["video_file"]:
-                    ts = video_reader.get(cv2.CAP_PROP_POS_MSEC)
+                    ts = video_reader.get(cv2.CAP_PROP_POS_MSEC) / 1000
                 else:
                     ts = time.time()
                 return torch.from_numpy(frame[None]), ts
@@ -98,7 +93,6 @@ class VideoProcessor(Processor):
                 last_frame_time=last_frame_time,
             )
             last_frame_time = processing_time[-1].item()
-            logger.warning(f"in shape: {processing_data.shape}")
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
@@ -129,7 +123,6 @@ class VideoProcessor(Processor):
         while True:
             try:
                 ttime, out = self.queues.output_queue.get()
-                logger.warning(f"out shape: {out.shape}")
 
                 start_time = time.time()
                 # send each frame separately to the virtual cam

@@ -175,8 +175,6 @@ class Processor:
                 + (time.time() - self.external_sync_state.last_update.value)
             )
             next_sample_time = sync_buffer[0][0][0].item()
-
-            # log times for debugging before returning
             left_time = (
                 next_sample_time - external_current_play_time - self.max_unsynced_time
             )
@@ -190,6 +188,7 @@ class Processor:
 
             # if there is a sample to sync, sync it
             if left_time is not None and left_time <= 0:
+                logger.debug("Syncing sample")
                 d_time, data = sync_buffer.pop(0)
                 self.own_sync_state.last_sample_time.value = d_time[0]
                 self.own_sync_state.last_update.value = time.time()
