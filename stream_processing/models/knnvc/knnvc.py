@@ -6,7 +6,6 @@ feature classification, as done in URithmic.
 """
 
 import os
-from glob import glob
 import logging
 import queue
 
@@ -59,42 +58,12 @@ class KnnVC(Converter):
 
         # initialize the WavLM and HiFiGAN models, compiling them if needed
         input_size = config["prev_audio_queue"]["max_samples"]
-        wavlm_ckpt = f"onnx/wavlm_{input_size}.onnx"
-        hifigan_ckpt = f"onnx/hifigan_{input_size}.onnx"
-        if not os.path.isfile(wavlm_ckpt) or not os.path.isfile(hifigan_ckpt):
-            compile_onnx(
-                input_size,
-                config["wavlm_ckpt"],
-                config["wavlm_layer"],
-                config["hifigan_cfg"],
-                config["hifigan_ckpt"],
-            )
-        self.wavlm = ort.InferenceSession(wavlm_ckpt)
-        self.hifigan = ort.InferenceSession(hifigan_ckpt)
+        self.wavlm = ort.InferenceSession(f"onnx/wavlm_{input_size}.onnx")
+        self.hifigan = ort.InferenceSession(f"onnx/hifigan_{input_size}.onnx")
 
-        # if target_feats is a file, load the target features
-        if os.path.isfile(self.target_feats_path):
-            self.target_feats = torch.load(self.target_feats_path)
-            logging.info(f"Loaded {self.target_feats.shape[0]} target features")
-
-        # otherwise, compute the target features from the given LibriSpeech directory
-        else:
-            self.target_feats = list()
-            for audiofile in glob(self.target_feats_path + "/*.flac"):
-                audio = torchaudio.load(audiofile)[0].to(self.device)
-                feats = self.wavlm.run(["output"], {"input": audio})[0]
-                self.target_feats.append(feats.squeeze(0))
-            self.target_feats = torch.cat(self.target_feats, dim=0)
-
-            # dump the features
-            dump_file = os.path.join(
-                "target_feats", os.path.basename(self.target_feats_path) + ".pt"
-            )
-            os.makedirs("target_feats", exist_ok=True)
-            torch.save(self.target_feats, dump_file)
-            logging.info(
-                f"Dumped {self.target_feats.shape[0]} target features to {dump_file}"
-            )
+        # load the target features
+        self.target_feats = torch.load(self.target_feats_path)
+        logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
     def convert(self) -> None:
         """
