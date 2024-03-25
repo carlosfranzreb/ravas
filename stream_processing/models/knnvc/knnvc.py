@@ -2,17 +2,15 @@
 Selects targets based on speaker embeddings.
 
 TODO: Optimize interpolation. If glitchiness persists, look into VAD through WavLM
-feature classification, as done in URithmic.
+feature classification, as done in URythmic.
 """
 
-import os
 import logging
 import queue
 
 import torch
 from torch import Tensor
 from torch.multiprocessing import Queue
-import torchaudio
 import onnxruntime as ort
 
 from stream_processing.processor import Converter
@@ -20,7 +18,6 @@ from stream_processing.utils import clear_queue
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
-from .compile_models import compile_onnx
 
 
 class KnnVC(Converter):
@@ -71,7 +68,8 @@ class KnnVC(Converter):
         sync queue.
         """
         self.logger.info("Start converting audio")
-        # clear_queue(self.input_queue) TODO: is this really necessary?
+        if self.config["video_file"] is None:
+            clear_queue(self.input_queue)
         while True:
             try:
                 ttime, data = self.input_queue.get(timeout=1)

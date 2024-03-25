@@ -37,7 +37,8 @@ class FaceMask(Converter):
         Read the input queue, convert the data and put the converted data into the
         sync queue.
         """
-        # clear_queue(self.input_queue) TODO: is this really necessary?
+        if self.config["video_file"] is None:
+            clear_queue(self.input_queue)
         while True:
             try:
                 ttime, data = self.input_queue.get()

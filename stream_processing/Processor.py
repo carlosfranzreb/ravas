@@ -139,6 +139,7 @@ class Processor:
         Initialize and start the converter.
         """
         converter_cls = get_cls(self.config["converter"]["cls"])
+        self.config["converter"]["video_file"] = self.config["video_file"]
         self.converter = converter_cls(
             self.name,
             self.config["converter"],
