@@ -17,9 +17,8 @@ def run_experiment(config: dict, params: dict, runtime: int) -> None:
     - config: The base config.
     - params: A dictionary of parameters and their values. The keys should be the
         parameter names, and the values should be lists of values to try. For nested
-        parameters, use a dot to separate the keys. We allow only one level of nesting.
-        Each parameter should have the same number of values, as we will run the
-        experiment for each combination of values once.
+        parameters, use a dot to separate the keys. Each parameter should have the same
+        number of values. Experiments are run for each index.
     - runtime: The time to run each experiment. It should be enough for the audio model
         to start, which takes around 30 seconds.
     """
@@ -32,20 +31,19 @@ def run_experiment(config: dict, params: dict, runtime: int) -> None:
     for value_idx in range(n_values):
         config_copy = deepcopy(config)
         for param_name, param_values in params.items():
+            config_obj = config_copy
             param_name = param_name.split(".")
-            if len(param_name) == 1:
-                config_copy[param_name[0]] = param_values[value_idx]
-            else:
-                config_copy[param_name[0]][param_name[1]] = param_values[value_idx]
-
+            for key in param_name[:-1]:
+                config_obj = config_obj[key]
+            config_obj[param_name[-1]] = param_values[value_idx]
         main(config_copy, runtime)
 
 
 if __name__ == "__main__":
-    config = yaml.safe_load(open("configs/default.yaml"))
-    config["log_dir"] = "logs/proc_vs_buffer"
+    config = yaml.safe_load(open("configs/run_experiment.yaml"))
+    config["log_dir"] = "logs/experiment_logs"
     params = {
-        "audio.processing_size": [1600, 1600, 1600, 1600],
-        "audio.record_buffersize": [400, 800, 1200, 1600],
+        "audio.processing_size": [3200, 9600],
+        "audio.converter.vad.threshold": [0.0, 0.0],
     }
-    run_experiment(config, params, 180)
+    run_experiment(config, params, 10)
