@@ -3,6 +3,7 @@ services:
   ras:
     image: ras:latest
     build: ./ras/
+    ipc: host
     volumes:
       - ./ras/configs/onnx_models.yaml:/app/config.yaml
       - ./ras/stream_processing:/app/stream_processing
