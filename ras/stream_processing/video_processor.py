@@ -95,6 +95,10 @@ class VideoProcessor(Processor):
             last_frame_time = processing_time[-1].item()
             self.queues.input_queue.put((processing_time, processing_data))
 
+            # sleep to avoid ConnectionRefusedError on the method that reads this queue
+            if self.config["video_file"]:
+                time.sleep(0.1)
+
     def write(self):
 
         # setup logging
