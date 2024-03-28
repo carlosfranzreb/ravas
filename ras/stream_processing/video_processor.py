@@ -97,7 +97,7 @@ class VideoProcessor(Processor):
 
             # sleep to avoid ConnectionRefusedError on the method that reads this queue
             if self.config["video_file"]:
-                time.sleep(0.1)
+                time.sleep(0.01)
 
     def write(self):
 
@@ -148,7 +148,7 @@ class VideoProcessor(Processor):
                         cv.waitKey(1)
                     if self.config["output_virtual_cam"]:
                         virtual_cam.send(frame[:, :, ::-1])
-                    if i == 0:
+                    if i == 0 and self.config["video_file"] is None:
                         delay = round(time.time() - ttime[i].item(), 2)
                         logger.info(f"delay: {delay} s")
             except queue.Empty:
