@@ -1,0 +1,59 @@
+.App {
+  text-align: center;
+  height: 768px;
+  width: 500px;
+  margin: 0 auto;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  border-radius: 24px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(45deg, #69ebca, #7a42af);
+}
+
+.camera-feed {
+  margin: 16px;
+  border-radius: 16px;
+  width: 468px;
+  height: 300px;
+}
+
+.logo {
+  position: absolute;
+  width: 128px;
+  bottom: 16px;
+  left: 16px;
+}
+
+.url {
+  margin: 16px;
+  margin-bottom: 0px;
+  border-radius: 16px;
+  padding: 0 16px;
+  width: 436px;
+  height: 32px;
+  border: 2px dashed #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: aliceblue;
+}
+
+.dropzone {
+  margin: 16px;
+  margin-bottom: 0px;
+  border-radius: 16px;
+  padding: 0 16px;
+  width: 436px;
+  height: 32px;
+  border: 2px dashed #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: aliceblue;
+  cursor: pointer;
+}

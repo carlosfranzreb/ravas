@@ -29,11 +29,6 @@ def main(config: dict, runtime: int = None) -> None:
     # create a logging directory and store the config
     log_dir = os.path.join(config["log_dir"], str(int(time.time())))
     os.makedirs(log_dir, exist_ok=True)
-    config["commit_hash"] = (
-        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-        .decode("ascii")
-        .strip()
-    )
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
     config["audio"]["log_dir"] = log_dir
     config["video"]["log_dir"] = log_dir

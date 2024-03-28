@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: DEBUG
 define: &max_unsynced_time 0.01
-define: &video_file ./videos/mourinho.mp4
+define: &video_file null #./videos/frau_jammert.mp4
 define: &video_width 1280
 define: &video_height 720
 
@@ -16,7 +16,7 @@ video:
   max_fps: 20
   output_virtual_cam: false
   output_window: true
-  store: true
+  store: false
   converter:
     cls: stream_processing.models.FaceMask
     width: *video_width
@@ -27,12 +27,12 @@ audio:
   video_file: *video_file
   use_audio: true
   output_buffersize: 600
-  processing_size: 9600
+  processing_size: 3200
   record_buffersize: 600
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
-  store: true
+  store: false
   converter:
     cls: stream_processing.models.KnnVC
     target_feats_path: ./target_feats/wendy.pt

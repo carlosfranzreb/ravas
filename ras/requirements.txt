@@ -1,0 +1,8 @@
+opencv-python
+torch
+torchaudio
+PyAudio
+pyvirtualcam
+librosa
+mediapipe
+pyyaml

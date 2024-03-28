@@ -21,17 +21,10 @@ REQUIRED = req_file("requirements.txt")
 EXTRAS = {}
 VERSION = "0.1.0"
 
-
-with open("README.md", encoding="utf-8") as f:
-    long_description = "\n" + f.read()
-
-
 setup(
     name=NAME,
     version=VERSION,
     description=DESCRIPTION,
-    long_description=long_description,
-    long_description_content_type="text/markdown",
     url=URL,
     packages=["stream_processing"],
     install_requires=REQUIRED,
