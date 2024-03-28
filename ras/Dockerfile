@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10
 
 WORKDIR /app
 
@@ -15,19 +15,20 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 ENV MEDIAPIPE_DISABLE_GPU 1
 
-# install dependencies
-RUN pip install --upgrade pip
-COPY ./requirements.txt ./requirements.txt
-COPY ./setup.py ./setup.py
-RUN pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-
 # copy code
 COPY ./stream_processing/ ./stream_processing/
 COPY ./target_feats/ ./target_feats/
 COPY ./onnx/ ./onnx/
+COPY ./videos/ ./videos/
+RUN mkdir ./logs
 
-# install the application
+# install the app
+RUN pip install --upgrade pip
+COPY ./requirements.txt ./requirements.txt
+COPY ./setup.py ./setup.py
+RUN pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install git+https://github.com/letmaik/pyvirtualcam
 RUN pip install -e .
 
-# run the application
+# run the app
 CMD ["python", "stream_processing/main.py", "--config", "./config.yaml"]

@@ -1,15 +1,14 @@
 version: '0.1'
 services:
   ras:
-    platform: linux/amd64
     image: ras:latest
     build: ./ras/
     volumes:
-      - ./configs/onnx_models.yaml:/app/config.yaml
+      - ./ras/configs/onnx_models.yaml:/app/config.yaml
       - ./ras/stream_processing:/app/stream_processing
+      - ./ras/logs:/app/logs
 
   rpm:
-    platform: linux/amd64
     image: rpm:latest
     build: ./rpm/
     volumes:
