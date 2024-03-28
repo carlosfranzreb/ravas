@@ -40,8 +40,9 @@ class AudioProcessor(Processor):
         self.external_sync_state = external_sync_state
 
         self.config = config
-        self.input_device = get_device_idx(config["input_device"], True)
-        self.output_device = get_device_idx(config["output_device"], False)
+        if not self.config["video_file"]:
+            self.input_device = get_device_idx(config["input_device"], True)
+            self.output_device = get_device_idx(config["output_device"], False)
 
         if self.config["store"]:
             self.store_path = os.path.join(self.config["log_dir"], "audio.wav")
@@ -128,16 +129,17 @@ class AudioProcessor(Processor):
 
         # Create a PyAudio object to write the audio stream
         # TODO: check if frames_per_buffer is correct
-        output_stream = pyaudio.PyAudio().open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=self.config["sampling_rate"],
-            output=True,
-            frames_per_buffer=self.config["output_buffersize"],
-            output_device_index=self.output_device,
-        )
         if self.config["store"]:
             wav = get_wav_obj(self.store_path, self.config["sampling_rate"])
+        else:
+            output_stream = pyaudio.PyAudio().open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=self.config["sampling_rate"],
+                output=True,
+                frames_per_buffer=self.config["output_buffersize"],
+                output_device_index=self.output_device,
+            )
 
         # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
@@ -147,12 +149,12 @@ class AudioProcessor(Processor):
             tdata, data = self.queues.output_queue.get()
             data = data.to(torch.int16)
             bin_data = data.numpy().tobytes()
-            delay = round(time.time() - tdata[0].item(), 2)
-            logger.info(f"delay: {delay} s")
-            output_stream.write(bin_data)
-
             if self.config["store"]:
                 wav.writeframes(bin_data)
+            else:
+                delay = round(time.time() - tdata[0].item(), 2)
+                logger.info(f"delay: {delay} s")
+                output_stream.write(bin_data)
 
 
 def get_device_idx(device_name: str, is_input: bool) -> int:
@@ -164,7 +166,7 @@ def get_device_idx(device_name: str, is_input: bool) -> int:
                 return idx
             elif not is_input and device["max_output_channels"] > 0:
                 return idx
-    raise ValueError(f"Device {device_name} not found.")
+    raise ValueError(f"Device {device_name} not found. Device list: {devices}")
 
 
 def get_wav_obj(path: str, sample_rate: int) -> wave.Wave_write:
