@@ -15,7 +15,7 @@ video:
   processing_size: 1
   max_fps: 20
   output_virtual_cam: false
-  output_window: true
+  output_window: false
   store: true
   converter:
     cls: stream_processing.models.FaceMask
