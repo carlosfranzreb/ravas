@@ -1,129 +1,131 @@
-import './App.css';
+import { useGLTF } from "@react-three/drei";
+import { Canvas, useGraph } from "@react-three/fiber";
+import { useEffect, useRef, useState } from "react";
+import { useDropzone } from "react-dropzone";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { Color, Euler, Matrix4 } from "three";
+import "./App.css";
+import Avatar from "./Avatar";
 
-import { useEffect, useState } from 'react';
-import { FaceLandmarker, FaceLandmarkerOptions, FilesetResolver } from "@mediapipe/tasks-vision";
-import { Color, Euler, Matrix4 } from 'three';
-import { Canvas, useFrame, useGraph } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
-import { useDropzone } from 'react-dropzone';
-
-let video: HTMLVideoElement;
-let faceLandmarker: FaceLandmarker;
-let lastVideoTime = -1;
-let blendshapes: any[] = [];
-let rotation: Euler;
-let headMesh: any[] = [];
-
-const options: FaceLandmarkerOptions = {
-  baseOptions: {
-    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-    delegate: "GPU"
-  },
-  numFaces: 1,
-  runningMode: "VIDEO",
-  outputFaceBlendshapes: true,
-  outputFacialTransformationMatrixes: true,
-};
-
-function Avatar({ url }: { url: string }) {
+function App() {
+  const [url, setUrl] = useState<string>(
+    "https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024"
+  );
   const { scene } = useGLTF(url);
   const { nodes } = useGraph(scene);
 
-  useEffect(() => {
-    if (nodes.Wolf3D_Head) headMesh.push(nodes.Wolf3D_Head);
-    if (nodes.Wolf3D_Teeth) headMesh.push(nodes.Wolf3D_Teeth);
-    if (nodes.Wolf3D_Beard) headMesh.push(nodes.Wolf3D_Beard);
-    if (nodes.Wolf3D_Avatar) headMesh.push(nodes.Wolf3D_Avatar);
-    if (nodes.Wolf3D_Head_Custom) headMesh.push(nodes.Wolf3D_Head_Custom);
-  }, [nodes, url]);
+  // get head mesh
+  const headMesh = [];
+  if (nodes.Wolf3D_Head) headMesh.push(nodes.Wolf3D_Head);
+  if (nodes.Wolf3D_Teeth) headMesh.push(nodes.Wolf3D_Teeth);
+  if (nodes.Wolf3D_Beard) headMesh.push(nodes.Wolf3D_Beard);
+  if (nodes.Wolf3D_Avatar) headMesh.push(nodes.Wolf3D_Avatar);
+  if (nodes.Wolf3D_Head_Custom) headMesh.push(nodes.Wolf3D_Head_Custom);
+  const [rotation, setRotation] = useState<Euler>(new Euler());
+  const [blendshapes, setBlendshapes] = useState<any[]>([]);
+  const updateRef = useRef(false);
 
-  useFrame(() => {
-    if (blendshapes.length > 0) {
-      blendshapes.forEach(element => {
-        headMesh.forEach(mesh => {
-          let index = mesh.morphTargetDictionary[element.categoryName];
-          if (index >= 0) {
-            mesh.morphTargetInfluences[index] = element.score;
-          }
-        });
-      });
-
-      nodes.Head.rotation.set(rotation.x, rotation.y, rotation.z);
-      nodes.Neck.rotation.set(rotation.x / 5 + 0.3, rotation.y / 5, rotation.z / 5);
-      nodes.Spine2.rotation.set(rotation.x / 10, rotation.y / 10, rotation.z / 10);
-    }
+  // create websocket connection
+  const ws_url = process.env.REACT_APP_WS_URL || "ws://localhost:8888";
+  const { sendMessage, lastMessage, readyState } = useWebSocket(ws_url, {
+    shouldReconnect: (closeEvent) => true,
+    reconnectAttempts: 6000, // try to reconnect every second for 100 minutes
+    reconnectInterval: 1000,
   });
+  const connectionStatus = {
+    [ReadyState.CONNECTING]: "Connecting",
+    [ReadyState.OPEN]: "Connected",
+    [ReadyState.CLOSING]: "Closing",
+    [ReadyState.CLOSED]: "Closed",
+    [ReadyState.UNINSTANTIATED]: "Uninstantiated",
+  }[readyState];
 
-  return <primitive object={scene} position={[0, -1.75, 3]} />
-}
+  function get_canvas_url() {
+    // get canvas as image
+    const canvas = document.getElementsByTagName("canvas")[0];
+    const img_data = canvas.toDataURL("image/jpeg");
+    return img_data.split(",")[1];
+  }
+  useEffect(() => {
+    if (lastMessage !== null) {
+      const strmessage = lastMessage.data;
+      const message = JSON.parse(strmessage);
 
-function App() {
-  const [url, setUrl] = useState<string>("https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024");
+      const blendshapes_temp = message.blendshapes;
+      const matrix = new Matrix4().fromArray(message.transformation_matrix);
+      const rotation_temp = new Euler().setFromRotationMatrix(matrix);
+      setBlendshapes(blendshapes_temp);
+      setRotation(rotation_temp);
+      // set updateRef to true to send image to server after the avatar is rendered
+      updateRef.current = true;
+    }
+  }, [lastMessage]);
+
+  // handle paste url or file to load avatar
   const { getRootProps } = useDropzone({
-    onDrop: files => {
+    onDrop: (files) => {
       const file = files[0];
       const reader = new FileReader();
       reader.onload = () => {
         setUrl(reader.result as string);
-      }
+      };
       reader.readAsDataURL(file);
-    }
+    },
   });
 
-  const setup = async () => {
-    const filesetResolver = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
-    faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, options);
-
-    video = document.getElementById("video") as HTMLVideoElement;
-    navigator.mediaDevices.getUserMedia({
-      video: { width: 1280, height: 720 },
-      audio: false,
-    }).then(function (stream) {
-      video.srcObject = stream;
-      video.addEventListener("loadeddata", predict);
-    });
-  }
-
-  const predict = async () => {
-    let nowInMs = Date.now();
-    if (lastVideoTime !== video.currentTime) {
-      lastVideoTime = video.currentTime;
-      const faceLandmarkerResult = faceLandmarker.detectForVideo(video, nowInMs);
-
-      if (faceLandmarkerResult.faceBlendshapes && faceLandmarkerResult.faceBlendshapes.length > 0 && faceLandmarkerResult.faceBlendshapes[0].categories) {
-        blendshapes = faceLandmarkerResult.faceBlendshapes[0].categories;
-
-        const matrix = new Matrix4().fromArray(faceLandmarkerResult.facialTransformationMatrixes![0].data);
-        rotation = new Euler().setFromRotationMatrix(matrix);
-      }
+  function onRenderFinished() {
+    if (updateRef.current) {
+      // send image generated from canvas to server
+      const b64_img = get_canvas_url();
+      sendMessage(b64_img);
+      updateRef.current = false;
     }
-
-    window.requestAnimationFrame(predict);
   }
-
-  const handleOnChange = (event: any) => {
-    setUrl(`${event.target.value}?morphTargets=ARKit&textureAtlas=1024`);
-  }
-
-  useEffect(() => {
-    setup();
-  }, []);
 
   return (
     <div className="App">
-      <div {...getRootProps({ className: 'dropzone' })}>
+      <div {...getRootProps({ className: "dropzone" })}>
         <p>Drag & drop RPM avatar GLB file here</p>
       </div>
-      <input className='url' type="text" placeholder="Paste RPM avatar URL" onChange={handleOnChange} />
-      <video className='camera-feed' id="video" autoPlay></video>
-      <Canvas style={{ height: 600 }} camera={{ fov: 25 }} shadows>
+      <button
+        onClick={() => {
+          setRotation(new Euler(0, rotation.y + 0.1, 0));
+        }}
+      >
+        Rotate
+      </button>
+      <Canvas
+        style={{ height: 600 }}
+        camera={{ fov: 25 }}
+        shadows
+        gl={{ preserveDrawingBuffer: true }}
+      >
         <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} color={new Color(1, 1, 0)} intensity={0.5} castShadow />
-        <pointLight position={[-10, 0, 10]} color={new Color(1, 0, 0)} intensity={0.5} castShadow />
+        <pointLight
+          position={[10, 10, 10]}
+          color={new Color(1, 1, 0)}
+          intensity={0.5}
+          castShadow
+        />
+        <pointLight
+          position={[-10, 0, 10]}
+          color={new Color(1, 0, 0)}
+          intensity={0.5}
+          castShadow
+        />
         <pointLight position={[0, 0, 10]} intensity={0.5} castShadow />
-        <Avatar url={url} />
+
+        <Avatar
+          scene={scene}
+          nodes={nodes}
+          blendshapes={blendshapes}
+          rotation={rotation}
+          headMesh={headMesh}
+          onRenderFinished={onRenderFinished}
+        />
       </Canvas>
-      <img className='logo' src="./logo.png" />
+      <span>State: {connectionStatus}</span>
+      <span></span>
     </div>
   );
 }

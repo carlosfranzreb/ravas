@@ -39,7 +39,8 @@ class VideoProcessor(Processor):
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
         if self.config["store"]:
-            self.store_path = os.path.join(config["log_dir"], "video.mp4")
+            self.store_path = os.path.join(config["log_dir"], "video."+ config["store_format"])
+
 
     def read(self):
         # Create a VideoCapture object to read the video stream
@@ -115,9 +116,15 @@ class VideoProcessor(Processor):
                 device="/dev/video4",
             )
         if self.config["store"]:
+            if self.config["store_format"] == "avi":
+                fourcc = cv2.VideoWriter_fourcc(*"XVID")
+            elif self.config["store_format"] == "mp4":
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            else:
+                raise ValueError(f"Unknown video format: {self.config['store_format']}")
             file_writer = cv2.VideoWriter(
                 self.store_path,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                fourcc,
                 sampling_rate,
                 (self.config["width"], self.config["height"]),
             )
