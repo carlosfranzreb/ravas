@@ -11,8 +11,8 @@ RUN npm install -g serve
 # # Copy code
 COPY ./src/ ./src/
 COPY ./public/ ./public/
+COPY .env .env
 
-ENV REACT_APP_WS_URL ws://0.0.0.0:8888
 RUN npm run build
 # # set environment variables
 CMD ["npx","serve", "-s", "build"]

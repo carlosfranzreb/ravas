@@ -162,10 +162,10 @@ class VideoProcessor(Processor):
                             logger.info(f"delay: {delay} s")
             except queue.Empty:
                 pass
-            if self.config["store"]:
-                file_writer.release()
-                logger.info("finish video")
-            self.queues.finished.set()
+        if self.config["store"]:
+            file_writer.release()
+            logger.info("finish video")
+        self.queues.finished.set()
 
     def get_sampling_rate(self) -> float:
         """Return the sampling rate of the input video."""
