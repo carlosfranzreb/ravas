@@ -30,23 +30,39 @@ def batchify_input_stream(
     """
     assert upper_bound_fps is None or input_shape[0] == 1
 
+    if chunk_part_for_next_times is None and chunk_part_for_next is None:
+        # during the last batch, the stream was finished
+        return (None, None), (None, None)
+
     out_shape = (out_batch_size, *input_shape[1:])
 
-    new_chunk_part_for_next = None
-    new_chunk_part_for_next_times = None
+    new_chunk_part_for_next = torch.empty((0, *input_shape[1:]))
+    new_chunk_part_for_next_times = torch.empty((0))
 
     batched_data = torch.zeros(out_shape, dtype=dtype)
     batched_time = torch.zeros(out_batch_size, dtype=torch.float64)
     num_samples_in_batched_data = 0
 
     # if last chunk was not fully used in last batch add it to the new batch
-    if chunk_part_for_next_times is not None:
+    if len(chunk_part_for_next_times) > 0:
         batched_data[: len(chunk_part_for_next)] = chunk_part_for_next
         batched_time[: len(chunk_part_for_next_times)] = chunk_part_for_next_times
         num_samples_in_batched_data = len(chunk_part_for_next)
 
     while num_samples_in_batched_data < out_batch_size:
         chunk, chunk_end_time = read_callback()
+        # if the stream is finished
+        if chunk is None and chunk_end_time is None:
+            # if there is still data in the batch, return it
+            if num_samples_in_batched_data > 0:
+                return (
+                    batched_time[:num_samples_in_batched_data],
+                    batched_data[:num_samples_in_batched_data],
+                ), (
+                    None,
+                    None,
+                )
+            return (None, None), (None, None)
         in_chunk_size = len(chunk)
         # if a lower fps is desired, wait until the desired time has passed
         if upper_bound_fps is not None:

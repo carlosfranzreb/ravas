@@ -17,8 +17,9 @@ ENV MEDIAPIPE_DISABLE_GPU 1
 
 # copy code
 COPY ./stream_processing/ ./stream_processing/
-# COPY ./target_feats/ ./target_feats/
-# COPY ./onnx/ ./onnx/
+COPY ./target_feats/ ./target_feats/
+COPY ./onnx/ ./onnx/
+COPY ./configs/ ./configs/
 COPY ./videos/ ./videos/
 RUN mkdir ./logs
 

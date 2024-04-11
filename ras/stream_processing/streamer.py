@@ -55,3 +55,12 @@ class AudioVideoStreamer:
             self.audio_handler.stop()
         if self.use_video:
             self.video_handler.stop()
+
+    def wait(self):
+        """
+        Wait for the audio and video processor to finish.
+        """
+        if self.use_audio:
+            self.audio_handler.wait()
+        if self.use_video:
+            self.video_handler.wait()

@@ -97,16 +97,16 @@ class AudioProcessor(Processor):
                 data = torch.frombuffer(bin_data, dtype=torch.int16)
                 return data, ts
             except ValueError as err:
-                # if the audio stream is finished, return an empty tensor
+                # if the audio stream is finished, return None
                 if isinstance(audio_reader, wave.Wave_read):
-                    return torch.zeros(0, dtype=torch.int16), time.time()
+                    return None, None
                 # otherwise, this error is unexpected
                 else:
                     raise ValueError(f"Error reading audio: {err}")
 
         # read the audio stream and put the batches into the input queue
-        chunk_part_for_next = None
-        chunk_part_for_next_times = None
+        chunk_part_for_next = torch.empty((0, self.config["record_buffersize"]))
+        chunk_part_for_next_times = torch.empty((0))
         while True:
             (processing_time, processing_data), (
                 chunk_part_for_next_times,
@@ -143,18 +143,26 @@ class AudioProcessor(Processor):
 
         # clear the queue to avoid latency caused by init. delay
         clear_queue(self.queues.output_queue)
-
         # write the audio stream from the output queue
-        while True:
+        data = torch.empty((0))
+        while data is not None:
             tdata, data = self.queues.output_queue.get()
-            data = data.to(torch.int16)
-            bin_data = data.numpy().tobytes()
-            if self.config["store"]:
-                wav.writeframes(bin_data)
-            else:
-                delay = round(time.time() - tdata[0].item(), 2)
-                logger.info(f"delay: {delay} s")
-                output_stream.write(bin_data)
+            if data is not None:
+                data = data.to(torch.int16)
+                bin_data = data.numpy().tobytes()
+                if self.config["store"]:
+                    wav.writeframes(bin_data)
+                else:
+                    delay = round(time.time() - tdata[0].item(), 2)
+                    logger.info(f"delay: {delay} s")
+                    output_stream.write(bin_data)
+        logger.info("finish audio")
+        if self.config["store"]:
+            wav.close()
+        else:
+            output_stream.stop_stream()
+            output_stream.close()
+        self.queues.finished.set()
 
 
 def get_device_idx(device_name: str, is_input: bool) -> int:

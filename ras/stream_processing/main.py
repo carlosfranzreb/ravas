@@ -44,20 +44,24 @@ def main(config: dict, runtime: int = None) -> None:
     audio_video_streamer = AudioVideoStreamer(config, log_queue)
     audio_video_streamer.start()
 
-    # stop the streamer after `runtime` seconds or wait indefinitely until the user
-    # interrupts the program
-    try:
+    if config["video"]["video_file"] or config["audio"]["video_file"]:
+        # wait for the audio-video streamer to finish with the input video file
+        audio_video_streamer.wait()
+    else:
+        # stop the streamer after `runtime` seconds or wait indefinitely until the user
+        # interrupts the program
         if runtime is not None:
             time.sleep(runtime)
             audio_video_streamer.stop()
         else:
             while True:
                 time.sleep(1)
-    finally:
-        audio_video_streamer.stop()
-        log_listener.terminate()
-        if config["audio"]["store"] and config["video"]["store"]:
-            merge_audio_video(log_dir)
+
+    # stop the audio-video streamer and the logging
+    audio_video_streamer.stop()
+    log_listener.terminate()
+    if config["audio"]["store"] and config["video"]["store"]:
+        merge_audio_video(log_dir)
 
 
 def merge_audio_video(log_dir: str) -> None:
@@ -68,7 +72,7 @@ def merge_audio_video(log_dir: str) -> None:
     - log_dir: The directory where the audio and video files are stored.
     """
     audio_file = os.path.join(log_dir, "audio.wav")
-    video_file = os.path.join(log_dir, "video.mp4")
+    video_file = os.path.join(log_dir, "video." + config["video"]["store_format"])
     output_file = os.path.join(log_dir, "merged.mp4")
     with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:
         subprocess.run(
