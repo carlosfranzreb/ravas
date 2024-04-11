@@ -1,7 +1,6 @@
 import json
 import os
 from multiprocessing import Queue
-import time
 import cv2
 import numpy as np
 import torch
@@ -50,6 +49,9 @@ class Avatar(Converter):
         self.landmarker = mp.tasks.vision.FaceLandmarker.create_from_options(mp_options)
 
     def initializeServer(self):
+        """
+        Initialize the websocket server.
+        """
 
         self.recv_queue = Queue()
         self.server = WebsocketServer(
@@ -84,9 +86,11 @@ class Avatar(Converter):
             try:
                 ttime, data = self.input_queue.get()
                 if ttime is None and data is None:
+                    # end of stream
                     self.output_queue.put((None, None))
                 else:
                     success = False
+                    # try to convert the frame until it is successful
                     while not success:
                         try:
                             out = self.convert_frame(data, ttime)
