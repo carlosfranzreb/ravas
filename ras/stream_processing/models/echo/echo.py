@@ -23,7 +23,7 @@ class Echo(Converter):
 
     def convert(self) -> None:
         """
-        Convert the audio stream.
+        put the data from input queue to output queue without any processing.
         """
         self.logger.info("Start converting audio")
         if self.config["video_file"] is None:

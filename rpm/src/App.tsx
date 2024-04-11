@@ -8,9 +8,7 @@ import "./App.css";
 import Avatar from "./Avatar";
 
 function App() {
-  const [url, setUrl] = useState<string>(
-    "https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024"
-  );
+  const [url, setUrl] = useState<string>("./default_avatar.glb");
   const { scene } = useGLTF(url);
   const { nodes } = useGraph(scene);
 

@@ -14,6 +14,4 @@ COPY ./public/ ./public/
 COPY .env .env
 
 RUN npm run build
-# # set environment variables
 CMD ["npx","serve", "-s", "build"]
-# CMD ["npm", "start"]
