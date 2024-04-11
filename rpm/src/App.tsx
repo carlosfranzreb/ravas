@@ -87,13 +87,6 @@ function App() {
       <div {...getRootProps({ className: "dropzone" })}>
         <p>Drag & drop RPM avatar GLB file here</p>
       </div>
-      <button
-        onClick={() => {
-          setRotation(new Euler(0, rotation.y + 0.1, 0));
-        }}
-      >
-        Rotate
-      </button>
       <Canvas
         style={{ height: 600 }}
         camera={{ fov: 25 }}
