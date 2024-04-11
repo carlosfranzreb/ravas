@@ -1,0 +1,37 @@
+import queue
+
+from torch.multiprocessing import Queue
+
+from stream_processing.processor import Converter
+from stream_processing.utils import clear_queue
+
+
+class Echo(Converter):
+    def __init__(
+        self,
+        name: str,
+        config: dict,
+        input_queue: Queue,
+        output_queue: Queue,
+        log_queue: Queue,
+        log_level: str,
+    ) -> None:
+        """
+        Initialize the Echo Model.
+        """
+        super().__init__(name, config, input_queue, output_queue, log_queue, log_level)
+
+    def convert(self) -> None:
+        """
+        put the data from input queue to output queue without any processing.
+        """
+        self.logger.info("Start converting audio")
+        if self.config["video_file"] is None:
+            clear_queue(self.input_queue)
+        while True:
+            try:
+                ttime, data = self.input_queue.get(timeout=1)
+                self.output_queue.put((ttime, data))
+            except queue.Empty:
+                self.logger.debug("Input queue is empty")
+                pass

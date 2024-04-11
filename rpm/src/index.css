@@ -11,8 +11,3 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(45deg, #f3ec78, #af4261);
 }
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}

@@ -39,7 +39,9 @@ class VideoProcessor(Processor):
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
         if self.config["store"]:
-            self.store_path = os.path.join(config["log_dir"], "video.mp4")
+            self.store_path = os.path.join(
+                config["log_dir"], "video." + config["store_format"]
+            )
 
     def read(self):
         # Create a VideoCapture object to read the video stream
@@ -69,6 +71,9 @@ class VideoProcessor(Processor):
                     ts = time.time()
                 return torch.from_numpy(frame[None]), ts
             else:
+                if self.config["video_file"]:
+                    # the video file is finished
+                    return None, None
                 return torch.empty((0, *frame_size)), time.time()
 
         # read the video stream and put the batches into the input queue
@@ -92,12 +97,9 @@ class VideoProcessor(Processor):
                 ),
                 last_frame_time=last_frame_time,
             )
-            last_frame_time = processing_time[-1].item()
+            if processing_time is not None:
+                last_frame_time = processing_time[-1].item()
             self.queues.input_queue.put((processing_time, processing_data))
-
-            # sleep to avoid ConnectionRefusedError on the method that reads this queue
-            if self.config["video_file"]:
-                time.sleep(0.01)
 
     def write(self):
 
@@ -115,44 +117,55 @@ class VideoProcessor(Processor):
                 device="/dev/video4",
             )
         if self.config["store"]:
+            if self.config["store_format"] == "avi":
+                fourcc = cv2.VideoWriter_fourcc(*"XVID")
+            elif self.config["store_format"] == "mp4":
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            else:
+                raise ValueError(f"Unknown video format: {self.config['store_format']}")
             file_writer = cv2.VideoWriter(
                 self.store_path,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                fourcc,
                 sampling_rate,
                 (self.config["width"], self.config["height"]),
             )
             signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
 
         # write the video stream from the output queue
-        while True:
+        out = torch.empty((0, 0, 0, 0))
+        while out is not None:
             try:
                 ttime, out = self.queues.output_queue.get()
+                if out is not None:
+                    start_time = time.time()
+                    # send each frame separately to the virtual cam
+                    self.own_sync_state.last_sample_time.value = ttime[0].item()
+                    self.own_sync_state.last_update.value = time.time()
+                    for i, frame in enumerate(out):
+                        # sleep until the time of the frame is reached
+                        current_ptime = time.time() - start_time
+                        delta_time = ttime[i] - ttime[0]
+                        sleep_time = delta_time - current_ptime
+                        if sleep_time > 0:
+                            time.sleep(sleep_time.item())
 
-                start_time = time.time()
-                # send each frame separately to the virtual cam
-                self.own_sync_state.last_sample_time.value = ttime[0].item()
-                self.own_sync_state.last_update.value = time.time()
-                for i, frame in enumerate(out):
-                    # sleep until the time of the frame is reached
-                    current_ptime = time.time() - start_time
-                    delta_time = ttime[i] - ttime[0]
-                    sleep_time = delta_time - current_ptime
-                    if sleep_time > 0:
-                        time.sleep(sleep_time.item())
-
-                    frame = frame.numpy()
-                    if self.config["store"]:
-                        file_writer.write(frame)
-                    if self.config["output_window"]:
-                        cv.imshow("frame", frame)
-                        cv.waitKey(1)
-                    if self.config["output_virtual_cam"]:
-                        virtual_cam.send(frame[:, :, ::-1])
-                    if i == 0 and self.config["video_file"] is None:
-                        delay = round(time.time() - ttime[i].item(), 2)
-                        logger.info(f"delay: {delay} s")
+                        frame = frame.numpy()
+                        if self.config["store"]:
+                            file_writer.write(frame)
+                        if self.config["output_window"]:
+                            cv.imshow("frame", frame)
+                            cv.waitKey(1)
+                        if self.config["output_virtual_cam"]:
+                            virtual_cam.send(frame[:, :, ::-1])
+                        if i == 0 and self.config["video_file"] is None:
+                            delay = round(time.time() - ttime[i].item(), 2)
+                            logger.info(f"delay: {delay} s")
             except queue.Empty:
                 pass
+        if self.config["store"]:
+            file_writer.release()
+            logger.info("finish video")
+        self.queues.finished.set()
 
     def get_sampling_rate(self) -> float:
         """Return the sampling rate of the input video."""

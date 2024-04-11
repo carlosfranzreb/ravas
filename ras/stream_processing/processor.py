@@ -5,7 +5,7 @@ import importlib
 
 from torch import Tensor
 import numpy as np
-from torch.multiprocessing import Process, Queue, Value
+from torch.multiprocessing import Process, Queue, Value, Manager
 
 from stream_processing.utils import clear_queue
 from stream_processing.dist_logging import worker_configurer
@@ -23,9 +23,11 @@ class ProcessingQueues:
     """
 
     def __init__(self):
-        self.input_queue = Queue()
-        self.sync_queue = Queue()
-        self.output_queue = Queue()
+        self.manager = Manager()
+        self.input_queue = self.manager.Queue()
+        self.sync_queue = self.manager.Queue()
+        self.output_queue = self.manager.Queue()
+        self.finished = self.manager.Event()
 
 
 class ProcessingSyncState:
@@ -175,6 +177,10 @@ class Processor:
                 self.external_sync_state.last_sample_time.value
                 + (time.time() - self.external_sync_state.last_update.value)
             )
+            # if data is None (input file is finished) forward instantly
+            if sync_buffer[0][1] is None:
+                logger.debug("Sync buffer is None")
+                return 0
             next_sample_time = sync_buffer[0][0][0].item()
             left_time = (
                 next_sample_time - external_current_play_time - self.max_unsynced_time
@@ -189,11 +195,20 @@ class Processor:
 
             # if there is a sample to sync, sync it
             if left_time is not None and left_time <= 0:
-                logger.debug("Syncing sample")
-                d_time, data = sync_buffer.pop(0)
-                self.own_sync_state.last_sample_time.value = d_time[0]
-                self.own_sync_state.last_update.value = time.time()
-                self.queues.output_queue.put((d_time, data))
+                # if the external stream is not yet initialized but the own stream is, do not sync
+                if (
+                    self.external_sync_state.last_update.value != 0
+                    or self.own_sync_state.last_update.value == 0
+                    or self.config["video_file"] is None
+                ):
+                    logger.debug("Syncing sample")
+
+                    d_time, data = sync_buffer.pop(0)
+                    # if the data is None, the input file is finished
+                    if dtime is not None:
+                        self.own_sync_state.last_sample_time.value = d_time[0]
+                        self.own_sync_state.last_update.value = time.time()
+                    self.queues.output_queue.put((d_time, data))
                 left_time = get_left_time()
 
             # if there is a sample to sync, skip the fetching
@@ -237,6 +252,10 @@ class ProcessorHandler:
         """Terminate all processes."""
         for proc in self.procs:
             proc.terminate()
+
+    def wait(self):
+        """Wait for the write process to finish."""
+        self.processor.queues.finished.wait()
 
 
 def get_cls(cls_str: str):

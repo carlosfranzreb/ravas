@@ -6,9 +6,15 @@ WORKDIR /app
 COPY tsconfig.json ./
 COPY package*.json ./
 RUN npm install
+RUN npm install -g serve
 
 # Copy code
-COPY public/ ./public
-COPY src/ ./src
+COPY ./src/ ./src/
+COPY ./public/ ./public/
 
-CMD ["npm", "start"]
+# Define env variable
+ARG REACT_APP_WS_URL
+ENV REACT_APP_WS_URL=$REACT_APP_WS_URL
+
+RUN npm run build
+CMD ["npx","serve", "-s", "build"]
