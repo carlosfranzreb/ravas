@@ -1,7 +1,9 @@
-# STREAM_PROCESSING
-# ===============
+# Real-time Video Anonymization System
+
+Anonymized audio and video in real-time. Can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
 
 ## How to use it
+
 An example is provided in the ./example folder. The general workflow is as follows:
 1. Define the `init_callback` function for audio or video, where you can initialize all objects required for the `callback` function. Return these objects to use them in the callback.
 2. Define the final `callback` function, which receives the data, corresponding timestamps, and the list of objects returned from the `init_callback` function.
@@ -11,7 +13,9 @@ An example is provided in the ./example folder. The general workflow is as follo
 6. Stop the streamer with the `stop()` function.
 
 ## Project Structure
+
 The project is structured as follows:
+
 - **Processor.py**
     - `Processor`: Abstract class providing basic functionality to process data, such as synchronization (`sync`) and callback function handling (`process`). The `read_input_stream` and `write_output_stream` functions are abstract and must be implemented in the child class. Since each function will be started in a new process, the class is only allowed to have attributes that are pickable.
     - `ProcessingQueues`: Provides all necessary multiprocessing queues for the `Processor` class.
@@ -37,3 +41,7 @@ To reduce latency between the streams, the data is converted into torch tensors.
 1. Install portaudio: `brew install portaudio`
 2. Install the package: `pip install .`
 3. Install a virtual audio loopback driver, e.g. `brew install blackhole-2ch`
+
+## Changing the avatar
+
+The avatar is stored in a GLB file in the public folder, and called from the React app (`rpm/src/App.tsx`). If you want to change the avatar, ensure that the new avatar you download from Avatar has a similar URL to this one: `https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024`.
