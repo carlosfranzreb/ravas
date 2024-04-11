@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file ./videos/test.mp4
+define: &video_file ./videos/mourinho.mp4
 define: &video_width 1280
 define: &video_height 720
 
@@ -22,8 +22,6 @@ video:
     cls: stream_processing.models.Avatar
     width: *video_width
     height: *video_height
-    ws_host: 0.0.0.0
-    ws_port: 8887
 
 audio:
   max_unsynced_time: *max_unsynced_time

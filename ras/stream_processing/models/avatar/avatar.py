@@ -7,11 +7,9 @@ import torch
 from stream_processing.processor import Converter
 from stream_processing.utils import clear_queue
 from websocket_server import WebsocketServer
-import cv2
 import base64
-import numpy as np
 from threading import Event
-from queue import Empty, Queue
+from queue import Empty
 import mediapipe as mp
 
 
@@ -55,7 +53,7 @@ class Avatar(Converter):
 
         self.recv_queue = Queue()
         self.server = WebsocketServer(
-            host=self.config["ws_host"], port=self.config["ws_port"]
+            os.environ["ws_host"], port=int(os.environ["ws_port"])
         )
         self.client_available = Event()
         self.server.set_fn_message_received(

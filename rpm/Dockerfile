@@ -11,7 +11,6 @@ RUN npm install -g serve
 # # Copy code
 COPY ./src/ ./src/
 COPY ./public/ ./public/
-COPY .env .env
 
 RUN npm run build
 CMD ["npx","serve", "-s", "build"]
