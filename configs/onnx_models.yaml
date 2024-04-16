@@ -1,7 +1,7 @@
 log_dir: logs
-log_level: DEBUG
+log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file ./videos/frau_jammert.mp4
+define: &video_file null
 define: &video_width 1280
 define: &video_height 720
 
@@ -35,7 +35,7 @@ audio:
   store: true # Store audio in a file
   converter:
     cls: stream_processing.models.KnnVC
-    target_feats_path: target_feats/135887.pt
+    target_feats_path: target_feats/john.pt
     device: cpu
     n_neighbors: 4
     prev_audio_queue:
