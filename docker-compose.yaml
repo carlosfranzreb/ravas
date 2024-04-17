@@ -5,9 +5,12 @@ services:
     build: ./ras/
     ipc: host
     volumes:
-      - ./ras/configs/test_avatar.yaml:/app/config.yaml
+      - ./ras/configs/onnx_models.yaml:/app/config.yaml
       - ./ras/stream_processing:/app/stream_processing
       - ./ras/logs:/app/logs
+      - ./ras/onnx:/app/onnx
+      - ./ras/target_feats:/app/target_feats
+      - /Users/cafr02/repos/charite/clips/:/app/charite_clips
     ports:
       - 0.0.0.0:8887:8887
     environment:
