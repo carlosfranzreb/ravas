@@ -44,6 +44,10 @@ class VideoProcessor(Processor):
             )
 
     def read(self):
+        # setup logging
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger("video_input")
+
         # Create a VideoCapture object to read the video stream
         if self.config["video_file"]:
             video_reader = cv2.VideoCapture(self.config["video_file"])
@@ -80,6 +84,7 @@ class VideoProcessor(Processor):
         chunk_part_for_next = torch.empty((0, *frame_size))
         chunk_part_for_next_times = torch.empty((0))
         last_frame_time = 0
+        is_finished = False
         while True:
             (processing_time, processing_data), (
                 chunk_part_for_next_times,
@@ -98,7 +103,12 @@ class VideoProcessor(Processor):
                 last_frame_time=last_frame_time,
             )
             if processing_time is not None:
+                logger.debug(f"Read from {processing_time[0]} s")
                 last_frame_time = processing_time[-1].item()
+            else:
+                if is_finished:
+                    break
+                is_finished = True
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
@@ -142,6 +152,12 @@ class VideoProcessor(Processor):
                     self.own_sync_state.last_sample_time.value = ttime[0].item()
                     self.own_sync_state.last_update.value = time.time()
                     for i, frame in enumerate(out):
+                        frame = frame.numpy()
+                        if self.config["store"]:
+                            logger.debug(f"Writing, starting at {ttime[0]} s")
+                            file_writer.write(frame)
+                            continue
+
                         # sleep until the time of the frame is reached
                         current_ptime = time.time() - start_time
                         delta_time = ttime[i] - ttime[0]
@@ -149,9 +165,6 @@ class VideoProcessor(Processor):
                         if sleep_time > 0:
                             time.sleep(sleep_time.item())
 
-                        frame = frame.numpy()
-                        if self.config["store"]:
-                            file_writer.write(frame)
                         if self.config["output_window"]:
                             cv.imshow("frame", frame)
                             cv.waitKey(1)
@@ -160,8 +173,10 @@ class VideoProcessor(Processor):
                         if i == 0 and self.config["video_file"] is None:
                             delay = round(time.time() - ttime[i].item(), 2)
                             logger.info(f"delay: {delay} s")
+
             except queue.Empty:
                 pass
+
         if self.config["store"]:
             file_writer.release()
             logger.info("finish video")

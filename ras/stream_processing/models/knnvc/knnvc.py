@@ -73,10 +73,14 @@ class KnnVC(Converter):
         while True:
             try:
                 ttime, data = self.input_queue.get(timeout=1)
-                out = self.convert_audio(data)
-                self.output_queue.put((ttime, out))
+                if data is not None:
+                    self.logger.debug(f"Converting audio starting at {ttime[0]}")
+                    data = self.convert_audio(data)
+                else:
+                    self.logger.info("Data is null; stopping conversion")
+                self.output_queue.put((ttime, data))
+
             except queue.Empty:
-                self.logger.debug("Input queue is empty")
                 pass
 
     @torch.inference_mode()

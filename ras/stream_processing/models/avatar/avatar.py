@@ -87,6 +87,7 @@ class Avatar(Converter):
                     # end of stream
                     self.output_queue.put((None, None))
                 else:
+                    self.logger.debug(f"Converting video starting at {ttime[0]}")
                     success = False
                     # try to convert the frame until it is successful
                     while not success:

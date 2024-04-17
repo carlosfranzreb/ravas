@@ -122,6 +122,7 @@ class Processor:
         self.max_unsynced_time = config["max_unsynced_time"]
         self.log_queue = log_queue
         self.log_level = log_level
+        self.converting_file = self.config["video_file"] is not None
 
     def read(self):
         """
@@ -171,21 +172,21 @@ class Processor:
         def get_left_time() -> float:
             """Return the timestamp where the output should be at the current time."""
             if len(sync_buffer) == 0:
-                logger.debug("Sync buffer is empty")
                 return None
-            external_current_play_time = (
-                self.external_sync_state.last_sample_time.value
-                + (time.time() - self.external_sync_state.last_update.value)
+            if self.converting_file:
+                return 0
+
+            external_time = self.external_sync_state.last_sample_time.value + (
+                time.time() - self.external_sync_state.last_update.value
             )
             # if data is None (input file is finished) forward instantly
             if sync_buffer[0][1] is None:
-                logger.debug("Sync buffer is None")
-                return 0
+                return 99
             next_sample_time = sync_buffer[0][0][0].item()
-            left_time = (
-                next_sample_time - external_current_play_time - self.max_unsynced_time
+            left_time = next_sample_time - external_time - self.max_unsynced_time
+            logger.debug(
+                f"next: {round(next_sample_time, 2)} s, external: {round(external_time, 2)} s"
             )
-            logger.debug(f"time left until sync: {round(left_time, 2)} s")
             return left_time
 
         sync_buffer = []
@@ -199,13 +200,13 @@ class Processor:
                 if (
                     self.external_sync_state.last_update.value != 0
                     or self.own_sync_state.last_update.value == 0
-                    or self.config["video_file"] is None
+                    or self.converting_file
                 ):
                     logger.debug("Syncing sample")
 
                     d_time, data = sync_buffer.pop(0)
                     # if the data is None, the input file is finished
-                    if dtime is not None:
+                    if d_time is not None:
                         self.own_sync_state.last_sample_time.value = d_time[0]
                         self.own_sync_state.last_update.value = time.time()
                     self.queues.output_queue.put((d_time, data))

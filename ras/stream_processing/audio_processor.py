@@ -48,6 +48,10 @@ class AudioProcessor(Processor):
             self.store_path = os.path.join(self.config["log_dir"], "audio.wav")
 
     def read(self):
+        # setup logging
+        worker_configurer(self.log_queue, self.log_level)
+        logger = logging.getLogger("audio_input")
+
         # Create a PyAudio object to read the audio stream
         if self.config["video_file"]:
             # extract the audio from the video file with ffmpeg
@@ -107,6 +111,7 @@ class AudioProcessor(Processor):
         # read the audio stream and put the batches into the input queue
         chunk_part_for_next = torch.empty((0, self.config["record_buffersize"]))
         chunk_part_for_next_times = torch.empty((0))
+        is_finished = False
         while True:
             (processing_time, processing_data), (
                 chunk_part_for_next_times,
@@ -120,6 +125,12 @@ class AudioProcessor(Processor):
                 chunk_part_for_next=chunk_part_for_next,
                 dtype=torch.int16,
             )
+            if processing_time is not None:
+                logger.debug(f"Read from {processing_time[0]} s")
+            else:
+                if is_finished:
+                    break
+                is_finished = True
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
@@ -151,6 +162,7 @@ class AudioProcessor(Processor):
                 data = data.to(torch.int16)
                 bin_data = data.numpy().tobytes()
                 if self.config["store"]:
+                    logger.debug(f"Writing, starting at {tdata[0]} s")
                     wav.writeframes(bin_data)
                 else:
                     delay = round(time.time() - tdata[0].item(), 2)
