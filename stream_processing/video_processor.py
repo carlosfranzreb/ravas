@@ -144,7 +144,7 @@ class VideoProcessor(Processor):
                         cv.waitKey(1)
                     if self.config["output_virtual_cam"]:
                         virtual_cam.send(frame[:, :, ::-1])
-                    if i == 0:
+                    if self.config["video_file"] is None and i == 0:
                         delay = round(time.time() - ttime[i].item(), 2)
                         logger.info(f"delay: {delay} s")
             except queue.Empty:

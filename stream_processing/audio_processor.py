@@ -128,14 +128,15 @@ class AudioProcessor(Processor):
 
         # Create a PyAudio object to write the audio stream
         # TODO: check if frames_per_buffer is correct
-        output_stream = pyaudio.PyAudio().open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=self.config["sampling_rate"],
-            output=True,
-            frames_per_buffer=self.config["output_buffersize"],
-            output_device_index=self.output_device,
-        )
+        if self.config["video_file"] is None:
+            output_stream = pyaudio.PyAudio().open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=self.config["sampling_rate"],
+                output=True,
+                frames_per_buffer=self.config["output_buffersize"],
+                output_device_index=self.output_device,
+            )
         if self.config["store"]:
             wav = get_wav_obj(self.store_path, self.config["sampling_rate"])
 
@@ -147,9 +148,11 @@ class AudioProcessor(Processor):
             tdata, data = self.queues.output_queue.get()
             data = data.to(torch.int16)
             bin_data = data.numpy().tobytes()
-            delay = round(time.time() - tdata[0].item(), 2)
-            logger.info(f"delay: {delay} s")
-            output_stream.write(bin_data)
+
+            if self.config["video_file"] is None:
+                delay = round(time.time() - tdata[0].item(), 2)
+                logger.info(f"delay: {delay} s")
+                output_stream.write(bin_data)
 
             if self.config["store"]:
                 wav.writeframes(bin_data)
