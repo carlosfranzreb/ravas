@@ -56,13 +56,37 @@ def main(config: dict, runtime: int = None) -> None:
             time.sleep(runtime)
             audio_video_streamer.stop()
         else:
-            while True:
-                time.sleep(1)
+            out_audio = os.path.join(log_dir, "audio.wav")
+            out_video = os.path.join(log_dir, "video.mp4")
+            if config["audio"]["video_file"] is None:
+                while True:
+                    time.sleep(1)
+            elif config["audio"]["store"] and config["video"]["store"]:
+                while file_written(out_audio) or file_written(out_video):
+                    time.sleep(1)
+            elif config["audio"]["store"]:
+                while file_written(out_audio):
+                    time.sleep(1)
+            elif config["video"]["store"]:
+                while file_written(out_video):
+                    time.sleep(1)
+            else:
+                raise ValueError("A file is being anonymized but not stored.")
     finally:
         audio_video_streamer.stop()
         log_listener.terminate()
         if config["audio"]["store"] and config["video"]["store"]:
             merge_audio_video(log_dir)
+
+
+def file_written(file_path: str, t_since_write: int = 2) -> bool:
+    """
+    Return true if the file has been written in the last `t_since_write` seconds.
+    If the file does not exist, return True.
+    """
+    if not os.path.exists(file_path):
+        return True
+    return time.time() - os.path.getmtime(file_path) < t_since_write
 
 
 def merge_audio_video(log_dir: str) -> None:
@@ -102,4 +126,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
-    main(config, runtime=100)
+    main(config, runtime=None)

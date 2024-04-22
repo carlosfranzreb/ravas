@@ -117,7 +117,7 @@ class VideoProcessor(Processor):
                 sampling_rate,
                 (self.config["width"], self.config["height"]),
             )
-            signal.signal(signal.SIGTERM, lambda sig, frame: file_writer.release())
+            signal.signal(signal.SIGTERM, release_writer_and_exit(file_writer))
 
         # write the video stream from the output queue
         while True:
@@ -157,3 +157,11 @@ class VideoProcessor(Processor):
         else:
             video_reader = cv2.VideoCapture(self.config["input_device"])
         return video_reader.get(cv2.CAP_PROP_FPS)
+
+
+def release_writer_and_exit(writer):
+    def handler(signum, frame):
+        writer.release()
+        exit(0)
+
+    return handler
