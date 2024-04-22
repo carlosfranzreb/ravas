@@ -5,6 +5,8 @@ import time
 from argparse import ArgumentParser
 
 import yaml
+import torch
+import torchaudio
 
 from stream_processing.streamer import AudioVideoStreamer
 from stream_processing.dist_logging import listener_process
@@ -96,7 +98,19 @@ def merge_audio_video(log_dir: str) -> None:
     Args:
     - log_dir: The directory where the audio and video files are stored.
     """
+    # assert that the input and output audio have the same length
     audio_file = os.path.join(log_dir, "audio.wav")
+    audio_orig_file = os.path.join(log_dir, "input_audio.wav")
+    audio, sr = torchaudio.load(audio_file)
+    audio_orig, sr_orig = torchaudio.load(audio_orig_file)
+    assert sr == sr_orig, "Sample rates of the audio files are different."
+    if audio.shape[1] < audio_orig.shape[1]:
+        audio = torch.cat([audio, torch.zeros_like(audio_orig[:, audio.shape[1] :])], 1)
+    elif audio.shape[1] > audio_orig.shape[1]:
+        audio = audio[:, : audio_orig.shape[1]]
+    torchaudio.save(audio_file, audio, sr)
+
+    # merge the audio and video files
     video_file = os.path.join(log_dir, "video.mp4")
     output_file = os.path.join(log_dir, "merged.mp4")
     with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:
