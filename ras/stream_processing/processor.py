@@ -23,11 +23,14 @@ class ProcessingQueues:
     """
 
     def __init__(self):
-        self.manager = Manager()
-        self.input_queue = self.manager.Queue()
-        self.sync_queue = self.manager.Queue()
-        self.output_queue = self.manager.Queue()
-        self.finished = self.manager.Event()
+        # [russa] NOTE: must not attach manager-instance to ProcessingQueues itself (i.e. do not store to self.manager)
+        #               otherwise, using method 'spwan' for starting new Processes may cause problems, e.g.
+        #               `TypeError: cannot pickle 'weakref.ReferenceType' object`
+        manager = Manager()
+        self.input_queue = manager.Queue()
+        self.sync_queue = manager.Queue()
+        self.output_queue = manager.Queue()
+        self.finished = manager.Event()
 
 
 class ProcessingSyncState:
