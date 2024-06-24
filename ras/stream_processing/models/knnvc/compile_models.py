@@ -8,8 +8,8 @@ from argparse import ArgumentParser
 
 import torch
 
-from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
-from stream_processing.models.knnvc.hifigan import Generator, AttrDict
+from ..knnvc.wavlm.model import WavLM, WavLMConfig
+from ..knnvc.hifigan import Generator, AttrDict
 
 
 def compile_onnx(

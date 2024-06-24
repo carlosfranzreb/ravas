@@ -1,10 +1,10 @@
-from multiprocessing import Process
+from torch.multiprocessing import Process
 import time
 import unittest
 import numpy as np
 
 import torch
-from stream_processing.Processor import Processor, ProcessingQueues, ProcessingSyncState
+from ..stream_processing.processor import Processor, ProcessingQueues, ProcessingSyncState
 
 
 class TestSync(unittest.TestCase):

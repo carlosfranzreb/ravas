@@ -7,8 +7,8 @@ from torch import Tensor
 import numpy as np
 from torch.multiprocessing import Process, Queue, Value, Manager
 
-from stream_processing.utils import clear_queue
-from stream_processing.dist_logging import worker_configurer
+from .utils import clear_queue
+from .dist_logging import worker_configurer
 
 
 class ProcessingQueues:
@@ -23,11 +23,11 @@ class ProcessingQueues:
     """
 
     def __init__(self):
-        self.manager = Manager()
-        self.input_queue = self.manager.Queue()
-        self.sync_queue = self.manager.Queue()
-        self.output_queue = self.manager.Queue()
-        self.finished = self.manager.Event()
+        manager = Manager()
+        self.input_queue = manager.Queue()
+        self.sync_queue = manager.Queue()
+        self.output_queue = manager.Queue()
+        self.finished = manager.Event()
 
 
 class ProcessingSyncState:

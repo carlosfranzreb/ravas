@@ -2,8 +2,8 @@ import queue
 
 from torch.multiprocessing import Queue
 
-from stream_processing.processor import Converter
-from stream_processing.utils import clear_queue
+from ...processor import Converter
+from ...utils import clear_queue
 
 
 class Echo(Converter):

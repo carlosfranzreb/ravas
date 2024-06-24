@@ -13,8 +13,8 @@ from torch import Tensor
 from torch.multiprocessing import Queue
 import onnxruntime as ort
 
-from stream_processing.processor import Converter
-from stream_processing.utils import clear_queue
+from ...processor import Converter
+from ...utils import clear_queue
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator

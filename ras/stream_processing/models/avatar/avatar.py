@@ -1,11 +1,11 @@
 import json
 import os
-from multiprocessing import Queue
+from torch.multiprocessing import Queue
 import cv2
 import numpy as np
 import torch
-from stream_processing.processor import Converter
-from stream_processing.utils import clear_queue
+from ...processor import Converter
+from ...utils import clear_queue
 from websocket_server import WebsocketServer
 import base64
 from threading import Event

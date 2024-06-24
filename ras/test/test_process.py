@@ -1,9 +1,9 @@
-from multiprocessing import Process
+from torch.multiprocessing import Process
 import time
 import unittest
 
 import torch
-from stream_processing.Processor import (
+from ..stream_processing.processor import (
     ProcessingCallback,
     Processor,
     ProcessingQueues,

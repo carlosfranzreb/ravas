@@ -1,7 +1,7 @@
 import unittest
 
 import torch
-from stream_processing.utils import batchify_input_stream
+from ..stream_processing.utils import batchify_input_stream
 
 
 class TestBatchify(unittest.TestCase):

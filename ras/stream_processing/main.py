@@ -1,4 +1,4 @@
-import multiprocessing
+from torch import multiprocessing
 import os
 import subprocess
 import time
@@ -6,8 +6,8 @@ from argparse import ArgumentParser
 
 import yaml
 
-from stream_processing.streamer import AudioVideoStreamer
-from stream_processing.dist_logging import listener_process
+from .streamer import AudioVideoStreamer
+from .dist_logging import listener_process
 
 
 def main(config: dict, runtime: int = None) -> None:
