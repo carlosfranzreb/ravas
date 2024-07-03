@@ -35,6 +35,21 @@ docker compose start rpm
 docker compose start rpm --build
 ```
 
+### Docker (Only Build React-App)
+
+if the docker container was not created yet, use `docker compose` with [../docker-compose.yaml](../docker-compose.yaml) (run in project root directory):
+```bash
+# build docker container only for rpm service (i.e. react-app)
+docker compose build rpm
+```
+
+then run build script [run_docker_build_rpm.sh](./run_docker_build_rpm.sh):
+```bash
+# start container to build react-app, then exit container
+./run_docker_build_rpm.sh
+```
+Afterwards, the compiled built react-app will be in sub-directory `./build`.
+
 
 ### Use React-App
 
