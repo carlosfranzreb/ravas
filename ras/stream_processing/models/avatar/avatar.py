@@ -53,7 +53,7 @@ class Avatar(Converter):
 
         self.recv_queue = Queue()
         self.server = WebsocketServer(
-            os.environ["ws_host"], port=int(os.environ["ws_port"])
+            self.config["ws_host"], port=int(self.config["ws_port"])
         )
         self.client_available = Event()
         self.server.set_fn_message_received(

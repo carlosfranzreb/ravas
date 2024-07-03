@@ -12,17 +12,13 @@ services:
       - ./ras/target_feats:/app/target_feats
       - /Users/cafr02/repos/charite/clips/:/app/charite_clips
     ports:
-      - 0.0.0.0:8887:8887
-    environment:
-      - ws_host=0.0.0.0
-      - ws_port=8887
+      # port for the web socket service, to wich the react-app will connect:
+      - 0.0.0.0:8888:8888
 
   rpm:
     image: rpm:latest
     build:
       context: ./rpm/
-      args:
-        REACT_APP_WS_URL: ws://127.0.0.1:8887
     volumes:
       - ./rpm/src:/app/src
       - ./rpm/public:/app/public

@@ -24,7 +24,9 @@ function App() {
   const updateRef = useRef(false);
 
   // create websocket connection
-  const ws_url = process.env.REACT_APP_WS_URL || "ws://localhost:8888";
+  const queryParameters = new URLSearchParams(window.location.search);
+  const ws_param = queryParameters.get("ws");
+  const ws_url = ws_param || "ws://localhost:8888";
   const { sendMessage, lastMessage, readyState } = useWebSocket(ws_url, {
     shouldReconnect: (closeEvent) => true,
     reconnectAttempts: 6000, // try to reconnect every second for 100 minutes
