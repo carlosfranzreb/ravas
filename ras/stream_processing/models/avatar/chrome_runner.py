@@ -16,13 +16,36 @@ BASE_URL = 'http://localhost'
 PORT = 3000
 """ default port when starting chrome driver with web URL (i.e. not with extension) """
 WS_ADDR: Optional[str] = None  # 'http://107.0.0.1:8888'
+""" default address for web-socket (i.e. connection to python process), if `None`, the react-app will use its default setting """
+DEFAULT_EXTENSION_ID = 'mjioebaagpdpfjbicjponoajkbdphofk'
+""" default extension ID for packed & signed chrome extension """
 
 PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 """ root directory of project """
 
 
-def create_options(run_headless: bool = True, debug_port: Optional[int] = None) -> webdriver.ChromeOptions:
+class StartExtensionType(Enum):
+    NO_EXTENSION = 0
+    PACKED_EXTENSION = 1
+    UNPACKED_EXTENSION = 2
+
+
+def get_web_extension_path() -> str:
+    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension');
+
+
+def get_web_extension_file() -> str:
+    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx');
+
+
+def create_options(start_extension: Optional[StartExtensionType] = None, extension_path: Optional[str] = None, run_headless: bool = True, debug_port: Optional[int] = None) -> webdriver.ChromeOptions:
     options = webdriver.ChromeOptions()
+
+    if start_extension:
+        if start_extension == StartExtensionType.PACKED_EXTENSION:
+            options.add_extension(get_web_extension_file() if not extension_path else extension_path)
+        elif start_extension == StartExtensionType.UNPACKED_EXTENSION:
+            options.add_argument(f"load-extension={get_web_extension_path() if not extension_path else extension_path}")
 
     if run_headless:
         options.add_argument("--headless=new")
@@ -63,7 +86,7 @@ def select_camera(driver: webdriver.Chrome, selected_camera: str):
     # ... .querySelectorAll('option')[index].value
 
 
-def finish_browser(driver):
+def finish_browser(driver: webdriver.Chrome):
     # do quit browser:
     driver.quit()
 
@@ -72,16 +95,37 @@ def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue()
 
     if log_queue:
         worker_configurer(log_queue, log_level if log_level else 'INFO')
-    logger = logging.getLogger("web_server")
+    logger = logging.getLogger("chrome_driver_renderer")
 
     driver = None
     was_interrupted = False
     try:
 
-        options = create_options()
+        start_extension = StartExtensionType.NO_EXTENSION
+        extension_path = None
+        extension_id = DEFAULT_EXTENSION_ID
+        if isinstance(web_extension, bool):
+            if web_extension:
+                start_extension = StartExtensionType.PACKED_EXTENSION
+        elif isinstance(web_extension, str):
+            if os.path.exists(web_extension):
+                start_extension = StartExtensionType.PACKED_EXTENSION if os.path.isfile(web_extension) else StartExtensionType.UNPACKED_EXTENSION
+                extension_path = web_extension
+            else:
+                start_extension = StartExtensionType.PACKED_EXTENSION
+                extension_id = web_extension
+
+        options = create_options(start_extension=start_extension, extension_path=extension_path)
         driver = webdriver.Chrome(options=options)
 
-        target_url = '{}:{}'.format(base_url, port)
+        if start_extension == StartExtensionType.NO_EXTENSION:
+            if port >= 0:
+                target_url = '{}:{}'.format(base_url, port)
+            else:
+                target_url = base_url
+        else:
+            target_url = 'chrome-extension://{}/index.html'.format(extension_id)
+
         if ws_addr:
             target_url += '?ws=' + ws_addr
 

@@ -53,15 +53,25 @@ class Avatar(Converter):
         self.landmarker = mp.tasks.vision.FaceLandmarker.create_from_options(mp_options)
 
     def initializeRenderer(self):
+
+        if not self.config.get('start_chrome_renderer', True):
+            self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
+            return
+
         app_port = int(self.config.get('app_port', 3000))
-        server_args = {
-            'port': app_port,
-            'log_queue': self.log_queue,
-            'log_level': self.log_level,
-        }
-        render_app_server = Process(target=start_server, kwargs=server_args, name='render_app_server')
-        render_app_server.start()
-        self.logger.info('Started Web Server for Rendering App')
+        use_extension = self.config.get('use_chrome_extension', True)
+        if not use_extension:
+            server_args = {
+                'port': app_port,
+                'log_queue': self.log_queue,
+                'log_level': self.log_level,
+            }
+            render_app_server = Process(target=start_server, kwargs=server_args, name='render_app_server')
+            render_app_server.start()
+            self.logger.info('Started web Server for Rendering App')
+        else:
+            render_app_server = None
+
 
         ws_port = int(self.config.get('ws_port', 8888))
         render_app_stop = Queue()  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
@@ -69,23 +79,28 @@ class Avatar(Converter):
             'ws_addr': 'http://127.0.0.1:{}'.format(ws_port),
             'stop_signal': render_app_stop,
             'port': app_port,
+            'web_extension': use_extension,
             'log_queue': self.log_queue,
             'log_level': self.log_level,
         }
         render_app = Process(target=start_browser, kwargs=app_args, name='render_app')
         render_app.start()
         self.logger.info('Started Chrome Driver for Rendering App')
+
         self.render_server = render_app_server
         self.render_app = render_app
         self.stop_render_app = render_app_stop
+        self.logger.info('Starting Chrome Driver for Rendering App: finished.')
 
     def stopRenderer(self):
         if self.render_server and self.render_server.is_alive():
+            self.logger.info('Stopping Web Server Rendering App...')
             self.render_server.terminate()
         if self.render_app and self.render_app.is_alive():
+            self.logger.info('Stopping Chrome Driver for Rendering App...')
             # NOTE need to signal the render_app process to stop, so that the chrome driver can be closed properly
             #      (simply calling render_app.terminate() will leave chrome instance running)
-            self.stop_render_app.put(True)
+            self.stop_render_app.put(True)  # send any value for signaling the render_app to stop the chrome driver
             self.render_app.join(1.5)
             # if not stopped yet, force termination:
             self.render_app.terminate()

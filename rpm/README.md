@@ -43,12 +43,29 @@ if the docker container was not created yet, use `docker compose` with [../docke
 docker compose build rpm
 ```
 
-then run build script [run_docker_build_rpm.sh](./run_docker_build_rpm.sh):
+then run build script [run_docker_build_rpm.sh](./run_docker_build_rpm.sh) (from this directory):
 ```bash
-# start container to build react-app, then exit container
+# FOR APP: start container to build react-app, then exit container
 ./run_docker_build_rpm.sh
+
+# FOR WEB EXTENSION: start container to build chrome-extension for react-app, then exit container
+./run_docker_build_extension_rpm.sh
 ```
-Afterwards, the compiled built react-app will be in sub-directory `./build`.
+Afterwards, the compiled built react-app will be in sub-directory `./build`, or for the chrome-extension, in 
+sub-directory `./dist`.
+
+
+For building the packed **chrome-extension** (with signed key, so that a stable extension ID is created), on *nix run
+```bash
+./run_pack_extension_crx.sh
+```
+
+on Windows run
+```cmd
+run_pack_extension_crx.cmd
+```
+
+Afterwards, the created `*.crx` file will be located in `./dist`.
 
 
 ### Use React-App

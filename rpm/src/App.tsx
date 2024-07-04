@@ -27,8 +27,9 @@ function App() {
   const queryParameters = new URLSearchParams(window.location.search);
   const ws_param = queryParameters.get("ws");
   const ws_url = ws_param || "ws://localhost:8888";
-  const { sendMessage, lastMessage, readyState } = useWebSocket(ws_url, {
-    shouldReconnect: (closeEvent) => true,
+  const [socketUrl, setSocketUrl] = useState<string | null>(null);
+  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl, {
+    shouldReconnect: (_closeEvent) => true,
     reconnectAttempts: 6000, // try to reconnect every second for 100 minutes
     reconnectInterval: 1000,
   });
@@ -39,6 +40,11 @@ function App() {
     [ReadyState.CLOSED]: "Closed",
     [ReadyState.UNINSTANTIATED]: "Uninstantiated",
   }[readyState];
+
+  // for setting up web-socket after app initialization:
+  useEffect(() => {
+    setSocketUrl(ws_url);
+  });
 
   function get_canvas_url() {
     // get canvas as image
