@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import time
 from queue import Empty
 from threading import Event
 
@@ -138,6 +139,12 @@ class Avatar(Converter):
         self.initializeRenderer()
         self.initializeFaceLandmarkerModel()
         self.initializeServer()
+
+        self.duration_detect = 0
+        self.duration_render = 0
+        self.count_detect = 0
+        self.count_render = 0
+
         if self.config["video_file"] is None:
             clear_queue(self.input_queue)
         while True:
@@ -145,6 +152,14 @@ class Avatar(Converter):
                 ttime, data = self.input_queue.get()
                 if ttime is None and data is None:
                     # end of stream
+
+                    self.logger.info('Duration for detecting (ms / frames): %s / %s (fps: %s)', (self.duration_detect/1000000), self.count_detect, round(self.count_detect / (self.duration_detect/1000000000)))  # FIXME perf
+                    self.logger.info('Duration for rendering (ms / frames): %s / %s (fps: %s)', (self.duration_render/1000000), self.count_render, round(self.count_render / (self.duration_render/1000000000)))  # FIXME perf
+                    # FIXME note that simply adding detection and rendering time may not be accurate,
+                    #       if they are running (partially) in parallel, but even then, it may give a rough
+                    #       understanding or estimate of the total time / frame rate
+                    self.logger.info('Estimated duration for detecting & rendering (ms / frames): %s / %s (fps: %s)', ((self.duration_detect + self.duration_render)/1000000), self.count_detect + self.count_render, round((self.count_detect + self.count_render) / ((self.duration_detect + self.duration_render)/1000000000)))  # FIXME perf
+
                     self.stopRenderer()
                     self.output_queue.put((None, None))
                 else:
@@ -169,7 +184,14 @@ class Avatar(Converter):
         """
         ms_timestamp = int(timestamp[0].item() * 1000)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=data[0].numpy())
+
+        start_detect = time.perf_counter_ns()  # FIXME perf
+
         results = self.landmarker.detect_for_video(mp_image, ms_timestamp)
+
+        self.duration_detect += time.perf_counter_ns() - start_detect  # FIXME perf
+        self.count_detect += 1
+
         if len(results.face_blendshapes) == 0:
             return None
 
@@ -204,9 +226,15 @@ class Avatar(Converter):
         if face_detection_results:
             # check if a client is connected to the server
             self.client_available.wait()
+
+            start_render = time.perf_counter_ns()  # FIXME perf
+
             self.server.send_message_to_all(json.dumps(face_detection_results))
             # wait for the client to send the avatar
             message = self.recv_queue.get(timeout=1)
+            
+            self.duration_render += time.perf_counter_ns() - start_render  # FIXME perf
+            self.count_render += 1
 
             if message.startswith("/"):
                 # received message is a base64 encoded image

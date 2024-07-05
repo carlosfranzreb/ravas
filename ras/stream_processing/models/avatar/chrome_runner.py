@@ -4,6 +4,7 @@ import signal
 import time
 from enum import Enum
 from typing import Optional, Union
+from urllib.parse import quote
 
 from selenium import webdriver
 from torch.multiprocessing import Process, Event, Queue
@@ -86,7 +87,22 @@ def select_camera(driver: webdriver.Chrome, selected_camera: str):
     # ... .querySelectorAll('option')[index].value
 
 
-def finish_browser(driver: webdriver.Chrome):
+def finish_browser(driver: webdriver.Chrome, logger: logging.Logger):
+
+    # before quitting: print some log information
+    try:
+        info = driver.execute_script('return window["info_init"]')
+        logger.info('web info %s (ms): %s', 'INIT', info)
+
+        # info = driver.execute_script('return window["info_detect"]')
+        # logger.info('web info %s (ms / frames): %s', 'DETECT', info)
+
+        info = driver.execute_script('return window["info_render"]')
+        logger.info('web info %s (ms / frames): %s', 'RENDER', info)
+
+    except Exception as exc:
+        logger.warning('failed to get info from web window, due to error ', exc_info=exc)
+
     # do quit browser:
     driver.quit()
 
@@ -126,10 +142,15 @@ def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue()
         else:
             target_url = 'chrome-extension://{}/index.html'.format(extension_id)
 
+        query_params = []
         if ws_addr:
-            target_url += '?ws=' + ws_addr
+            query_params.append('ws=' + quote(ws_addr))
+        if not run_headless:
+            query_params.append('show-fps=' + quote('true'))
+        if len(query_params) > 0:
+            target_url += '?' + '&'.join(query_params)
 
-        logger.info('starting chrome driver for URL %s... ', target_url)
+        logger.info('starting chrome driver for URL: %s', target_url)
         driver.get(target_url)
 
         while True:
@@ -158,7 +179,7 @@ def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue()
             else:
                 try:
                     driver.service.assert_process_still_running()
-                    finish_browser(driver)
+                    finish_browser(driver, logger)
                     logger.info('stopped chrome driver.')
                 except Exception as exc:
                     logger.info('encountered ERROR because chrome driver already stopped: ', exc_info=exc, stack_info=True)

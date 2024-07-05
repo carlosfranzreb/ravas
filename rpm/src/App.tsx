@@ -7,10 +7,37 @@ import { Color, Euler, Matrix4 } from "three";
 import "./App.css";
 import Avatar from "./Avatar";
 
+// for logging rendering performance
+let renderStart = 0;
+let totalRender = 0;
+let renderCount = 0;
+// for logging initialization time
+let initStart = performance.now();
+
+/**
+ * HELPER store log information that can be read-out by selenium driver
+ * @param {'info_render' | 'info_init'} name     name/type of information (will replace privious log info for same `name`)
+ * @param {string} message  the log message
+ */
+function setLogInfo(name: 'info_render' | 'info_init', message: string): void {
+  // store log information to (global) window, to allow access from selenium driver
+  (window as any)[name] = message;
+}
+
+
 function App() {
   const [url, setUrl] = useState<string>("./default_avatar.glb");
   const { scene } = useGLTF(url);
   const { nodes } = useGraph(scene);
+
+  const queryParameters = new URLSearchParams(window.location.search);
+  const wsParam = queryParameters.get("ws");
+  const displayFps = /^\s*true\s*$/i.test(queryParameters.get("show-fps") || '');
+
+  console.log('wsParam', wsParam);
+  console.log('displayFps', displayFps);
+
+  const [durationRender, setDurationRender] = useState<string>("-");
 
   // get head mesh
   const headMesh = [];
@@ -24,9 +51,7 @@ function App() {
   const updateRef = useRef(false);
 
   // create websocket connection
-  const queryParameters = new URLSearchParams(window.location.search);
-  const ws_param = queryParameters.get("ws");
-  const ws_url = ws_param || "ws://localhost:8888";
+  const wsUrl = wsParam || "ws://localhost:8888";
   const [socketUrl, setSocketUrl] = useState<string | null>(null);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl, {
     shouldReconnect: (_closeEvent) => true,
@@ -43,8 +68,16 @@ function App() {
 
   // for setting up web-socket after app initialization:
   useEffect(() => {
-    setSocketUrl(ws_url);
-  });
+
+    // show & log initialization time:
+    const infoInit = '' + (performance.now() - initStart).toFixed(3);
+    setLogInfo('info_init', infoInit);
+    if(displayFps) {
+      setDurationRender(` [[ INIT (ms): ${infoInit} ]]`);
+    }
+
+    setSocketUrl(wsUrl);
+  }, []);
 
   function get_canvas_url() {
     // get canvas as image
@@ -52,10 +85,13 @@ function App() {
     const img_data = canvas.toDataURL("image/jpeg");
     return img_data.split(",")[1];
   }
+
   useEffect(() => {
     if (lastMessage !== null) {
       const strmessage = lastMessage.data;
       const message = JSON.parse(strmessage);
+
+      renderStart = performance.now();
 
       const blendshapes_temp = message.blendshapes;
       const matrix = new Matrix4().fromArray(message.transformation_matrix);
@@ -82,8 +118,17 @@ function App() {
   function onRenderFinished() {
     if (updateRef.current) {
       // send image generated from canvas to server
+
       const b64_img = get_canvas_url();
       sendMessage(b64_img);
+
+      totalRender += performance.now() - renderStart;
+      const infoRender = `${totalRender.toFixed(3)}  / ${++renderCount} (fps: ${Math.round(renderCount/(totalRender/1000))})`;
+      setLogInfo('info_render', infoRender);
+      if(displayFps) {
+        setDurationRender(infoRender);
+      }
+
       updateRef.current = false;
     }
   }
@@ -93,6 +138,12 @@ function App() {
       <div {...getRootProps({ className: "dropzone" })}>
         <p>Drag & drop RPM avatar GLB file here</p>
       </div>
+      <div className="status-display">WebSocket State: {connectionStatus}</div>
+      {displayFps ? (
+        <div className="info-display">Render (ms / frames): {durationRender}</div>
+      ) : (
+        null
+      )}
       <Canvas
         style={{ height: 600 }}
         camera={{ fov: 25 }}
@@ -123,8 +174,6 @@ function App() {
           onRenderFinished={onRenderFinished}
         />
       </Canvas>
-      <span>State: {connectionStatus}</span>
-      <span></span>
     </div>
   );
 }

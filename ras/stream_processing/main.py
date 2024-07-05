@@ -1,13 +1,15 @@
-from torch import multiprocessing
+import logging
 import os
 import subprocess
 import time
 from argparse import ArgumentParser
 
 import yaml
+from torch import multiprocessing
 
-from .streamer import AudioVideoStreamer
 from .dist_logging import listener_process
+from .dist_logging import worker_configurer
+from .streamer import AudioVideoStreamer
 
 
 def main(config: dict, runtime: int = None) -> None:
@@ -40,6 +42,10 @@ def main(config: dict, runtime: int = None) -> None:
     )
     log_listener.start()
 
+    worker_configurer(log_queue, config["log_level"])
+    logger = logging.getLogger("main")
+    start_time = time.perf_counter_ns()  # FIXME perf
+
     # start the audio-video streamer with the given config
     audio_video_streamer = AudioVideoStreamer(config, log_queue)
     audio_video_streamer.start()
@@ -56,6 +62,10 @@ def main(config: dict, runtime: int = None) -> None:
         else:
             while True:
                 time.sleep(1)
+
+    duration = time.perf_counter_ns() - start_time  # FIXME perf
+    msg = 'Total Running Time / Duration (ms): %s' % ((duration / 1000000),)
+    logger.info(msg)
 
     # stop the audio-video streamer and the logging
     audio_video_streamer.stop()
