@@ -91,7 +91,7 @@ def finish_browser(driver: webdriver.Chrome):
     driver.quit()
 
 
-def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue(), port: int = PORT, base_url: str = BASE_URL, web_extension: Union[bool, str] = False, log_queue: Optional[Queue] = None, log_level: Optional[str] = None):
+def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue(), port: int = PORT, base_url: str = BASE_URL, web_extension: Union[bool, str] = False, run_headless: bool = True, log_queue: Optional[Queue] = None, log_level: Optional[str] = None):
 
     if log_queue:
         worker_configurer(log_queue, log_level if log_level else 'INFO')
@@ -115,7 +115,7 @@ def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue()
                 start_extension = StartExtensionType.PACKED_EXTENSION
                 extension_id = web_extension
 
-        options = create_options(start_extension=start_extension, extension_path=extension_path)
+        options = create_options(start_extension=start_extension, extension_path=extension_path, run_headless=run_headless)
         driver = webdriver.Chrome(options=options)
 
         if start_extension == StartExtensionType.NO_EXTENSION:

@@ -80,6 +80,7 @@ class Avatar(Converter):
             'stop_signal': render_app_stop,
             'port': app_port,
             'web_extension': use_extension,
+            'run_headless': not self.config.get('show_chrome_window', False),
             'log_queue': self.log_queue,
             'log_level': self.log_level,
         }
@@ -90,7 +91,6 @@ class Avatar(Converter):
         self.render_server = render_app_server
         self.render_app = render_app
         self.stop_render_app = render_app_stop
-        self.logger.info('Starting Chrome Driver for Rendering App: finished.')
 
     def stopRenderer(self):
         if self.render_server and self.render_server.is_alive():
