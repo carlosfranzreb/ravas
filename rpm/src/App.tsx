@@ -66,7 +66,8 @@ function App() {
     [ReadyState.UNINSTANTIATED]: "Uninstantiated",
   }[readyState];
 
-  // for setting up web-socket after app initialization:
+  // for setting up web-socket after app initialization
+  // (run only once -> use empty dependency array)
   useEffect(() => {
 
     // show & log initialization time:
@@ -77,7 +78,10 @@ function App() {
     }
 
     setSocketUrl(wsUrl);
-  }, []);
+  },
+    // eslint-disable-next-line
+    []
+  );
 
   function get_canvas_url() {
     // get canvas as image
