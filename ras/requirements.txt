@@ -2,6 +2,7 @@ opencv-python
 PyAudio
 librosa
 mediapipe
+psutil
 pyvirtualcam
 pyyaml
 onnxruntime

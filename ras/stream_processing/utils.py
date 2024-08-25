@@ -111,3 +111,62 @@ def clear_queue(q: queue.Queue):
             q.get_nowait()
     except queue.Empty:
         pass
+
+
+def kill_all_child_processes(pid: int | None = None, recursive: bool = True, verbose: bool = False):
+    """
+    Kill all remaining child processes (for `pid` or of the processes from which this function is called).
+
+    Helper to ensure that no processes remaining running, after exiting the main module:
+    you may use this before closing/exiting the python program.
+
+    __NOTE__ that this will force the processes to quit, i.e. does NOT terminate the processes gracefully!
+
+    :param pid: the PID for parent process, for which the children should be terminated,
+                if omitted uses the current process
+    :param recursive: if `True`, terminate child processes (of child processes) recursively
+    :param verbose: if `True`, print information of terminated/killed processes to console
+    """
+    import psutil
+
+    # code adapted from
+    # https://psutil.readthedocs.io/en/latest/#processes
+
+    def on_terminate(proc):
+        if verbose:
+            print("  process {} terminated with exit code {}".format(proc, proc.returncode), flush=True)
+
+    main_proc = psutil.Process(pid=pid)
+    procs = main_proc.children()
+
+    if verbose:
+        print('Found {} child processes (for current process with PID {})'.format(len(procs), main_proc.pid), flush=True)
+
+    if len(procs) == 0:
+        return
+
+    count_terminate = 0
+    for p in procs:
+        if recursive:
+            # recursively kill child processes:
+            kill_all_child_processes(p.pid, recursive=recursive, verbose=verbose)
+        if p.is_running():
+            if verbose:
+                print('  terminating child process with PID {}'.format(p.pid), flush=True)
+            count_terminate += 1
+            p.terminate()
+
+    gone, alive = psutil.wait_procs(procs, timeout=3, callback=on_terminate)
+
+    count_kill = 0
+    for p in alive:
+        if verbose:
+            print('  KILL remaining child process with PID {} (forced termination)'.format(p.pid), flush=True)
+        count_kill += 1
+        p.kill()
+
+    if verbose:
+        print('Terminated {} child processes (forced termination for {} child processes)'.format(count_terminate, count_kill), flush=True)
+        procs = main_proc.children()
+        if len(procs) > 0:
+            print('  remaining child processes: {}\n'.format(len(procs)), flush=True)
