@@ -18,7 +18,7 @@ def batchify_input_stream(
     """
     Read from the input stream and batch the data. This function can be used for audio and video streams.
     :param read_callback: Callback function that reads from the input stream and returns the data.
-    :param size of the desired output batch.
+    :param out_batch_size: size of the desired output batch.
     :param input_shape: Shape of the input data returned by the read_callback.
     :param sampling_rate: Sampling rate of the input stream.
     :param chunk_part_for_next_times: Part of the last chunk that was not used in the last batch.
@@ -69,7 +69,7 @@ def batchify_input_stream(
             if time.time() - last_frame_time < 1 / upper_bound_fps:
                 continue
 
-        # calculate the time coresponding to each sample in current chunk
+        # calculate the time corresponding to each sample in current chunk
         last_frame_time = chunk_end_time
         chunk_start_time = chunk_end_time - (in_chunk_size - 1) / sampling_rate
 
