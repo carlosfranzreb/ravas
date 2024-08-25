@@ -3,6 +3,7 @@ PyAudio
 librosa
 mediapipe
 psutil
+PyQt6
 pyvirtualcam
 pyyaml
 onnxruntime

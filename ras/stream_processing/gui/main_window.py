@@ -1,0 +1,322 @@
+import logging
+import time
+from argparse import ArgumentParser, Namespace
+from copy import deepcopy
+from typing import Optional
+
+import yaml
+from PyQt6.QtCore import Qt, QMetaObject, QThread, QThreadPool, QSettings
+from PyQt6.QtGui import QAction, QCloseEvent
+from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, \
+    QToolButton, QApplication
+from torch import multiprocessing
+
+from .config_dlg import ConfigDialog
+from .gui_logging import init_gui_logging, LogWorker
+from .log_dlg import LogDialog
+from .settings_helper import storeSetting, checkWindowState, applySetting
+from .task import Task
+from ..streamer import AudioVideoStreamer
+
+
+class MainWindow(QMainWindow):
+
+    def __init__(self):
+        super().__init__(parent=None)
+        self.setWindowTitle("VERANDA Audio Video Streamer")
+
+        self._audioVideoStreamer: Optional[AudioVideoStreamer] = None
+        self._config: Optional[dict] = None
+
+        self._log_worker: Optional[LogWorker] = None
+        self._log_thread: Optional[QThread] = None
+        self._is_log_stopping: bool = False
+
+        self._threadpool = QThreadPool()
+
+        self._createMain()
+        self._createMenu()
+        self._createToolBar()
+        self._createStatusBar()
+
+    def _createMain(self):
+        main = QWidget(parent=self)
+        layout = QHBoxLayout()
+
+        actStart = QAction("&Start Streaming", self)
+        actStart.triggered.connect(self.startStreaming)
+        self._actStart = actStart
+
+        actStop = QAction("Sto&p Streaming", self)
+        actStop.triggered.connect(self.stopStreaming)
+        self._actStop = actStop
+
+        actShowConfig = QAction("&Configuration", self)
+        actShowConfig.triggered.connect(self.showConfigDialog)
+        self._actShowConfig = actShowConfig
+
+        actExit = QAction("&Exit", self)
+        actExit.triggered.connect(self.close)
+        self._actExit = actExit
+
+        btnStart = QToolButton()
+        btnStart.setDefaultAction(self._actStart)
+        layout.addWidget(btnStart)
+
+        btnStop = QToolButton()
+        btnStop.setDefaultAction(self._actStop)
+        layout.addWidget(btnStop)
+
+        btnDebug = QPushButton("Debug")
+        btnDebug.clicked.connect(self.__debug)
+        layout.addWidget(btnDebug)
+
+        gui_log_level = 'DEBUG' # FIXME get from config
+        self._logWindow = LogDialog(parent=self, gui_log_level=gui_log_level)
+        self._logWindow.finished.connect(self.onLogWindowClosed)
+
+        chkShowFrame = QCheckBox("Show Log")
+        chkShowFrame.toggled.connect(self.toggleLogWindow)
+        layout.addWidget(chkShowFrame)
+        self._chkShowFrame = chkShowFrame
+
+        main.setLayout(layout)
+        self.setCentralWidget(main)
+
+        self._restoreSettings()
+
+    def _createMenu(self):
+        menu = self.menuBar().addMenu("&Menu")
+        # menu.addAction("&Start Streaming", self.startStreaming)
+        menu.addAction(self._actStart)
+        menu.addAction(self._actStop)
+        menu.addAction(self._actShowConfig)
+        menu.addAction(self._actExit)
+
+    def _createToolBar(self):
+        tools = QToolBar()
+        tools.addAction(self._actStart)
+        tools.addAction(self._actStop)
+        tools.addAction(self._actShowConfig)
+        tools.addAction(self._actExit)
+        self.addToolBar(tools)
+
+    def _createStatusBar(self):
+        status = QStatusBar()
+        # status.showMessage("this is the status bar")
+        self.setStatusBar(status)
+
+    def _restoreSettings(self):
+        settings = QSettings()
+        applySetting(settings, 'main_window/size', self.resize)
+        applySetting(settings, 'main_window/position', self.move)
+        applySetting(settings, 'main_window/windowState', self.setWindowState, checkWindowState)
+
+    def getConfig(self, as_copy: bool) -> dict:
+        if not self._config:
+            args = parse_args()
+            with open(args.config, "r") as f:
+                self._config = yaml.safe_load(f)
+        return deepcopy(self._config) if as_copy else self._config
+
+
+    def _setConfigShowFrame(self, enable: bool):
+        # TODO
+        config = self.getConfig(as_copy=False)
+        if config:
+            config_video = config.get("video")
+            if config_video:
+                config_video["output_window"] = enable
+
+    def setStatusText(self, text: str):
+        self.statusBar().showMessage(text)
+
+    def startStreaming(self):
+        self.stopStreaming()
+        self.setStatusText("Start streaming...")
+        self._updateUiForStreaming(is_active=True)
+        config_copy = self.getConfig(as_copy=True)
+
+        # start_streaming() would block the GUI for some time, so as task:
+        task = Task(start_streaming, config_copy)
+        task.signals.result.connect(self._setAudioVideoStreamer)
+        task.signals.error.connect(self._handleAudioVideoStreamerError)
+        self._threadpool.start(task)
+
+    def _updateUiForStreaming(self, is_active: bool):
+        self._actStart.setEnabled(not is_active)
+        self._actShowConfig.setEnabled(not is_active)
+
+    def _setAudioVideoStreamer(self, args):
+        """
+        HELPER for handling task result of `start_streaming()`
+        :param args: result of `start_streaming()`, i.e. `tuple[AudioVideoStreamer, LogWorker, QThread]`
+        """
+        self._audioVideoStreamer = args[0]  # av_streamer
+        self._log_worker = args[1]  # log_worker
+        self._log_thread = args[2]  # log_thread
+
+        # hook-up the log-widget to log-worker's emit signal:
+        self._log_worker.emitLogLine.connect(self._logWindow.logWidget.add)
+
+        self._audioVideoStreamer.start()
+        self.__debug() # FIXME DEBUG
+
+    def _handleAudioVideoStreamerError(self, err_info):  # : tuple[ExceptionClass, ExceptionInstance, traceback_string]
+        """
+        HELPER for handling task errors
+        :param err_info: error information as `tuple[ExceptionClass, ExceptionInstance, traceback_string]`
+        """
+        err_name = err_info[0].__name__ if hasattr(err_info[0], '__name__') else str(err_info[0])
+        msg = '{} occurred: {}'.format(err_name, err_info[1])
+        logging.getLogger().error('%s, %s', msg, err_info[2])
+        self.setStatusText(msg)
+
+    def stopStreaming(self):
+        print('stop streaming...')
+        self.setStatusText("Stopping streaming...")
+
+        if self._audioVideoStreamer:
+            self._audioVideoStreamer.stop()
+            self._audioVideoStreamer = None
+            time.sleep(1)
+
+        if self._log_worker:
+            print('  stopping logger...')
+
+            def on_log_finished():
+                print('------ did receive finish signal!', flush=True)
+                # self._log_thread = None
+                # self._log_thread = None
+                if self._log_thread.isRunning():
+                    self._log_thread.quit()
+                self._log_worker = None
+                self._log_thread = None
+
+                self.setStatusText("Stopped streaming.")
+                self._updateUiForStreaming(is_active=False)
+                self._actStop.setEnabled(True)
+
+                print('stopped streaming!', flush=True)
+
+            self._log_worker.finished.connect(on_log_finished)
+            self._log_thread.requestInterruption()
+
+            # TESTING
+            # start = time.time()
+            # # is_finished = self._log_thread.wait(2000)
+            #
+            # is_finished = False
+            # for i in range(20):
+            #     QApplication.processEvents()
+            #     time.sleep(0.1)
+            #     if not self._log_thread.isRunning():
+            #         print('log thread stopped during wait!', flush=True)
+            #         is_finished = True
+            #         break
+            #
+            # print('waited %s seconds (result %s) for log thread to shutdown' % (is_finished, time.time() - start,))
+            # if self._log_thread.isRunning():
+            #     print('\n############# log thread still running')
+            # else:
+            #     self._log_thread = None
+
+            # [russa] do not use thread.quit(): need to use stop signal (i.e. stop gracefully),
+            #         so that worker does stop the process it started:
+            # self._log_thread.quit()
+            # [russa] ... also leave the reference for thread, in order to prevent premature garbage-collection and
+            #         stopping the thread while it is still shutting down gracefully:
+            # self._log_thread = None
+
+        # self.setStatusText("Stopped streaming.")  # FIXME set this when streaming has really stopped (i.e. processes have stopped)
+        # self._updateUiForStreaming(is_active=False)
+        #
+        # print('stopped streaming!')
+
+    def _shutdown(self):
+        self.stopStreaming()
+        self._mainProc = multiprocessing.current_process()  # FIXME TEST
+
+    def toggleLogWindow(self, checked):
+        # print('toggle log window ', checked)
+        if checked:
+            self._logWindow.show()
+        else:
+            self._logWindow.close()
+
+    def onLogWindowClosed(self):
+        self._chkShowFrame.setChecked(False)
+
+    def showConfigDialog(self):
+        config = self.getConfig(as_copy=True)
+        configDlg = ConfigDialog(parent=self, config=config)
+        result = configDlg.exec()
+        print('closed config dialog -> ', result, configDlg)
+        if result:
+            print('applying config form config dialog -> ', result, configDlg)
+            self._config = configDlg.config
+
+    def closeEvent(self, evt: QCloseEvent):
+        print('main window close', evt)
+        # evt.setAccepted(False) # <- would prevent closing window
+
+        settings = QSettings()
+        storeSetting(settings, 'main_window/size', self.size)
+        storeSetting(settings, 'main_window/position', self.pos)
+        storeSetting(settings, 'main_window/windowState', self.windowState, checkWindowState)
+
+        self._shutdown()
+
+    def __debug(self):
+        # FIXME DEBUG
+        logging.getLogger().info('test debug')
+
+        def print_proc(label: str, proc: multiprocessing.Process):
+            print(label % (proc.name, proc.pid), flush=True)
+
+        print_proc('MAIN ----> %s (pid %s)', multiprocessing.current_process())
+
+        # if self._logListener:
+        #     print_proc('  LOGGING ## %s (pid %s)', self._logListener)
+
+        streamer = self._audioVideoStreamer
+        if not streamer:
+            print('   AUDIO VIDEO STREAMER not started!')
+            return
+
+        for p in streamer.audio_handler.procs:
+            print_proc('  AUDIO ~~ %s (pid %s)', p)
+        for p in streamer.video_handler.procs:
+            print_proc('  VIDEO ** %s (pid %s)', p)
+
+
+def start_streaming(config: dict) -> tuple[AudioVideoStreamer, LogWorker, QThread]:
+    """
+    - Create a logging directory, and store the config there.
+    - Create a logging file in the logging directory.
+    - Start the audio-video streamer with the given config.
+
+    Args:
+    - config: The config for the demonstrator.
+    """
+
+    # print('running start_streaming()', config)
+
+    # check if the config is valid (initial check taken from main.py)
+    proc_size = config["audio"]["processing_size"]
+    buffer_size = config["audio"]["record_buffersize"]
+    assert proc_size > buffer_size, "Proc. size should be greater than buffer size"
+
+    log_worker, thread = init_gui_logging(config)
+
+    # start the audio-video streamer with the given config
+    audio_video_streamer = AudioVideoStreamer(config, log_worker.log_queue)
+    # audio_video_streamer.start()
+
+    return audio_video_streamer, log_worker, thread
+
+
+def parse_args() -> Namespace:
+    parser = ArgumentParser()
+    parser.add_argument("--config", type=str, default="configs/onnx_models.yaml")
+    return parser.parse_args()
