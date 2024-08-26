@@ -4,11 +4,7 @@ from functools import partial
 
 import cv2 as cv
 import sounddevice as sd
-from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import (
-    QDialogButtonBox, QLineEdit,
-    QFormLayout, QVBoxLayout, QComboBox
-)
+from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox
 
 from .settings_helper import RestorableDialog
 
@@ -101,11 +97,11 @@ class ConfigDialog(RestorableDialog):
 
     def _createAudioDeviceWidget(self, audio_input: bool) -> QComboBox:
         fieldName = 'input_device' if audio_input else 'output_device'
-        return self._initTextComboBox(getAudioDevices(audio_input), ['audio', fieldName])
+        return self._createTextComboBox(getAudioDevices(audio_input), ['audio', fieldName])
 
     def _createVideoDeviceWidget(self) -> QComboBox:
         indices = returnCameraIndices()  # FIXME takes too long, find better solution
-        return self._initTextComboBox(indices, ['video', 'input_device'])
+        return self._createTextComboBox(indices, ['video', 'input_device'])
 
     def _createVideoConverterWidget(self) -> QComboBox:
         items = {
@@ -113,16 +109,24 @@ class ConfigDialog(RestorableDialog):
             'FaceMask': 'stream_processing.models.FaceMask',
             'Echo': 'stream_processing.models.Echo',
         }
-        return self._initDataComboBox(items, ['video', 'converter', 'cls'])
+        return self._createDataComboBox(items, ['video', 'converter', 'cls'])
 
     def _createAudioVoiceWidget(self) -> QComboBox:
         items = {
             'Female (Wendy)': './target_feats/wendy.pt',
             'Male (John)': './target_feats/john.pt',
         }
-        return self._initDataComboBox(items, ['audio', 'converter', 'target_feats_path'])
+        return self._createDataComboBox(items, ['audio', 'converter', 'target_feats_path'])
 
-    def _initTextComboBox(self, text_items: list[str], config_path: list[str]):
+    def _createTextComboBox(self, text_items: list[str], config_path: list[str]) -> QComboBox:
+        """
+        HELPER create a combo-box with simple text-items:
+        on selection the corresponding text-value will be applied to the `config_path`.
+
+        :param text_items: the text-items; when selected their value will be applied to the config
+        :param config_path: the path to the configuration value that will be updated
+        :returns: the created combo-box
+        """
         combobox = QComboBox()
         combobox.addItems(text_items)
         current_value, field_name, sub_config = self._get_current_value_and_config_path_for(config_path)
@@ -135,7 +139,16 @@ class ConfigDialog(RestorableDialog):
         combobox.currentTextChanged.connect(partial(self.setConfigValue, sub_config, field_name))
         return combobox
 
-    def _initDataComboBox(self, item_data: dict[str, any], config_path: list[str]):
+    def _createDataComboBox(self, item_data: dict[str, any], config_path: list[str]) -> QComboBox:
+        """
+        HELPER create combo-box with data-items:
+        the `key` will be used as label in the combo-box, and the `value` will be applied  to the `config_path`, when
+        the corresponding item is selected.
+
+        :param item_data: the data-items, where the `key` is used as label and the `value` is applied to the config upon selection
+        :param config_path: the path to the configuration value that will be updated
+        :returns: the created combo-box
+        """
         combobox = QComboBox()
         current_value, field_name, sub_config = self._get_current_value_and_config_path_for(config_path)
         idx = 0
@@ -147,7 +160,7 @@ class ConfigDialog(RestorableDialog):
         combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, sub_config, field_name))
         return combobox
 
-    def _get_current_value_and_config_path_for(self, config_path) -> tuple[any, str, dict]:
+    def _get_current_value_and_config_path_for(self, config_path: list[str]) -> tuple[any, str, dict]:
         """
         HELPER for a path in the config return:
          * the `current_value` at that path
