@@ -1,5 +1,6 @@
 import logging
 
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QPlainTextEdit, QVBoxLayout
 
 from .settings_helper import RestorableDialog
@@ -24,6 +25,12 @@ class LogDialog(RestorableDialog):
     def __init__(self, parent, gui_log_level='INFO'):
         super().__init__(parent=parent)
         self.setWindowTitle('Logging')
+
+        actClose = QAction("Close", self)
+        actClose.setShortcut("Ctrl+L")  # NOTE use CTRL-L, same as for toggling log-window in MainWindow
+        actClose.setStatusTip("Close Logging Window")
+        actClose.triggered.connect(self.close)
+        self.addAction(actClose)
 
         logTextBox = QTextEditLogger(self)
         logTextBox.setFormatter(logging.Formatter(

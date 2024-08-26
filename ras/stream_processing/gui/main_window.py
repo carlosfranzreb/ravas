@@ -43,18 +43,23 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout()
 
         actStart = QAction("&Start Streaming", self)
+        actStart.setStatusTip("Start streaming Audio/Video")
         actStart.triggered.connect(self.startStreaming)
         self._actStart = actStart
 
         actStop = QAction("Sto&p Streaming", self)
+        actStop.setStatusTip("Stop streaming Audio/Video")
         actStop.triggered.connect(self.stopStreaming)
         self._actStop = actStop
 
         actShowConfig = QAction("&Configuration", self)
+        actShowConfig.setStatusTip("Open the Configuration Dialog")
         actShowConfig.triggered.connect(self.showConfigDialog)
         self._actShowConfig = actShowConfig
 
-        actExit = QAction("&Exit", self)
+        actExit = QAction("E&xit", self)
+        actExit.setShortcut("Ctrl+X")
+        actExit.setStatusTip("Exit the application")
         actExit.triggered.connect(self.close)
         self._actExit = actExit
 
@@ -67,6 +72,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(btnStop)
 
         btnDebug = QPushButton("Debug")
+        btnDebug.setStatusTip("print some debug information to console")
         btnDebug.clicked.connect(self.__debug)
         layout.addWidget(btnDebug)
 
@@ -75,6 +81,8 @@ class MainWindow(QMainWindow):
         self._logWindow.finished.connect(self.onLogWindowClosed)
 
         chkShowFrame = QCheckBox("Show Log")
+        chkShowFrame.setShortcut("Ctrl+L")  # TODO enable this shortcut in log-window too
+        chkShowFrame.setStatusTip("Show or hide the Logging Window")
         chkShowFrame.toggled.connect(self.toggleLogWindow)
         layout.addWidget(chkShowFrame)
         self._chkShowFrame = chkShowFrame
@@ -171,7 +179,7 @@ class MainWindow(QMainWindow):
         self.setStatusText(msg)
 
     def stopStreaming(self):
-        print('stop streaming...')
+        print('stop streaming...')  # FIXME DEBUG
         self.setStatusText("Stopping streaming...")
 
         if self._audioVideoStreamer:
@@ -180,10 +188,10 @@ class MainWindow(QMainWindow):
             time.sleep(1)
 
         if self._log_worker:
-            print('  stopping logger...')
+            print('  stopping logger...')  # FIXME DEBUG
 
             def on_log_finished():
-                print('------ did receive finish signal!', flush=True)
+                print('------ did receive finish signal!', flush=True)  # FIXME DEBUG
                 # self._log_thread = None
                 # self._log_thread = None
                 if self._log_thread.isRunning():
@@ -195,7 +203,7 @@ class MainWindow(QMainWindow):
                 self._updateUiForStreaming(is_active=False)
                 self._actStop.setEnabled(True)
 
-                print('stopped streaming!', flush=True)
+                print('stopped streaming!', flush=True)  # FIXME DEBUG
 
             self._log_worker.finished.connect(on_log_finished)
             self._log_thread.requestInterruption()
@@ -225,11 +233,6 @@ class MainWindow(QMainWindow):
             # [russa] ... also leave the reference for thread, in order to prevent premature garbage-collection and
             #         stopping the thread while it is still shutting down gracefully:
             # self._log_thread = None
-
-        # self.setStatusText("Stopped streaming.")  # FIXME set this when streaming has really stopped (i.e. processes have stopped)
-        # self._updateUiForStreaming(is_active=False)
-        #
-        # print('stopped streaming!')
 
     def _shutdown(self):
         self.stopStreaming()
