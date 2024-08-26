@@ -1,14 +1,12 @@
 import logging
 import time
-from argparse import ArgumentParser, Namespace
 from copy import deepcopy
 from typing import Optional
 
 import yaml
-from PyQt6.QtCore import Qt, QMetaObject, QThread, QThreadPool, QSettings
+from PyQt6.QtCore import QThread, QThreadPool, QSettings
 from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, \
-    QToolButton, QApplication
+from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, QToolButton
 from torch import multiprocessing
 
 from .config_dlg import ConfigDialog
@@ -21,11 +19,12 @@ from ..streamer import AudioVideoStreamer
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, config_path: str):
         super().__init__(parent=None)
         self.setWindowTitle("VERANDA Audio Video Streamer")
 
         self._audioVideoStreamer: Optional[AudioVideoStreamer] = None
+        self._config_path: str = config_path
         self._config: Optional[dict] = None
 
         self._log_worker: Optional[LogWorker] = None
@@ -114,8 +113,7 @@ class MainWindow(QMainWindow):
 
     def getConfig(self, as_copy: bool) -> dict:
         if not self._config:
-            args = parse_args()
-            with open(args.config, "r") as f:
+            with open(self._config_path, "r") as f:
                 self._config = yaml.safe_load(f)
         return deepcopy(self._config) if as_copy else self._config
 
@@ -314,9 +312,3 @@ def start_streaming(config: dict) -> tuple[AudioVideoStreamer, LogWorker, QThrea
     # audio_video_streamer.start()
 
     return audio_video_streamer, log_worker, thread
-
-
-def parse_args() -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/onnx_models.yaml")
-    return parser.parse_args()
