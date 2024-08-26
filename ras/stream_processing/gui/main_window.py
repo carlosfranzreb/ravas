@@ -282,9 +282,9 @@ class MainWindow(QMainWindow):
             print('   AUDIO VIDEO STREAMER not started!')
             return
 
-        for p in streamer.audio_handler.procs:
+        for p in streamer.audio_handler.procs.values():
             print_proc('  AUDIO ~~ %s (pid %s)', p)
-        for p in streamer.video_handler.procs:
+        for p in streamer.video_handler.procs.values():
             print_proc('  VIDEO ** %s (pid %s)', p)
 
 
