@@ -1,10 +1,8 @@
-import json
 import logging
 
-from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QPlainTextEdit, QVBoxLayout
 
-from .settings_helper import RestorableDialog, storeSetting
+from .settings_helper import RestorableDialog
 
 
 class QTextEditLogger(logging.Handler):
