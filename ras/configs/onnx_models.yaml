@@ -16,11 +16,14 @@ video:
   processing_size: 1
   max_fps: 20
   output_virtual_cam: false
+#  output_virtual_cam: "OBS Virtual Camera"
   output_window: true
   store: false
   store_format: "avi"
   converter:
+#    cls: stream_processing.models.FaceMask
     cls: stream_processing.models.Avatar
+#    cls: stream_processing.models.Echo
     width: *video_width
     height: *video_height
     ws_host: 0.0.0.0
@@ -29,21 +32,22 @@ video:
     start_chrome_renderer: true
     use_chrome_extension: true
     show_chrome_window: false
+    avatar_uri: ./default_avatar.glb
 
 audio:
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
   use_audio: true
-  output_buffersize: 600
+  output_buffersize: 1200
   processing_size: 9600
-  record_buffersize: 600
+  record_buffersize: 1200
   sampling_rate: 16000
   input_device: Microphone (Realtek(R) Audio)
   output_device: Speakers (Realtek(R) Audio)
   store: false
   converter:
     cls: stream_processing.models.KnnVC
-    target_feats_path: ./target_feats/john.pt
+    target_feats_path: ./target_feats/wendy.pt
     device: cpu
     n_neighbors: 4
     prev_audio_queue:

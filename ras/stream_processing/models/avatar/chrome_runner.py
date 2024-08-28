@@ -128,6 +128,7 @@ def start_browser(
         base_url: str = BASE_URL,
         web_extension: Union[bool, str] = False,
         run_headless: bool = True,
+        avatar_uri: Optional[str] = None,
         log_queue: Optional[Queue] = None,
         log_level: Optional[str] = None,
 ):
@@ -198,6 +199,8 @@ def start_browser(
             query_params.append('ws=' + quote(ws_addr))
         if not run_headless:
             query_params.append('show-fps=' + quote('true'))
+        if avatar_uri:
+            query_params.append('avatar=' + quote(avatar_uri))
         if len(query_params) > 0:
             target_url += '?' + '&'.join(query_params)
 

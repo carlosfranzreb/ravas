@@ -92,6 +92,7 @@ class Avatar(Converter):
             'port': app_port,
             'web_extension': use_extension,
             'run_headless': not self.config.get('show_chrome_window', False),
+            'avatar_uri': self.config.get('avatar_uri', None),
             'log_queue': self.log_queue,
             'log_level': self.log_level,
         }
