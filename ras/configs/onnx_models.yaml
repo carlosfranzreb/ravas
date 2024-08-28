@@ -16,14 +16,11 @@ video:
   processing_size: 1
   max_fps: 20
   output_virtual_cam: false
-#  output_virtual_cam: "OBS Virtual Camera"
   output_window: true
   store: false
   store_format: "avi"
   converter:
-#    cls: stream_processing.models.FaceMask
     cls: stream_processing.models.Avatar
-#    cls: stream_processing.models.Echo
     width: *video_width
     height: *video_height
     ws_host: 0.0.0.0
@@ -42,12 +39,12 @@ audio:
   processing_size: 9600
   record_buffersize: 1200
   sampling_rate: 16000
-  input_device: Microphone (Realtek(R) Audio)
-  output_device: Speakers (Realtek(R) Audio)
+  input_device: MacBook Pro-Mikrofon
+  output_device: MacBook Pro-Lautsprecher
   store: false
   converter:
     cls: stream_processing.models.KnnVC
-    target_feats_path: ./target_feats/wendy.pt
+    target_feats_path: ./target_feats/john.pt
     device: cpu
     n_neighbors: 4
     prev_audio_queue:
