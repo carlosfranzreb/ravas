@@ -26,16 +26,18 @@ function setLogInfo(name: 'info_render' | 'info_init', message: string): void {
 
 
 function App() {
-  const [url, setUrl] = useState<string>("./default_avatar.glb");
-  const { scene } = useGLTF(url);
-  const { nodes } = useGraph(scene);
-
   const queryParameters = new URLSearchParams(window.location.search);
   const wsParam = queryParameters.get("ws");
-  const displayFps = /^\s*true\s*$/i.test(queryParameters.get("show-fps") || '');
+  const displayFps = /^\s*true\s*$/i.test(queryParameters.get("show-fps") || "");
+  const avatarUri = queryParameters.get("avatar") || "./default_avatar.glb";
 
+  console.log('avatar', avatarUri);
   console.log('wsParam', wsParam);
   console.log('displayFps', displayFps);
+
+  const [url, setUrl] = useState<string>(avatarUri);
+  const { scene } = useGLTF(url);
+  const { nodes } = useGraph(scene);
 
   const [durationRender, setDurationRender] = useState<string>("-");
 
