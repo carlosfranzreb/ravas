@@ -32,21 +32,35 @@ class StartExtensionType(Enum):
 
 
 def get_web_extension_path() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension');
+    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension')
 
 
 def get_web_extension_file() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx');
+    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx')
 
 
-def create_options(start_extension: Optional[StartExtensionType] = None, extension_path: Optional[str] = None, run_headless: bool = True, debug_port: Optional[int] = None) -> webdriver.ChromeOptions:
+def create_options(start_extension: Optional[StartExtensionType] = None, extension_path: Optional[str] = None, run_headless: bool = True, debug_port: Optional[int] = None, logger: Optional[logging.Logger] = None) -> webdriver.ChromeOptions:
     options = webdriver.ChromeOptions()
 
     if start_extension:
         if start_extension == StartExtensionType.PACKED_EXTENSION:
-            options.add_extension(get_web_extension_file() if not extension_path else extension_path)
+            ext_path = get_web_extension_file() if not extension_path else extension_path
+            if not os.path.exists(ext_path):
+                msg = 'Invalid path for packed web extension (file does not exist): "%s"'
+                if logger:
+                    logger.error(msg, ext_path)
+                else:
+                    print('ERROR ' + msg % ext_path, flush=True)
+            options.add_extension(ext_path)
         elif start_extension == StartExtensionType.UNPACKED_EXTENSION:
-            options.add_argument(f"load-extension={get_web_extension_path() if not extension_path else extension_path}")
+            ext_path = get_web_extension_path() if not extension_path else extension_path
+            if not os.path.exists(ext_path):
+                msg = 'Invalid path for unpacked web extension (directory does not exist): "%s"'
+                if logger:
+                    logger.error(msg, ext_path)
+                else:
+                    print('ERROR ' + msg % ext_path, flush=True)
+            options.add_argument(f'load-extension="{ext_path}"')
 
     if run_headless:
         options.add_argument("--headless=new")
@@ -131,7 +145,7 @@ def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue()
                 start_extension = StartExtensionType.PACKED_EXTENSION
                 extension_id = web_extension
 
-        options = create_options(start_extension=start_extension, extension_path=extension_path, run_headless=run_headless)
+        options = create_options(start_extension=start_extension, extension_path=extension_path, run_headless=run_headless, logger=logger)
         driver = webdriver.Chrome(options=options)
 
         if start_extension == StartExtensionType.NO_EXTENSION:
