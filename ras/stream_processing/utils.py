@@ -132,6 +132,11 @@ def kill_all_child_processes(pid: int | None = None, recursive: bool = True, ver
     # code adapted from
     # https://psutil.readthedocs.io/en/latest/#processes
 
+    if pid is not None and not psutil.pid_exists(pid):
+        if verbose:
+            print("NOTE found no process with PID {}, will not try to terminate any child processes.".format(pid), flush=True)
+        return
+
     def on_terminate(proc):
         if verbose:
             print("  process {} terminated with exit code {}".format(proc, proc.returncode), flush=True)
