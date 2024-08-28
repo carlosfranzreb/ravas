@@ -14,7 +14,7 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main():
     app = QApplication(sys.argv)
 
     # configure default values (will also be used when creating QSettings)
@@ -54,3 +54,7 @@ if __name__ == "__main__":
 
     print('exit program now!', flush=True)
     sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()
