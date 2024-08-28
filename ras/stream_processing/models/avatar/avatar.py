@@ -29,11 +29,12 @@ class Avatar(Converter):
         output_queue: Queue,
         log_queue: Queue,
         log_level: str,
+        ready_signal: Event,
     ) -> None:
         """
         Initialize the Avatar Model.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level)
+        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
         self.log_queue = log_queue
         self.log_level = log_level
         self._stopped = False
@@ -186,6 +187,7 @@ class Avatar(Converter):
         if self.config["video_file"] is None:
             clear_queue(self.input_queue)
 
+        self.ready_signal.set()
         while True:
             try:
                 ttime, data = self.input_queue.get()
@@ -206,6 +208,8 @@ class Avatar(Converter):
                     self.output_queue.put((ttime, out))
             except Empty:
                 pass
+            except EOFError:
+                break
 
         # shutdown for avatar converter: print some stats, then put stop-signal on output queue
         if self.logger.isEnabledFor(logging.INFO):

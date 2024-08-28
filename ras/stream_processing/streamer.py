@@ -27,6 +27,7 @@ class AudioVideoStreamer:
                 log_queue=log_queue,
                 log_level=log_level,
             )
+            audio_sync_state.ready = audio_processor.queues.ready
             self.audio_handler = ProcessorHandler(audio_processor)
         if self.use_video:
             video_processor = VideoProcessor(
@@ -36,6 +37,7 @@ class AudioVideoStreamer:
                 log_queue=log_queue,
                 log_level=log_level,
             )
+            video_sync_state.ready = video_processor.queues.ready
             self.video_handler = ProcessorHandler(video_processor)
 
     def start(self):

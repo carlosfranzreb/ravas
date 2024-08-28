@@ -3,12 +3,13 @@ import queue
 import time
 import logging
 import importlib
+from ctypes import c_bool
 
 from torch import Tensor
 import numpy as np
-from torch.multiprocessing import Process, Queue, Value, Manager
+from torch.multiprocessing import Process, Queue, Value, Manager, Event
 
-from .utils import clear_queue
+from .utils import clear_queue, kill_all_child_processes
 from .dist_logging import worker_configurer
 
 
@@ -31,7 +32,16 @@ class ProcessingQueues:
         self.input_queue: Queue = manager.Queue()
         self.sync_queue: Queue = manager.Queue()
         self.output_queue: Queue = manager.Queue()
+
         self.finished: Event = manager.Event()
+        """
+        signal for finished-processing 
+        (after output queue did process last data frame and closed any open handles etc.)
+        """
+        self.ready: Event = manager.Event()
+        """
+        signal for initialization-finished / ready-for-processing
+        """
 
 
 class ProcessingSyncState:
@@ -44,6 +54,7 @@ class ProcessingSyncState:
         """
         self.last_sample_time = Value("d", np.inf)
         self.last_update = Value("d", 0)
+        self.ready: Event = None  # set this with ProcessingQueues.ready
 
 
 class Converter:
@@ -59,6 +70,7 @@ class Converter:
         output_queue: Queue,
         log_queue: Queue,
         log_level: str,
+        ready_signal: Event,
     ) -> None:
         """
         Initialize the Converter object.
@@ -74,6 +86,7 @@ class Converter:
         self.config = config
         self.input_queue = input_queue
         self.output_queue = output_queue
+        self.ready_signal = ready_signal
 
         # setup logging
         worker_configurer(log_queue, log_level)
@@ -154,6 +167,7 @@ class Processor:
             self.queues.sync_queue,
             self.log_queue,
             self.log_level,
+            self.queues.ready,
         )
         self.converter.convert()
 
@@ -226,6 +240,8 @@ class Processor:
                 sync_buffer.append((dtime, data))
             except queue.Empty:
                 pass
+            except EOFError:
+                break
 
 
 class ProcessorHandler:
