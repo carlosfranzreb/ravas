@@ -121,8 +121,45 @@ def finish_browser(driver: webdriver.Chrome, logger: logging.Logger):
     driver.quit()
 
 
-def start_browser(ws_addr: Optional[str] = WS_ADDR, stop_signal: Queue = Queue(), port: int = PORT, base_url: str = BASE_URL, web_extension: Union[bool, str] = False, run_headless: bool = True, log_queue: Optional[Queue] = None, log_level: Optional[str] = None):
+def start_browser(
+        ws_addr: Optional[str] = WS_ADDR,
+        stop_signal: Queue = Queue(),
+        port: int = PORT,
+        base_url: str = BASE_URL,
+        web_extension: Union[bool, str] = False,
+        run_headless: bool = True,
+        log_queue: Optional[Queue] = None,
+        log_level: Optional[str] = None,
+):
+    """
+    Start a (Google) Chrome browser instance for rendering avatar images.
 
+    :param ws_addr: the web-socket address for receiving the avatar-pose-data & sending the rendered avatar images
+    :param stop_signal: signal for stopping the chrome browser / process: any "truthy" signal will stop the browser
+    :param port: the port for opening the avatar-rendering web app with `<base_url>:<port>`
+                 (only used, if _not_ started with web-extension)
+    :param base_url: the URL for opening the avatar-rendering web app with `<base_url>:<port>`
+                     (only used, if _not_ started with web-extension)
+    :param web_extension: either `bool` or a `str`ing:
+                         * if `False` will __not__ start Chrome with the web extension for avatar-rendering, but instead
+                           start as a normal website with `"<base_url>:<port>"`
+                           (i.e. that URL should be accessible from this machine)
+                         * if `True` will start Chrome with the _packed_ web extension
+                           (the `*.crx` file is assumed at the default location in the parallel subproject
+                           `rpm/dist/chrome-extension.crx`, see `get_web_extension_file()`)
+                         * if `str` and if it is a valid path:
+                           * if it is a path to a _directory_, it will be loaded as _unpacked_ web-extension
+                           * if it is a path to a _file_, it will be loaded as a _packed_ web-extension
+                         * if `str` but is a _no_ valid path:
+                           the web-extension will be loaded as _packed_ web-extension, and the `str`ing is used as
+                           custom extension ID, i.e. chrome browser will be started with the URL
+                           `chrome-extension://<extension ID>/index.html` for opening the the extension
+                           (the `*.crx` file is assumed at the default location in the parallel subproject
+                           `rpm/dist/chrome-extension.crx`, see `get_web_extension_file()`)
+    :param run_headless: if `True`, run Chrome in `headless` mode, i.e. "invisible" without showing its window
+    :param log_queue: OPTIONAL a `Queue` for multiprocessing logging via queue
+    :param log_level: OPTIONAL the log-level for multiprocessing logging
+    """
     if log_queue:
         worker_configurer(log_queue, log_level if log_level else 'INFO')
     logger = logging.getLogger("chrome_driver_renderer")
