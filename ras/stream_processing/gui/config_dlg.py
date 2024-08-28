@@ -53,6 +53,15 @@ class ConfigDialog(RestorableDialog):
         cbbVideoConverter = self._createVideoConverterWidget()
         formLayout.addRow("Video Converter:", cbbVideoConverter)
 
+        cbbAvatar = self._createAvatarWidget()
+        formLayout.addRow("Avatar:", cbbAvatar)
+
+        # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
+        def _updateAvatarEnabled(selected_video_converter: str):
+            cbbAvatar.setEnabled(selected_video_converter == 'Avatar')
+        _updateAvatarEnabled(cbbVideoConverter.currentText())
+        cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)
+
         cbbAudioVoice = self._createAudioVoiceWidget()
         formLayout.addRow("Audio Voice:", cbbAudioVoice)
 
@@ -110,6 +119,13 @@ class ConfigDialog(RestorableDialog):
             'Echo': 'stream_processing.models.Echo',
         }
         return self._createDataComboBox(items, ['video', 'converter', 'cls'])
+
+    def _createAvatarWidget(self) -> QComboBox:
+        items = {
+            'Avatar (Female)': './default_avatar_alt.glb',
+            'Avatar (Male)': './default_avatar.glb',
+        }
+        return self._createDataComboBox(items, ['video', 'converter', 'avatar_uri'])
 
     def _createAudioVoiceWidget(self) -> QComboBox:
         items = {
@@ -179,7 +195,7 @@ class ConfigDialog(RestorableDialog):
         sub_config = self.config
         for curr_field in config_path:
             field_name = curr_field
-            current_value = sub_config[field_name]
+            current_value = sub_config.get(field_name)
             if isinstance(current_value, dict):
                 sub_config = current_value
         return current_value, field_name, sub_config
