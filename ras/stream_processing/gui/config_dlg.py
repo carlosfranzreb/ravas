@@ -98,16 +98,27 @@ class ConfigDialog(RestorableDialog):
         convertVideoGroup.setLayout(convertVideoForm)
         dialogLayout.addWidget(convertVideoGroup)
 
+        # ############ LOG SETTINGS ################
+
+        loggingGroup = QGroupBox("Logging")
+        loggingForm = QFormLayout()
+
+        cbbMainLogging = self._createLogLevelWidget(for_gui=False)
+        loggingForm.addRow("Logging:", cbbMainLogging)
+
+        cbbGuiLogging = self._createLogLevelWidget(for_gui=True)
+        # TODO validate for_gui setting: should always be equal or "larger" (i.e. more restrictive) than the main setting
+        loggingForm.addRow("GUI Logging (GUI):", cbbGuiLogging)
+
+        loggingGroup.setLayout(loggingForm)
+        dialogLayout.addWidget(loggingGroup)
+
         # TODO add config widgets for:
         # use_audio: true
         #
         # use_video: true
         # output_window: true
         #
-        #
-        # log_level: INFO
-        #
-        # gui_log_level TODO
         # disable_console_logging   TODO
         #
         # ? [video]/[converter]
@@ -176,6 +187,24 @@ class ConfigDialog(RestorableDialog):
             'Male (John)': './target_feats/john.pt',
         }
         return self._createDataComboBox(items, ['audio', 'converter', 'target_feats_path'])
+
+
+    def _createLogLevelWidget(self, for_gui: bool) -> QComboBox:
+        items = {
+            '<DEFAULT>': None,
+            'CRITICAL': 'CRITICAL',
+            'ERROR': 'ERROR',
+            'WARN': 'WARNING',
+            'INFO': 'INFO',
+            'DEBUG': 'DEBUG',
+        }
+        if for_gui:
+            field = 'gui_log_level'
+        else:
+            field = 'log_level'
+            items['<DEFAULT>'] = 'INFO'
+
+        return self._createDataComboBox(items, [field])
 
     def _createTextComboBox(self, text_items: list[str], config_path: list[str]) -> QComboBox:
         """

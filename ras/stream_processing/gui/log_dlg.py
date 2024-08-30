@@ -22,7 +22,7 @@ class QTextEditLogger(logging.Handler):
 
 
 class LogDialog(RestorableDialog):
-    def __init__(self, parent, gui_log_level='INFO'):
+    def __init__(self, parent):
         super().__init__(parent=parent)
         self.setWindowTitle('Logging')
 
@@ -37,7 +37,6 @@ class LogDialog(RestorableDialog):
             "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
         ))
         logging.getLogger().addHandler(logTextBox)
-        logging.getLogger().setLevel(gui_log_level)
         self.logWidget = logTextBox
 
         layout = QVBoxLayout()

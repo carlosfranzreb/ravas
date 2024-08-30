@@ -76,12 +76,12 @@ class MainWindow(QMainWindow):
         btnDebug.clicked.connect(self.__debug)
         layout.addWidget(btnDebug)
 
-        gui_log_level = 'DEBUG' # FIXME get from config
-        self._logWindow = LogDialog(parent=self, gui_log_level=gui_log_level)
+        self._logWindow = LogDialog(parent=self)
         self._logWindow.finished.connect(self.onLogWindowClosed)
+        self._applyLogLevel()  # <- do set/update log-level for this process' root logger
 
         chkShowFrame = QCheckBox("Show Log")
-        chkShowFrame.setShortcut("Ctrl+L")  # TODO enable this shortcut in log-window too
+        chkShowFrame.setShortcut("Ctrl+L")
         chkShowFrame.setStatusTip("Show or hide the Logging Window")
         chkShowFrame.toggled.connect(self.toggleLogWindow)
         layout.addWidget(chkShowFrame)
@@ -118,6 +118,12 @@ class MainWindow(QMainWindow):
         applySetting(settings, 'main_window/size', self.resize)
         applySetting(settings, 'main_window/position', self.move)
         applySetting(settings, 'main_window/windowState', self.setWindowState, checkWindowState)
+
+    def _applyLogLevel(self, config: dict = None):
+        if not config:
+            config = self.getConfig(as_copy=False)
+        gui_log_level = config.get('gui_log_level', config.get('log_level'))
+        logging.getLogger().setLevel(gui_log_level)
 
     def getConfig(self, as_copy: bool) -> dict:
         if not self._config:
@@ -256,6 +262,7 @@ class MainWindow(QMainWindow):
         if result:
             print('applying config form config dialog -> ', result, configDlg)
             self._config = configDlg.config
+            self._applyLogLevel(self._config)
 
     def closeEvent(self, evt: QCloseEvent):
         print('main window close', evt)
