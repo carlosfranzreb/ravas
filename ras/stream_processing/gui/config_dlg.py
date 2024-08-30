@@ -4,7 +4,8 @@ from functools import partial
 
 import cv2 as cv
 import sounddevice as sd
-from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox
+from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
+    QSizePolicy
 
 from .settings_helper import RestorableDialog
 
@@ -39,7 +40,6 @@ class ConfigDialog(RestorableDialog):
         dialogLayout = QVBoxLayout()
 
         # ############ INPUT ################
-        inputGroup = QGroupBox("Input")
         inputForm = QFormLayout()
 
         cbbAudioIn = self._createAudioDeviceWidget(audio_input=True)
@@ -54,33 +54,29 @@ class ConfigDialog(RestorableDialog):
         cbbVideoIn.setEnabled(False)  # FIXME dummy
         inputForm.addRow("Video Input:", cbbVideoIn)
 
-        inputGroup.setLayout(inputForm)
+        inputGroup = self._makeGroupBox("Input", inputForm)
         dialogLayout.addWidget(inputGroup)
 
         # ############ OUTPUT ################
-        outputGroup = QGroupBox("Output")
         outputForm = QFormLayout()
 
         cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
         outputForm.addRow("Audio Output:", cbbAudioOut)
 
-        outputGroup.setLayout(outputForm)
+        outputGroup = self._makeGroupBox("Output", outputForm)
         dialogLayout.addWidget(outputGroup)
 
         # ############ CONVERTER AUDIO ################
 
-        convertAudioGroup = QGroupBox("Convert Audio")
         convertAudioForm = QFormLayout()
 
         cbbAudioVoice = self._createAudioVoiceWidget()
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
 
-        convertAudioGroup.setLayout(convertAudioForm)
+        convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
         dialogLayout.addWidget(convertAudioGroup)
 
         # ############ CONVERTER VIDEO ################
-
-        convertVideoGroup = QGroupBox("Convert Video")
         convertVideoForm = QFormLayout()
 
         cbbVideoConverter = self._createVideoConverterWidget()
@@ -95,22 +91,19 @@ class ConfigDialog(RestorableDialog):
         _updateAvatarEnabled(cbbVideoConverter.currentText())
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)
 
-        convertVideoGroup.setLayout(convertVideoForm)
+        convertVideoGroup = self._makeGroupBox("Convert Video", convertVideoForm)
         dialogLayout.addWidget(convertVideoGroup)
 
         # ############ LOG SETTINGS ################
-
-        loggingGroup = QGroupBox("Logging")
         loggingForm = QFormLayout()
 
         cbbMainLogging = self._createLogLevelWidget(for_gui=False)
         loggingForm.addRow("Logging:", cbbMainLogging)
 
         cbbGuiLogging = self._createLogLevelWidget(for_gui=True)
-        # TODO validate for_gui setting: should always be equal or "larger" (i.e. more restrictive) than the main setting
-        loggingForm.addRow("GUI Logging (GUI):", cbbGuiLogging)
+        loggingForm.addRow("Logging (GUI):", cbbGuiLogging)
 
-        loggingGroup.setLayout(loggingForm)
+        loggingGroup = self._makeGroupBox("Logging", loggingForm)
         dialogLayout.addWidget(loggingGroup)
 
         # TODO add config widgets for:
@@ -130,6 +123,12 @@ class ConfigDialog(RestorableDialog):
         dialogLayout.addWidget(buttons)
 
         self.setLayout(dialogLayout)
+
+    def _makeGroupBox(self, title: str, layout: QFormLayout):
+        group = QGroupBox(title)
+        group.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Maximum))  # prevent vertical growth
+        group.setLayout(layout)
+        return group
 
     # override RestorableDialog.getSettings():
     def getSettingsPath(self) -> str:
