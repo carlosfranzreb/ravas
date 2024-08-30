@@ -4,7 +4,7 @@ from functools import partial
 
 import cv2 as cv
 import sounddevice as sd
-from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel
+from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox
 
 from .settings_helper import RestorableDialog
 
@@ -33,22 +33,17 @@ class ConfigDialog(RestorableDialog):
         """
         super().__init__(parent=parent)
         self.setWindowTitle("Configuration")
-        dialogLayout = QVBoxLayout()
-        formLayout = QFormLayout()
 
         self.config = deepcopy(config)
 
-        # # FIXME TEST some dummy settings:
-        # formLayout.addRow("Name:", QLineEdit())
-        # formLayout.addRow("Age:", QLineEdit())
-        # formLayout.addRow("Job:", QLineEdit())
-        # formLayout.addRow("Hobbies:", QLineEdit())
+        dialogLayout = QVBoxLayout()
+
+        # ############ INPUT ################
+        inputGroup = QGroupBox("Input")
+        inputForm = QFormLayout()
 
         cbbAudioIn = self._createAudioDeviceWidget(audio_input=True)
-        formLayout.addRow("Audio Input:", cbbAudioIn)
-
-        cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
-        formLayout.addRow("Audio Output:", cbbAudioOut)
+        inputForm.addRow("Audio Input:", cbbAudioIn)
 
         # FIXME DISABLED takes too long, find better solution for generating video device list,
         #                other than trying out opencv2 indicies ... or maybe show fast solution first and give users
@@ -57,13 +52,42 @@ class ConfigDialog(RestorableDialog):
         cbbVideoIn = QComboBox()  # FIXME dummy
         cbbVideoIn.addItem('<disabled>')  # FIXME dummy
         cbbVideoIn.setEnabled(False)  # FIXME dummy
-        formLayout.addRow("Video Input:", cbbVideoIn)
+        inputForm.addRow("Video Input:", cbbVideoIn)
+
+        inputGroup.setLayout(inputForm)
+        dialogLayout.addWidget(inputGroup)
+
+        # ############ OUTPUT ################
+        outputGroup = QGroupBox("Output")
+        outputForm = QFormLayout()
+
+        cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
+        outputForm.addRow("Audio Output:", cbbAudioOut)
+
+        outputGroup.setLayout(outputForm)
+        dialogLayout.addWidget(outputGroup)
+
+        # ############ CONVERTER AUDIO ################
+
+        convertAudioGroup = QGroupBox("Convert Audio")
+        convertAudioForm = QFormLayout()
+
+        cbbAudioVoice = self._createAudioVoiceWidget()
+        convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
+
+        convertAudioGroup.setLayout(convertAudioForm)
+        dialogLayout.addWidget(convertAudioGroup)
+
+        # ############ CONVERTER VIDEO ################
+
+        convertVideoGroup = QGroupBox("Convert Video")
+        convertVideoForm = QFormLayout()
 
         cbbVideoConverter = self._createVideoConverterWidget()
-        formLayout.addRow("Video Converter:", cbbVideoConverter)
+        convertVideoForm.addRow("Video Converter:", cbbVideoConverter)
 
         cbbAvatar = self._createAvatarWidget()
-        formLayout.addRow("Avatar:", cbbAvatar)
+        convertVideoForm.addRow("Avatar:", cbbAvatar)
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
@@ -71,8 +95,8 @@ class ConfigDialog(RestorableDialog):
         _updateAvatarEnabled(cbbVideoConverter.currentText())
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)
 
-        cbbAudioVoice = self._createAudioVoiceWidget()
-        formLayout.addRow("Audio Voice:", cbbAudioVoice)
+        convertVideoGroup.setLayout(convertVideoForm)
+        dialogLayout.addWidget(convertVideoGroup)
 
         # TODO add config widgets for:
         # use_audio: true
@@ -91,15 +115,27 @@ class ConfigDialog(RestorableDialog):
         # width: *video_width
         # height: *video_height
 
-        dialogLayout.addLayout(formLayout)
-
         buttons = self._createDlgCtrls()
         dialogLayout.addWidget(buttons)
+
         self.setLayout(dialogLayout)
 
     # override RestorableDialog.getSettings():
     def getSettingsPath(self) -> str:
         return 'config_dlg'
+
+    def showEvent(self, evt):
+        super().showEvent(evt)
+        self._forceAlignRowLabels()
+
+    def _forceAlignRowLabels(self):
+        """ HELPER set all label's minimum width to the maximum of the currently displayed labels (i.e. force them to align)"""
+        all_labels: list[QLabel] = self.findChildren(QLabel)
+        max_width = .0
+        for lbl in all_labels:
+            max_width = max(max_width, lbl.width())
+        for lbl in all_labels:
+            lbl.setMinimumWidth(max_width)
 
     def _createDlgCtrls(self):
         buttons = QDialogButtonBox()
@@ -123,7 +159,7 @@ class ConfigDialog(RestorableDialog):
         items = {
             'Avatar': 'stream_processing.models.Avatar',
             'FaceMask': 'stream_processing.models.FaceMask',
-            'Echo': 'stream_processing.models.Echo',
+            'Echo (No Anonymization)': 'stream_processing.models.Echo',
         }
         return self._createDataComboBox(items, ['video', 'converter', 'cls'])
 
@@ -238,28 +274,32 @@ class ConfigDialog(RestorableDialog):
         #       preceding labels for ComboBoxes, for creating details in error-messages in case of invalid values
         # boxes: list[QComboBox] = self.findChildren(QComboBox)
 
-        formLayout: QFormLayout = self.layout().itemAt(0)
-        for i in range(formLayout.count()):
-            widget = formLayout.itemAt(i).widget()
-            if isinstance(widget, QComboBox):
-                # validate selection in combo-box:
-                #   must not have NO_SELECTION as current selection
-                sel = widget.currentText()
-                if sel == NO_SELECTION:
-                    has_invalid = True
-                    did_add_error = False
-                    if i > 0:
-                        # get text from combo-box's (preceding) label
-                        label = formLayout.itemAt(i-1).widget()
-                        if label and isinstance(label, QLabel):
-                            did_add_error = True
-                            label_str = label.text()
-                            # add colon, if not present (for error message formatting)
-                            if ':' not in label_str:
-                                label_str += ':'
-                            errors[label_str] = sel
-                    if not did_add_error:
-                        errors['unknown'] = sel
+        formLayouts: list[QFormLayout] = self.findChildren(QFormLayout)  # self.layout().itemAt(0)
+        for formLayout in formLayouts:
+            for i in range(formLayout.count()):
+                widget = formLayout.itemAt(i).widget()
+                if isinstance(widget, QComboBox):
+                    if not widget.isEnabled():
+                        # ignore, if combo-box is disabled:
+                        continue
+                    # validate selection in combo-box:
+                    #   must not have NO_SELECTION as current selection
+                    sel = widget.currentText()
+                    if sel == NO_SELECTION:
+                        has_invalid = True
+                        did_add_error = False
+                        if i > 0:
+                            # get text from combo-box's (preceding) label
+                            label = formLayout.itemAt(i-1).widget()
+                            if label and isinstance(label, QLabel):
+                                did_add_error = True
+                                label_str = label.text()
+                                # add colon, if not present (for error message formatting)
+                                if ':' not in label_str:
+                                    label_str += ':'
+                                errors[label_str] = sel
+                        if not did_add_error:
+                            errors['unknown'] = sel
 
         if not has_invalid:
             self.accept()
