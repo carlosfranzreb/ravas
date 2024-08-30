@@ -4,12 +4,21 @@ from functools import partial
 
 import cv2 as cv
 import sounddevice as sd
-from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox
+from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel
 
 from .settings_helper import RestorableDialog
 
 
 _logger = logging.getLogger('gui.config_dlg')
+
+
+NO_SELECTION: str = '<no selection>'
+""" 
+a dummy label/item-data in case the current config-object has missing or invalid value, i.e. cannot be set to selected
+
+i.e. this label/item-data indicates that the corresponding widget (or its underlying configuration-field) 
+has an invalid value.
+"""
 
 
 class ConfigDialog(RestorableDialog):
@@ -70,8 +79,6 @@ class ConfigDialog(RestorableDialog):
         #
         # use_video: true
         # output_window: true
-        # converter:
-        #     avatar_file: default_avatar.glb   TODO
         #
         #
         # log_level: INFO
@@ -100,7 +107,7 @@ class ConfigDialog(RestorableDialog):
             QDialogButtonBox.StandardButton.Cancel
             | QDialogButtonBox.StandardButton.Ok
         )
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self.validateAndAccept)
         buttons.rejected.connect(self.reject)
         return buttons
 
@@ -151,7 +158,8 @@ class ConfigDialog(RestorableDialog):
             idx = text_items.index(current_value)
             combobox.setCurrentIndex(idx)
         except:
-            pass
+            combobox.insertItem(0, NO_SELECTION)
+            combobox.setCurrentIndex(0)
         combobox.currentTextChanged.connect(partial(self.setConfigValue, sub_config, field_name))
         return combobox
 
@@ -168,11 +176,16 @@ class ConfigDialog(RestorableDialog):
         combobox = QComboBox()
         current_value, field_name, sub_config = self._get_current_value_and_config_path_for(config_path)
         idx = 0
+        did_select_current = False
         for key, cls in item_data.items():
             combobox.addItem(key, cls)
             if cls == current_value:
+                did_select_current = True
                 combobox.setCurrentIndex(idx)
             idx += 1
+        if not did_select_current:
+            combobox.insertItem(0, NO_SELECTION, NO_SELECTION)
+            combobox.setCurrentIndex(0)
         combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, sub_config, field_name))
         return combobox
 
@@ -201,13 +214,60 @@ class ConfigDialog(RestorableDialog):
         return current_value, field_name, sub_config
 
     def setConfigValue(self, sub_config: dict, field: str, value: any):
-        print('set config ', sub_config, ':', field, ' -> ', value)
-        sub_config[field] = value
+        print('set config ', sub_config, ':', field, ' -> ', value)  # FIXME DEBUG
+        if value != NO_SELECTION:
+            sub_config[field] = value
+        else:
+            _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
+            sub_config[field] = None
 
     def setConfigValueByData(self, widget: QComboBox, sub_config: dict, field: str, idx: int):
         data = widget.itemData(idx)
-        print('set config by index ', sub_config, ':', field, ' -> ComboBox[', idx, '] = [', data, ']')
-        sub_config[field] = data
+        print('set config by index ', sub_config, ':', field, ' -> ComboBox[', idx, '] = [', data, ']')  # FIXME DEBUG
+        if data != NO_SELECTION:
+            sub_config[field] = data
+        else:
+            _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
+            sub_config[field] = None
+
+    def validateAndAccept(self):
+        has_invalid = False
+        errors = {}
+
+        # NOTE: iterate over ALL children of QFormLayout (instead of only ComboBoxes themselves) in order to access
+        #       preceding labels for ComboBoxes, for creating details in error-messages in case of invalid values
+        # boxes: list[QComboBox] = self.findChildren(QComboBox)
+
+        formLayout: QFormLayout = self.layout().itemAt(0)
+        for i in range(formLayout.count()):
+            widget = formLayout.itemAt(i).widget()
+            if isinstance(widget, QComboBox):
+                # validate selection in combo-box:
+                #   must not have NO_SELECTION as current selection
+                sel = widget.currentText()
+                if sel == NO_SELECTION:
+                    has_invalid = True
+                    did_add_error = False
+                    if i > 0:
+                        # get text from combo-box's (preceding) label
+                        label = formLayout.itemAt(i-1).widget()
+                        if label and isinstance(label, QLabel):
+                            did_add_error = True
+                            label_str = label.text()
+                            # add colon, if not present (for error message formatting)
+                            if ':' not in label_str:
+                                label_str += ':'
+                            errors[label_str] = sel
+                    if not did_add_error:
+                        errors['unknown'] = sel
+
+        if not has_invalid:
+            self.accept()
+        else:
+            details = ''
+            for msg in errors:
+                details += '\n * {} {}'.format(msg, errors[msg])
+            QMessageBox.question(self, 'Invalid Value', 'Please select a different value(s) for ' + details, QMessageBox.StandardButton.Ok)
 
 
 def getAudioDevices(is_input: bool) -> list[str]:
