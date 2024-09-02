@@ -180,8 +180,10 @@ class ConfigDialog(RestorableDialog):
 
     def _createAvatarWidget(self) -> QComboBox:
         items = {
-            'Avatar (Female)': './default_avatar_alt.glb',
-            'Avatar (Male)': './default_avatar.glb',
+            'Avatar (Female)': './avatar_1_f.glb',
+            'Avatar (Male)': './avatar_2_m.glb',
+            'Avatar 2 (Female)': './avatar_3_f.glb',
+            'Avatar 2 (Male)': './avatar_4_m.glb',
         }
         return self._createDataComboBox(items, ['video', 'converter', 'avatar_uri'])
 

@@ -1,6 +1,6 @@
 import { useGLTF } from "@react-three/drei";
 import { Canvas, useGraph } from "@react-three/fiber";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ChangeEvent, startTransition  } from "react";
 import { useDropzone } from "react-dropzone";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Color, Euler, Matrix4 } from "three";
@@ -13,6 +13,15 @@ let totalRender = 0;
 let renderCount = 0;
 // for logging initialization time
 let initStart = performance.now();
+
+// locally available avatars:
+const avatars: {id: number, title: string, file: string, disabled: boolean}[] = [
+  {id: 0, title: 'Select a Default Avatar...', file: '', disabled: true},
+  {id: 1, title: 'Avatar (Female)',    file: 'avatar_1_f.glb', disabled: false},
+  {id: 2, title: 'Avatar (Male)',      file: 'avatar_2_m.glb', disabled: false},
+  {id: 3, title: 'Avatar 2 (Female)',  file: 'avatar_3_f.glb', disabled: false},
+  {id: 4, title: 'Avatar 2 (Male)',    file: 'avatar_4_m.glb', disabled: false}
+];
 
 /**
  * HELPER store log information that can be read-out by selenium driver
@@ -29,7 +38,8 @@ function App() {
   const queryParameters = new URLSearchParams(window.location.search);
   const wsParam = queryParameters.get("ws");
   const displayFps = /^\s*true\s*$/i.test(queryParameters.get("show-fps") || "");
-  const avatarUri = queryParameters.get("avatar") || "./default_avatar.glb";
+  const displayAvatarSelection = !/^\s*true\s*$/i.test(queryParameters.get("hide-selection") || "");
+  const avatarUri = queryParameters.get("avatar") || "./avatar_1_f.glb";
 
   console.log('avatar', avatarUri);
   console.log('wsParam', wsParam);
@@ -139,11 +149,28 @@ function App() {
     }
   }
 
+  function onChangeAvatarSelection(evt: ChangeEvent<HTMLSelectElement>) {
+    const selection: string = evt.target.value || "";
+    if (selection) {
+      startTransition(() => setUrl(selection));
+    }
+  }
+
   return (
     <div className="App">
-      <div {...getRootProps({ className: "dropzone" })}>
-        <p>Drag & drop RPM avatar GLB file here</p>
-      </div>
+      {displayAvatarSelection ? (
+          <div>
+            <div {...getRootProps({ className: "dropzone" })}>
+              <p>Drag & drop RPM avatar GLB file here</p>
+            </div>
+            <select onChange={onChangeAvatarSelection} defaultValue={avatars[0].file} className="dropzone">{
+              avatars.map(a => <option value={a.file} disabled={a.disabled}>{a.title}</option>)
+            }</select>
+          </div>
+        ) : (
+          null
+        )
+      }
       <div className="status-display">WebSocket State: {connectionStatus}</div>
       {displayFps ? (
         <div className="info-display">Render (ms / frames): {durationRender}</div>

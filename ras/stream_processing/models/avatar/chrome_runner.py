@@ -129,6 +129,7 @@ def start_browser(
         web_extension: Union[bool, str] = False,
         run_headless: bool = True,
         avatar_uri: Optional[str] = None,
+        hide_avatar_selection: Optional[bool] = None,
         log_queue: Optional[Queue] = None,
         log_level: Optional[str] = None,
 ):
@@ -158,6 +159,11 @@ def start_browser(
                            (the `*.crx` file is assumed at the default location in the parallel subproject
                            `rpm/dist/chrome-extension.crx`, see `get_web_extension_file()`)
     :param run_headless: if `True`, run Chrome in `headless` mode, i.e. "invisible" without showing its window
+    :param avatar_uri: OPTIONAL the URI for loading the avatar (`*.glb` file)
+    :param hide_avatar_selection: OPTIONAL if `True` hide widgets for selecting an avatar
+                                    (without these widgets, you need to use the query-parameters for setting an avatar).
+                                  If `None` (or omitted), will hide the widgets if run in `headless` mode (and show
+                                  them if _not_ run in `headless` mode).
     :param log_queue: OPTIONAL a `Queue` for multiprocessing logging via queue
     :param log_level: OPTIONAL the log-level for multiprocessing logging
     """
@@ -201,6 +207,9 @@ def start_browser(
             query_params.append('show-fps=' + quote('true'))
         if avatar_uri:
             query_params.append('avatar=' + quote(avatar_uri))
+        if hide_avatar_selection is True or (hide_avatar_selection is None and run_headless):
+            # NOTE default value for "show-selection" is TRUE, so omitting it is the same as setting it to true
+            query_params.append('hide-selection=' + quote('true'))
         if len(query_params) > 0:
             target_url += '?' + '&'.join(query_params)
 

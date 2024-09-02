@@ -93,6 +93,7 @@ class Avatar(Converter):
             'web_extension': use_extension,
             'run_headless': not self.config.get('show_chrome_window', False),
             'avatar_uri': self.config.get('avatar_uri', None),
+            'hide_avatar_selection': self.config.get('hide_avatar_selection', None),
             'log_queue': self.log_queue,
             'log_level': self.log_level,
         }
