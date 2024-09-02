@@ -4,14 +4,19 @@ from functools import partial
 
 import cv2 as cv
 import sounddevice as sd
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy
+    QSizePolicy, QWidget
 
 from .settings_helper import RestorableDialog
 
 
 _logger = logging.getLogger('gui.config_dlg')
 
+
+STYLE_INVALID_SELECTION = 'color: red'
+""" widget style to indicate an invalid selection/configuration """
 
 NO_SELECTION: str = '<no selection>'
 """ 
@@ -224,7 +229,8 @@ class ConfigDialog(RestorableDialog):
         except:
             combobox.insertItem(0, NO_SELECTION)
             combobox.setCurrentIndex(0)
-        combobox.currentTextChanged.connect(partial(self.setConfigValue, sub_config, field_name))
+            self._createAndSetNoSelectionStyle(combobox)
+        combobox.currentTextChanged.connect(partial(self.setConfigValue, combobox, sub_config, field_name))
         return combobox
 
     def _createDataComboBox(self, item_data: dict[str, any], config_path: list[str]) -> QComboBox:
@@ -250,8 +256,45 @@ class ConfigDialog(RestorableDialog):
         if not did_select_current:
             combobox.insertItem(0, NO_SELECTION, NO_SELECTION)
             combobox.setCurrentIndex(0)
+            self._createAndSetNoSelectionStyle(combobox)
         combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, sub_config, field_name))
         return combobox
+
+    def _createAndSetNoSelectionStyle(self, combobox: QComboBox):
+        """
+        HELPER: style NO_SELECTION as "invalid" entry with red text
+
+        Adds the styling for the items & set the combo-box to show the currently selected value
+        (which should be the NO_SELECTION) as "invalid".
+
+        IMPORTANT: the NO_SELECTION entry must be at index/row 0, and it must be selected!
+        """
+        # styling for NO_SELECTION:
+        # since the NO_SELECTION entry is selected: do style the combo-box text as red
+        self._setStyleToInvalidSelection(combobox)
+        # next style the items in the dropdown list:
+        model = combobox.model()
+        # NO_SELECTION item text to red
+        model.setData(model.index(0, 0), QColor('red'), Qt.ItemDataRole.ForegroundRole)
+        # set all other items' text to default brush
+        # (since combobox text is currently set to red, they would also be rendered red
+        #  if they are not specifically set)
+        defaultBrush = QPalette().brush(QPalette.ColorGroup.Normal, QPalette.ColorRole.ButtonText)
+        for i in range(1, model.rowCount()):
+            model.setData(model.index(i, 0), defaultBrush, Qt.ItemDataRole.ForegroundRole)
+
+    def _setStyleToInvalidSelection(self, widget: QWidget):
+        """
+        HELPER style the widget to indicate that it has an invalid value
+
+        NOTE: use `_resetStyleToValidSelection()` to reset the style, when the selection becomes valid
+        """
+        widget.setStyleSheet(STYLE_INVALID_SELECTION)
+
+    def _resetStyleToValidSelection(self, widget: QWidget):
+        if widget.styleSheet() == STYLE_INVALID_SELECTION:
+            defaultBrush = QPalette().brush(QPalette.ColorGroup.Normal, QPalette.ColorRole.ButtonText)
+            widget.setStyleSheet('color: ' + str(defaultBrush.color().name()))
 
     def _get_current_value_and_config_path_for(self, config_path: list[str]) -> tuple[any, str, dict]:
         """
@@ -277,22 +320,26 @@ class ConfigDialog(RestorableDialog):
                 sub_config = current_value
         return current_value, field_name, sub_config
 
-    def setConfigValue(self, sub_config: dict, field: str, value: any):
+    def setConfigValue(self, widget: QComboBox, sub_config: dict, field: str, value: any):
         print('set config ', sub_config, ':', field, ' -> ', value)  # FIXME DEBUG
         if value != NO_SELECTION:
             sub_config[field] = value
+            self._resetStyleToValidSelection(widget)
         else:
             _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
             sub_config[field] = None
+            self._setStyleToInvalidSelection(widget)
 
     def setConfigValueByData(self, widget: QComboBox, sub_config: dict, field: str, idx: int):
         data = widget.itemData(idx)
         print('set config by index ', sub_config, ':', field, ' -> ComboBox[', idx, '] = [', data, ']')  # FIXME DEBUG
         if data != NO_SELECTION:
             sub_config[field] = data
+            self._resetStyleToValidSelection(widget)
         else:
             _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
             sub_config[field] = None
+            self._setStyleToInvalidSelection(widget)
 
     def validateAndAccept(self):
         has_invalid = False
