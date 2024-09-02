@@ -119,6 +119,12 @@ class MainWindow(QMainWindow):
         applySetting(settings, 'main_window/position', self.move)
         applySetting(settings, 'main_window/windowState', self.setWindowState, checkWindowState)
 
+        # restore config-changes:
+        # when config-dialog is created it will restore config-changes from user-settings into configDlg.config
+        configDlg = ConfigDialog(self, self.getConfig(as_copy=True))
+        if configDlg.changed_config:
+            self._config = configDlg.config
+
     def _applyLogLevel(self, config: dict = None):
         if not config:
             config = self.getConfig(as_copy=False)
