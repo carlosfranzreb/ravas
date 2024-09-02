@@ -2,13 +2,12 @@ import logging
 from copy import deepcopy
 from functools import partial
 
-import cv2 as cv
-import sounddevice as sd
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
     QSizePolicy, QWidget
 
+from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem
 from .settings_helper import RestorableDialog
 
 
@@ -17,14 +16,6 @@ _logger = logging.getLogger('gui.config_dlg')
 
 STYLE_INVALID_SELECTION = 'color: red'
 """ widget style to indicate an invalid selection/configuration """
-
-NO_SELECTION: str = '<no selection>'
-""" 
-a dummy label/item-data in case the current config-object has missing or invalid value, i.e. cannot be set to selected
-
-i.e. this label/item-data indicates that the corresponding widget (or its underlying configuration-field) 
-has an invalid value.
-"""
 
 
 class ConfigDialog(RestorableDialog):
@@ -47,7 +38,8 @@ class ConfigDialog(RestorableDialog):
         # ############ INPUT ################
         inputForm = QFormLayout()
 
-        cbbAudioIn = self._createAudioDeviceWidget(audio_input=True)
+        # cbbAudioIn = self._createAudioDeviceWidget(audio_input=True)
+        cbbAudioIn = self._createWidgetFor(CONFIG_ITEMS['audio_input_devices'])
         inputForm.addRow("Audio Input:", cbbAudioIn)
 
         # FIXME DISABLED takes too long, find better solution for generating video device list,
@@ -65,7 +57,8 @@ class ConfigDialog(RestorableDialog):
         # ############ OUTPUT ################
         outputForm = QFormLayout()
 
-        cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
+        # cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
+        cbbAudioOut = self._createWidgetFor(CONFIG_ITEMS['audio_output_devices'])
         outputForm.addRow("Audio Output:", cbbAudioOut)
 
         outputGroup = self._makeGroupBox("Output", outputForm)
@@ -75,7 +68,7 @@ class ConfigDialog(RestorableDialog):
 
         convertAudioForm = QFormLayout()
 
-        cbbAudioVoice = self._createAudioVoiceWidget()
+        cbbAudioVoice = self._createWidgetFor(CONFIG_ITEMS['audio_voices'])
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
@@ -84,10 +77,12 @@ class ConfigDialog(RestorableDialog):
         # ############ CONVERTER VIDEO ################
         convertVideoForm = QFormLayout()
 
-        cbbVideoConverter = self._createVideoConverterWidget()
+        # cbbVideoConverter = self._createVideoConverterWidget()
+        cbbVideoConverter = self._createWidgetFor(CONFIG_ITEMS['video_converters'])
         convertVideoForm.addRow("Video Converter:", cbbVideoConverter)
 
-        cbbAvatar = self._createAvatarWidget()
+        # cbbAvatar = self._createAvatarWidget()
+        cbbAvatar = self._createWidgetFor(CONFIG_ITEMS['video_avatars'])
         convertVideoForm.addRow("Avatar:", cbbAvatar)
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
@@ -102,10 +97,12 @@ class ConfigDialog(RestorableDialog):
         # ############ LOG SETTINGS ################
         loggingForm = QFormLayout()
 
-        cbbMainLogging = self._createLogLevelWidget(for_gui=False)
+        # cbbMainLogging = self._createLogLevelWidget(for_gui=False)
+        cbbMainLogging = self._createWidgetFor(CONFIG_ITEMS['log_levels'])
         loggingForm.addRow("Logging:", cbbMainLogging)
 
-        cbbGuiLogging = self._createLogLevelWidget(for_gui=True)
+        # cbbGuiLogging = self._createLogLevelWidget(for_gui=True)
+        cbbGuiLogging = self._createWidgetFor(CONFIG_ITEMS['gui_log_levels'])
         loggingForm.addRow("Logging (GUI):", cbbGuiLogging)
 
         loggingGroup = self._makeGroupBox("Logging", loggingForm)
@@ -162,55 +159,12 @@ class ConfigDialog(RestorableDialog):
         buttons.rejected.connect(self.reject)
         return buttons
 
-    def _createAudioDeviceWidget(self, audio_input: bool) -> QComboBox:
-        fieldName = 'input_device' if audio_input else 'output_device'
-        return self._createTextComboBox(getAudioDevices(audio_input), ['audio', fieldName])
-
-    def _createVideoDeviceWidget(self) -> QComboBox:
-        indices = returnCameraIndices()  # FIXME takes too long, find better solution
-        return self._createTextComboBox(indices, ['video', 'input_device'])
-
-    def _createVideoConverterWidget(self) -> QComboBox:
-        items = {
-            'Avatar': 'stream_processing.models.Avatar',
-            'FaceMask': 'stream_processing.models.FaceMask',
-            'Echo (No Anonymization)': 'stream_processing.models.Echo',
-        }
-        return self._createDataComboBox(items, ['video', 'converter', 'cls'])
-
-    def _createAvatarWidget(self) -> QComboBox:
-        items = {
-            'Avatar (Female)': './avatar_1_f.glb',
-            'Avatar (Male)': './avatar_2_m.glb',
-            'Avatar 2 (Female)': './avatar_3_f.glb',
-            'Avatar 2 (Male)': './avatar_4_m.glb',
-        }
-        return self._createDataComboBox(items, ['video', 'converter', 'avatar_uri'])
-
-    def _createAudioVoiceWidget(self) -> QComboBox:
-        items = {
-            'Female (Wendy)': './target_feats/wendy.pt',
-            'Male (John)': './target_feats/john.pt',
-        }
-        return self._createDataComboBox(items, ['audio', 'converter', 'target_feats_path'])
-
-
-    def _createLogLevelWidget(self, for_gui: bool) -> QComboBox:
-        items = {
-            '<DEFAULT>': None,
-            'CRITICAL': 'CRITICAL',
-            'ERROR': 'ERROR',
-            'WARN': 'WARNING',
-            'INFO': 'INFO',
-            'DEBUG': 'DEBUG',
-        }
-        if for_gui:
-            field = 'gui_log_level'
+    def _createWidgetFor(self, config_item: ConfigurationItem, update_values: bool = True):
+        config_values = config_item.get_latest() if update_values else config_item.get()
+        if isinstance(config_values, list):
+            return self._createTextComboBox(config_values, config_path=config_item.config_path)
         else:
-            field = 'log_level'
-            items['<DEFAULT>'] = 'INFO'
-
-        return self._createDataComboBox(items, [field])
+            return self._createDataComboBox(config_values, config_path=config_item.config_path)
 
     def _createTextComboBox(self, text_items: list[str], config_path: list[str]) -> QComboBox:
         """
@@ -323,7 +277,7 @@ class ConfigDialog(RestorableDialog):
         return current_value, field_name, sub_config
 
     def setConfigValue(self, widget: QComboBox, sub_config: dict, field: str, value: any):
-        print('set config ', sub_config, ':', field, ' -> ', value)  # FIXME DEBUG
+        _logger.debug('set config %s: %s -> %s', sub_config, field, value)
         if value != NO_SELECTION:
             sub_config[field] = value
             self._resetStyleToValidSelection(widget)
@@ -334,7 +288,7 @@ class ConfigDialog(RestorableDialog):
 
     def setConfigValueByData(self, widget: QComboBox, sub_config: dict, field: str, idx: int):
         data = widget.itemData(idx)
-        print('set config by index ', sub_config, ':', field, ' -> ComboBox[', idx, '] = [', data, ']')  # FIXME DEBUG
+        _logger.debug('set config by index %s: %s -> ComboBox[%s] = [%s]', sub_config, field, idx, data)
         if data != NO_SELECTION:
             sub_config[field] = data
             self._resetStyleToValidSelection(widget)
@@ -385,63 +339,3 @@ class ConfigDialog(RestorableDialog):
             for msg in errors:
                 details += '\n * {} {}'.format(msg, errors[msg])
             QMessageBox.question(self, 'Invalid Value', 'Please select a different value(s) for ' + details, QMessageBox.StandardButton.Ok)
-
-
-def getAudioDevices(is_input: bool) -> list[str]:
-    """Retrieve the device names for audio-input or -output index"""
-    devices = sd.query_devices()
-    _logger.debug('audio devices: %s', devices)
-    result = []
-    for idx, device in enumerate(devices):
-        if is_input and device["max_input_channels"] > 0:
-            result.append(device["name"])
-        elif not is_input and device["max_output_channels"] > 0:
-            result.append(device["name"])
-    return result
-
-
-"""
-adapted from
-https://stackoverflow.com/a/61768256/4278324
-
-NOTE: checks indices further down, even one does not work, since on systems there seem to be "empty" indices, see
-      https://stackoverflow.com/a/61768256/4278324
-
-TODO create list with device names: not supported (yet?) by opencv2
-see possible solution for windows:
-https://github.com/yushulx/python-capture-device-list
-also possible bug/solution for this:
-https://github.com/yushulx/python-capture-device-list/issues/5
-
-possible solution for linux (could this work for macos?):
-https://github.com/opencv/opencv/issues/4269#issuecomment-1936742564
-utilizes library/package v4l-utils:
-v4l2-ctl --list-devices
-
-
-could try using ffmpeg, like
-ffmpeg -list_devices true -f dshow -i dummy
-see https://trac.ffmpeg.org/wiki/Capture/Webcam
-... but does not seem to give information to which camera these correspond,
-    using opencv2 which we are using for capturing
-"""
-def returnCameraIndices() -> list[str]:
-    # checks the first 10 indexes.
-    # WARNING: this function takes noticeable time to run
-    #          (since it does actually open cameras & captures for testing if camera is usable)
-    index = 0
-    arr = []
-    i = 10
-    while i > 0:
-        cap = cv.VideoCapture(index)
-
-        if _logger.isEnabledFor(logging.DEBUG):
-            camera_info = (' | backend: "%s" | exception mode: %s' % (cap.getBackendName(), cap.getExceptionMode()) if cap.isOpened() else '')
-            _logger.debug('check camera %s -> opened: %s%s', index, cap.isOpened(), camera_info)
-
-        if cap.isOpened() and cap.read()[0]:
-            arr.append(str(index))
-            cap.release()
-        index += 1
-        i -= 1
-    return arr

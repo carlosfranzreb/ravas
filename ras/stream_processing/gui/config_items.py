@@ -1,0 +1,86 @@
+import logging
+from functools import partial
+from typing import Callable, NoReturn, Union, Optional
+
+from .config_utils import get_audio_devices, return_camera_indices
+
+_logger = logging.getLogger('gui.config_items')
+
+
+NO_SELECTION: str = '<no selection>'
+""" 
+a dummy label/item-data in case the current config-object has missing or invalid value, i.e. cannot be set to selected
+
+i.e. this label/item-data indicates that the corresponding widget (or its underlying configuration-field) 
+has an invalid value.
+"""
+
+
+class ConfigurationItem:
+    def __init__(self, configuration_path: list[str], configuration_values: list[str] | dict[str, any] | Callable[[Union[list[str], dict[str, any]]], NoReturn]):
+        self.config_path: list[str] = configuration_path
+        if callable(configuration_values):
+            self.create_values: Optional[Callable[[Union[list[str], dict[str, any]]], NoReturn]] = configuration_values
+            self.config_values: Optional[Union[list[str], dict[str, any]]] = None
+        else:
+            self.create_values: Optional[Callable[[Union[list[str], dict[str, any]]], NoReturn]] = None
+            self.config_values: Optional[Union[list[str], dict[str, any]]] = configuration_values
+
+    def get(self):
+        if not self.config_values and self.create_values:
+            return self.get_latest()
+        return self.config_values
+
+    def get_latest(self):
+        if self.create_values:
+            self.config_values = self.create_values()
+        return self.config_values
+
+
+CONFIG_ITEMS: dict[str, ConfigurationItem] = {
+    'audio_input_devices': ConfigurationItem(['audio', 'input_device'],
+                                             partial(get_audio_devices, is_input=True, logger=_logger)),
+
+    'audio_output_devices': ConfigurationItem(['audio', 'output_device'],
+                                              partial(get_audio_devices, is_input=False, logger=_logger)),
+
+    'video_converters': ConfigurationItem(['video', 'converter', 'cls'], {
+        'Avatar':                   'stream_processing.models.Avatar',
+        'FaceMask':                 'stream_processing.models.FaceMask',
+        'Echo (No Anonymization)':  'stream_processing.models.Echo',
+    }),
+
+    'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'], {
+        'Avatar (Female)':      'avatar_1_f.glb',
+        'Avatar (Male)':        'avatar_2_m.glb',
+        'Avatar 2 (Female)':    'avatar_3_f.glb',
+        'Avatar 2 (Male)':      'avatar_4_m.glb',
+    }),
+
+    'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'], {
+        'Female (Wendy)':   './target_feats/wendy.pt',
+        'Male (John)':      './target_feats/john.pt',
+    }),
+
+    'log_levels': ConfigurationItem(['log_level'], {
+        '<DEFAULT>':    'INFO',
+        'CRITICAL':     'CRITICAL',
+        'ERROR':        'ERROR',
+        'WARN':         'WARNING',
+        'INFO':         'INFO',
+        'DEBUG':        'DEBUG',
+    }),
+
+    'gui_log_levels': ConfigurationItem(['gui_log_level'], {
+        '<DEFAULT>':    None,
+        'CRITICAL':     'CRITICAL',
+        'ERROR':        'ERROR',
+        'WARN':         'WARNING',
+        'INFO':         'INFO',
+        'DEBUG':        'DEBUG',
+    }),
+
+    # FIXME current implementation of `return_camera_indices()` takes too long -> find better solution
+    'video_input_devices': ConfigurationItem(['video', 'input_device'],
+                                             partial(return_camera_indices, logger=_logger)),
+}
