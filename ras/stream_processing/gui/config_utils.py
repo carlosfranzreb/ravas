@@ -27,6 +27,33 @@ def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -
     return result
 
 
+def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
+    items: dict[str, str] = {}
+    if os.path.exists(dir_path):
+        for p in os.listdir(dir_path):
+            file_path = os.path.join(dir_path, p)
+            if os.path.isfile(file_path) and VOICE_FILE_EXTENSION.search(string=p):
+                name = p[:-3].lower()
+                if name in FEMALE_VOICES:
+                    name = f'Female ({name.capitalize()})'
+                elif name in MALE_VOICES:
+                    name = f'Male ({name.capitalize()})'
+                else:
+                    name = name.capitalize()
+                items[name] = file_path.replace('\\', '/')
+    if not items:
+        info_exists = ' (directory does not exist)' if not os.path.exists(dir_path) else (
+            ' (path is not a directory)' if os.path.isdir(dir_path) else ''
+        )
+        msg = 'Failed to find any voices (*.pt files) at{}: {}'.format(info_exists, os.path.realpath(dir_path))
+        if logger:
+            logger.error(msg)
+        else:
+            print(msg)
+    return items
+
+
+
 """
 adapted from
 https://stackoverflow.com/a/61768256/4278324

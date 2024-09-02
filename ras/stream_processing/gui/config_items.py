@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from typing import Callable, NoReturn, Union, Optional
 
-from .config_utils import get_audio_devices, return_camera_indices
+from .config_utils import get_audio_devices, return_camera_indices, get_voices_from
 
 _logger = logging.getLogger('gui.config_items')
 
@@ -57,10 +57,8 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Avatar 2 (Male)':      'avatar_4_m.glb',
     }),
 
-    'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'], {
-        'Female (Wendy)':   './target_feats/wendy.pt',
-        'Male (John)':      './target_feats/john.pt',
-    }),
+    'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'],
+                                      partial(get_voices_from, dir_path='./target_feats', logger=_logger)),
 
     'log_levels': ConfigurationItem(['log_level'], {
         '<DEFAULT>':    'INFO',
