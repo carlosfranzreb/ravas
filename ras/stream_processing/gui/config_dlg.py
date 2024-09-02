@@ -178,6 +178,14 @@ class ConfigDialog(RestorableDialog):
         super().showEvent(evt)
         self._forceAlignRowLabels()
 
+    def closeEvent(self, evt):
+        # if close-button on window is used:
+        # the configuration dialog was canceled
+        # -> discard config-changes BEFORE handling close-event in parent-implementation
+        #    (e.g. before storing to user settings9
+        self._discardConfigChanges()
+        super().closeEvent(evt)
+
     def _restoreAndApplyConfigChangeSettings(self):
         settings = self.getSettings()
         c = RestoreSettingItem(self.getSettingsPath() + '/configChanges', self._applyConfigChanges)
@@ -189,6 +197,7 @@ class ConfigDialog(RestorableDialog):
             self.changed_config: dict = json.loads(json_string)
         except Exception as exc:
             _logger.error('failed to restore configuration changes: could not changes parse as JSON -> "%s"', json_string, exc_info=exc)
+            self.changed_config = {}
         _logger.debug('applying config changes: %s', self.changed_config)
         for path_str, changed_value in self.changed_config.items():
             config_path = path_str.split(CONFIG_PATH_SEP)
@@ -200,6 +209,9 @@ class ConfigDialog(RestorableDialog):
         json_string = json.dumps(self.changed_config)
         _logger.debug('storing config changes: %s', json_string)
         return json_string
+
+    def _discardConfigChanges(self):
+        self.changed_config.clear()
 
     def _forceAlignRowLabels(self):
         """
@@ -220,7 +232,7 @@ class ConfigDialog(RestorableDialog):
             | QDialogButtonBox.StandardButton.Reset
         )
         buttons.accepted.connect(self.validateAndAccept)
-        buttons.rejected.connect(self.reject)
+        buttons.rejected.connect(self.discardChangesAndReject)
         buttons.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.resetConfig)
         return buttons
 
@@ -319,20 +331,6 @@ class ConfigDialog(RestorableDialog):
             defaultBrush = QPalette().brush(QPalette.ColorGroup.Normal, QPalette.ColorRole.ButtonText)
             widget.setStyleSheet('color: ' + str(defaultBrush.color().name()))
 
-    def resetConfig(self):
-        """
-        reset config-changes and indicate to dialog owner that it should also reset the configuration by setting
-        `isResetConfig` to `True`
-
-        (will close the configuration dialog)
-        """
-        # signal to dialog owner, that it should discard current config / reload the default settings
-        self.isResetConfig = True
-        # reset config-changes:
-        self.changed_config.clear()
-        # close the dialog
-        self.close()
-
     def setConfigValue(self, widget: QComboBox, config_path: list[str], sub_config: dict, field: str, value: any):
         _logger.debug('set config %s: %s -> %s', sub_config, field, value)
         if value != NO_SELECTION:
@@ -353,6 +351,26 @@ class ConfigDialog(RestorableDialog):
         else:
             _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
+
+    def resetConfig(self):
+        """
+        reset config-changes and indicate to dialog owner that it should also reset the configuration by setting
+        `isResetConfig` to `True`
+
+        (will close the configuration dialog)
+        """
+        # signal to dialog owner, that it should discard current config / reload the default settings
+        self.isResetConfig = True
+        # reset config-changes:
+        self._discardConfigChanges()
+        # close the dialog (CANCEL)
+        self.reject()
+
+    def discardChangesAndReject(self):
+        # reset config-changes:
+        self._discardConfigChanges()
+        # close the dialog (CANCEL
+        self.reject()
 
     def validateAndAccept(self):
         has_invalid = False
