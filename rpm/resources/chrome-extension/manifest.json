@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VERANDA Avatar",
-  "version": "0.0.2",
+  "version": "0.0.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnPv637sgEEwRoYyJLHMR5fAa/McP/iqnK03j7OMKVbzl9gjotdQz9ZLSVWLfrLYUQlI1YyItEB2L0yLPAXN0+3zu3/xpR+lNrs38yopK0aQnb/vep5d4mUgYNV0G9eng9JSLpa6tyr9KanHbXRl7iP7t9yOD+UBtBEUeXwN+LTmh/dLaU25tXOp8DvrVhLtUW2BRPnRQEz5Oa4D2yNsVeq0RZr/eKt6HMef7mMH2WADkWA6g6i31bW05wNe+STr0m8ufmEW2pUiD1qqScsxTpOLrFjyL2myxL+G7whY4HIOBYfHbhnP1yq2D8ooXQ9+UAP7BzhL6xxRjfVqBpljV9QIDAQAB",
 
   "content_security_policy": {
