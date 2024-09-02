@@ -59,13 +59,13 @@ class Avatar(Converter):
 
     def initializeRenderer(self):
 
-        if not self.config.get('start_chrome_renderer', True):
-            self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
-            return
-
         self.render_server: Optional[Process] = None
         self.render_app: Optional[Process] = None
         self.stop_render_app: Optional[Queue] = None
+
+        if not self.config.get('start_chrome_renderer', True):
+            self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
+            return
 
         app_port = int(self.config.get('app_port', 3000))
         use_extension = self.config.get('use_chrome_extension', True)
