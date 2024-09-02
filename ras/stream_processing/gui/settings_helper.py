@@ -10,14 +10,14 @@ from PyQt6.QtWidgets import (
 _logger = logging.getLogger('gui.settings_helper')
 
 
-class RestoreConfig:
+class RestoreSettingItem:
     def __init__(self, field: str, apply_func: Callable[[any], any], convert_func: Optional[Callable[[any], any]] = None):
         self.field = field
         self.apply_func = apply_func
         self.covert_func = convert_func
 
 
-class StoreConfig:
+class StoreSettingItem:
     def __init__(self, field: str, get_func: Callable[[], any], convert_func: Optional[Callable[[any], any]] = None):
         self.field = field
         self.get_func = get_func
@@ -33,22 +33,22 @@ class RestorableDialog(QDialog):
         """
         raise NotImplemented('must implement getSettingsPath() to return path-like string that identifies dialog')
 
-    def getRestoreSettingsConfig(self) -> list[RestoreConfig]:
+    def getRestoreSettingsItems(self) -> list[RestoreSettingItem]:
         """ override in inherited classes to add/change restored settings """
         settings_path = self.getSettingsPath()
         return [
-            RestoreConfig(settings_path + '/size', self.resize),
-            RestoreConfig(settings_path + '/position', self.move),
-            RestoreConfig(settings_path + '/windowState', self.setWindowState, checkWindowState),
+            RestoreSettingItem(settings_path + '/size', self.resize),
+            RestoreSettingItem(settings_path + '/position', self.move),
+            RestoreSettingItem(settings_path + '/windowState', self.setWindowState, checkWindowState),
         ]
 
-    def getStoreSettingsConfig(self) -> list[StoreConfig]:
+    def getStoreSettingsItems(self) -> list[StoreSettingItem]:
         """ override in inherited classes to add/change restored settings """
         settings_path = self.getSettingsPath()
         return [
-            StoreConfig(settings_path + '/size', self.size),
-            StoreConfig(settings_path + '/position', self.pos),
-            StoreConfig(settings_path + '/windowState', self.windowState, checkWindowState),
+            StoreSettingItem(settings_path + '/size', self.size),
+            StoreSettingItem(settings_path + '/position', self.pos),
+            StoreSettingItem(settings_path + '/windowState', self.windowState, checkWindowState),
         ]
 
     def getSettings(self) -> QSettings:
@@ -57,17 +57,17 @@ class RestorableDialog(QDialog):
 
     # override QDialog.showEvent (startup):
     def showEvent(self, evt):
-        configs = self.getRestoreSettingsConfig()
+        items = self.getRestoreSettingsItems()
         settings = self.getSettings()
-        for c in configs:
+        for c in items:
             applySetting(settings, c.field, c.apply_func, c.covert_func)
         super().showEvent(evt)
 
     # override QDialog.done (shutdown):
     def done(self, code):
-        configs = self.getStoreSettingsConfig()
+        items = self.getStoreSettingsItems()
         settings = self.getSettings()
-        for c in configs:
+        for c in items:
             storeSetting(settings, c.field, c.get_func, c.covert_func)
         super().done(code)
 

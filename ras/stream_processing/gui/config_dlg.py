@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBo
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem
 from .config_utils import get_current_value_and_config_path_for
-from .settings_helper import RestorableDialog, RestoreConfig, StoreConfig, applySetting
+from .settings_helper import RestorableDialog, RestoreSettingItem, StoreSettingItem, applySetting
 
 
 _logger = logging.getLogger('gui.config_dlg')
@@ -164,14 +164,14 @@ class ConfigDialog(RestorableDialog):
     def getSettingsPath(self) -> str:
         return 'config_dlg'
 
-    def getStoreSettingsConfig(self) -> list[StoreConfig]:
-        # NOTE: only override getStoreSettingsConfig(), and not getRestoreSettingsConfig():
+    def getStoreSettingsItems(self) -> list[StoreSettingItem]:
+        # NOTE: only override getStoreSettingsItems(), and not getRestoreSettingsItems():
         #       the config-changes need to be restored before showing the dialog, within the constructor,
-        #       so simply overriding getRestoreSettingsConfig() would apply them too late
+        #       so simply overriding getRestoreSettingsItems() would apply them too late
         #       -> see _restoreAndApplyConfigChangeSettings() for loading & applying the config-changes
         settings_path = self.getSettingsPath()
-        settings = super().getStoreSettingsConfig()
-        settings.append(StoreConfig(settings_path + '/configChanges', self._storeConfigChanges))
+        settings = super().getStoreSettingsItems()
+        settings.append(StoreSettingItem(settings_path + '/configChanges', self._storeConfigChanges))
         return settings
 
     def showEvent(self, evt):
@@ -180,7 +180,7 @@ class ConfigDialog(RestorableDialog):
 
     def _restoreAndApplyConfigChangeSettings(self):
         settings = self.getSettings()
-        c = RestoreConfig(self.getSettingsPath() + '/configChanges', self._applyConfigChanges)
+        c = RestoreSettingItem(self.getSettingsPath() + '/configChanges', self._applyConfigChanges)
         applySetting(settings, c.field, c.apply_func, c.covert_func)
 
     def _applyConfigChanges(self, json_string: str):
