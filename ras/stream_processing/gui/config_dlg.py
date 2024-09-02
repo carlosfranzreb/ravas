@@ -1,3 +1,4 @@
+import json
 import logging
 from copy import deepcopy
 from functools import partial
@@ -8,7 +9,8 @@ from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBo
     QSizePolicy, QWidget
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem
-from .settings_helper import RestorableDialog
+from .config_utils import get_current_value_and_config_path_for
+from .settings_helper import RestorableDialog, RestoreConfig, StoreConfig, applySetting
 
 
 _logger = logging.getLogger('gui.config_dlg')
@@ -16,6 +18,20 @@ _logger = logging.getLogger('gui.config_dlg')
 
 STYLE_INVALID_SELECTION = 'color: red'
 """ widget style to indicate an invalid selection/configuration """
+
+CONFIG_PATH_SEP = '/'
+"""
+separator for config-keys when "flattening" the config / config-paths
+
+EXAMPLE:
+```
+{"some": {"sub": "key"}}
+```
+with flattened config / path (using `/` as separator):
+```
+{"some/sub": "key"}}
+```
+"""
 
 
 class ConfigDialog(RestorableDialog):
@@ -31,7 +47,19 @@ class ConfigDialog(RestorableDialog):
         super().__init__(parent=parent)
         self.setWindowTitle("Configuration")
 
+        self.isResetConfig = False
+        """ will be set to `True` if user request reset for config """
         self.config = deepcopy(config)
+        """ (deep copy of) the configuration """
+        self.changed_config: dict
+        """ 
+        flattened dictionary containing changed config values (changed w.r.t. to the original config-file)
+        (stored/restored from settings; the keys are "flattened" using `CONFIG_PATH_SEP` as separator)
+        """
+
+        # do restore config-changes from settings and apply them:
+        #   (load them "flattened" into self.changed_config, and apply them to self.config)
+        self._restoreAndApplyConfigChangeSettings()
 
         dialogLayout = QVBoxLayout()
 
@@ -136,12 +164,47 @@ class ConfigDialog(RestorableDialog):
     def getSettingsPath(self) -> str:
         return 'config_dlg'
 
+    def getStoreSettingsConfig(self) -> list[StoreConfig]:
+        # NOTE: only override getStoreSettingsConfig(), and not getRestoreSettingsConfig():
+        #       the config-changes need to be restored before showing the dialog, within the constructor,
+        #       so simply overriding getRestoreSettingsConfig() would apply them too late
+        #       -> see _restoreAndApplyConfigChangeSettings() for loading & applying the config-changes
+        settings_path = self.getSettingsPath()
+        settings = super().getStoreSettingsConfig()
+        settings.append(StoreConfig(settings_path + '/configChanges', self._storeConfigChanges))
+        return settings
+
     def showEvent(self, evt):
         super().showEvent(evt)
         self._forceAlignRowLabels()
 
+    def _restoreAndApplyConfigChangeSettings(self):
+        settings = self.getSettings()
+        c = RestoreConfig(self.getSettingsPath() + '/configChanges', self._applyConfigChanges)
+        applySetting(settings, c.field, c.apply_func, c.covert_func)
+
+    def _applyConfigChanges(self, json_string: str):
+        _logger.debug('applying config changes: %s', json_string)
+        try:
+            self.changed_config: dict = json.loads(json_string)
+        except Exception as exc:
+            _logger.error('failed to restore configuration changes: could not changes parse as JSON -> "%s"', json_string, exc_info=exc)
+        _logger.debug('applying config changes: %s', self.changed_config)
+        for path_str, changed_value in self.changed_config.items():
+            config_path = path_str.split(CONFIG_PATH_SEP)
+            curr_val, field, sub_config = get_current_value_and_config_path_for(self.config, config_path)
+            # _logger.debug('  applying change ', config_path, ' = ', curr_val, ' <- ', changed_value)
+            sub_config[field] = changed_value
+
+    def _storeConfigChanges(self) -> str:
+        json_string = json.dumps(self.changed_config)
+        _logger.debug('storing config changes: %s', json_string)
+        return json_string
+
     def _forceAlignRowLabels(self):
-        """ HELPER set all label's minimum width to the maximum of the currently displayed labels (i.e. force them to align)"""
+        """
+        HELPER set all label's minimum width to the maximum of the currently displayed labels (i.e. force them to align)
+        """
         all_labels: list[QLabel] = self.findChildren(QLabel)
         max_width = .0
         for lbl in all_labels:
@@ -154,9 +217,11 @@ class ConfigDialog(RestorableDialog):
         buttons.setStandardButtons(
             QDialogButtonBox.StandardButton.Cancel
             | QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Reset
         )
         buttons.accepted.connect(self.validateAndAccept)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.resetConfig)
         return buttons
 
     def _createWidgetFor(self, config_item: ConfigurationItem, update_values: bool = True):
@@ -177,16 +242,17 @@ class ConfigDialog(RestorableDialog):
         """
         combobox = QComboBox()
         combobox.addItems(text_items)
-        current_value, field_name, sub_config = self._get_current_value_and_config_path_for(config_path)
+        current_value, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_path)
         # set current_value as selected index:
         try:
             idx = text_items.index(current_value)
             combobox.setCurrentIndex(idx)
         except:
             combobox.insertItem(0, NO_SELECTION)
+            combobox.model().item(0).setEnabled(0)  # make NO_SELECTION entry non-selectable by users
             combobox.setCurrentIndex(0)
             self._createAndSetNoSelectionStyle(combobox)
-        combobox.currentTextChanged.connect(partial(self.setConfigValue, combobox, sub_config, field_name))
+        combobox.currentTextChanged.connect(partial(self.setConfigValue, combobox, config_path, sub_config, field_name))
         return combobox
 
     def _createDataComboBox(self, item_data: dict[str, any], config_path: list[str]) -> QComboBox:
@@ -200,7 +266,7 @@ class ConfigDialog(RestorableDialog):
         :returns: the created combo-box
         """
         combobox = QComboBox()
-        current_value, field_name, sub_config = self._get_current_value_and_config_path_for(config_path)
+        current_value, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_path)
         idx = 0
         did_select_current = False
         for key, cls in item_data.items():
@@ -211,9 +277,10 @@ class ConfigDialog(RestorableDialog):
             idx += 1
         if not did_select_current:
             combobox.insertItem(0, NO_SELECTION, NO_SELECTION)
+            combobox.model().item(0).setEnabled(0)  # make NO_SELECTION entry non-selectable by users
             combobox.setCurrentIndex(0)
             self._createAndSetNoSelectionStyle(combobox)
-        combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, sub_config, field_name))
+        combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, config_path, sub_config, field_name))
         return combobox
 
     def _createAndSetNoSelectionStyle(self, combobox: QComboBox):
@@ -252,49 +319,39 @@ class ConfigDialog(RestorableDialog):
             defaultBrush = QPalette().brush(QPalette.ColorGroup.Normal, QPalette.ColorRole.ButtonText)
             widget.setStyleSheet('color: ' + str(defaultBrush.color().name()))
 
-    def _get_current_value_and_config_path_for(self, config_path: list[str]) -> tuple[any, str, dict]:
+    def resetConfig(self):
         """
-        HELPER for a path in the config return:
-         * the `current_value` at that path
-         * the last containing dictionary `sub_config` that contains the value
-         * the `field_name` within that `sub_config` that refers to the `current_value`
+        reset config-changes and indicate to dialog owner that it should also reset the configuration by setting
+        `isResetConfig` to `True`
 
-        i.e. something like
-        sub_config ~> self.config[...config_path[:-1]]
-        current_value = sub_config[config_path[-1:]
-
-        :param config_path: the access path in the config
-        :returns: a `tuple[<current_value>, <field_name>, <sub_config>]`
+        (will close the configuration dialog)
         """
-        current_value = None
-        field_name = None
-        sub_config = self.config
-        for curr_field in config_path:
-            field_name = curr_field
-            current_value = sub_config.get(field_name)
-            if isinstance(current_value, dict):
-                sub_config = current_value
-        return current_value, field_name, sub_config
+        # signal to dialog owner, that it should discard current config / reload the default settings
+        self.isResetConfig = True
+        # reset config-changes:
+        self.changed_config.clear()
+        # close the dialog
+        self.close()
 
-    def setConfigValue(self, widget: QComboBox, sub_config: dict, field: str, value: any):
+    def setConfigValue(self, widget: QComboBox, config_path: list[str], sub_config: dict, field: str, value: any):
         _logger.debug('set config %s: %s -> %s', sub_config, field, value)
         if value != NO_SELECTION:
             sub_config[field] = value
+            self.changed_config[CONFIG_PATH_SEP.join(config_path)] = value
             self._resetStyleToValidSelection(widget)
         else:
-            _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
-            sub_config[field] = None
+            _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
 
-    def setConfigValueByData(self, widget: QComboBox, sub_config: dict, field: str, idx: int):
+    def setConfigValueByData(self, widget: QComboBox, config_path: list[str], sub_config: dict, field: str, idx: int):
         data = widget.itemData(idx)
         _logger.debug('set config by index %s: %s -> ComboBox[%s] = [%s]', sub_config, field, idx, data)
         if data != NO_SELECTION:
             sub_config[field] = data
+            self.changed_config[CONFIG_PATH_SEP.join(config_path)] = data
             self._resetStyleToValidSelection(widget)
         else:
-            _logger.warning('selected NO_SELECTION for %s: reset config value to None!', field)
-            sub_config[field] = None
+            _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
 
     def validateAndAccept(self):

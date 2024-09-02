@@ -27,6 +27,32 @@ def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -
     return result
 
 
+def get_current_value_and_config_path_for(config: dict, config_path: list[str]) -> tuple[any, str, dict]:
+    """
+    HELPER for a path in the config return:
+     * the `current_value` at that path
+     * the last containing dictionary `sub_config` that contains the value
+     * the `field_name` within that `sub_config` that refers to the `current_value`
+
+    i.e. something like
+    sub_config ~> self.config[...config_path[:-1]]
+    current_value = sub_config[config_path[-1:]
+
+    :param config: the config dictionary
+    :param config_path: the access path in the config
+    :returns: a `tuple[<current_value>, <field_name>, <sub_config>]`
+    """
+    current_value = None
+    field_name = None
+    sub_config = config
+    for curr_field in config_path:
+        field_name = curr_field
+        current_value = sub_config.get(field_name)
+        if isinstance(current_value, dict):
+            sub_config = current_value
+    return current_value, field_name, sub_config
+
+
 def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
     items: dict[str, str] = {}
     if os.path.exists(dir_path):
@@ -46,6 +72,7 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
             ' (path is not a directory)' if os.path.isdir(dir_path) else ''
         )
         msg = 'Failed to find any voices (*.pt files) at{}: {}'.format(info_exists, os.path.realpath(dir_path))
+        # TODO raise exception that can be show to users in alert-box?
         if logger:
             logger.error(msg)
         else:

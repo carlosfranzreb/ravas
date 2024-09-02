@@ -131,7 +131,6 @@ class MainWindow(QMainWindow):
                 self._config = yaml.safe_load(f)
         return deepcopy(self._config) if as_copy else self._config
 
-
     def _setConfigShowFrame(self, enable: bool):
         # TODO
         config = self.getConfig(as_copy=False)
@@ -199,7 +198,6 @@ class MainWindow(QMainWindow):
             def on_log_finished():
                 print('------ did receive finish signal!', flush=True)  # FIXME DEBUG
                 # self._log_thread = None
-                # self._log_thread = None
                 if self._log_thread.isRunning():
                     self._log_thread.quit()
                 self._log_worker = None
@@ -263,6 +261,11 @@ class MainWindow(QMainWindow):
             print('applying config form config dialog -> ', result, configDlg)
             self._config = configDlg.config
             self._applyLogLevel(self._config)
+        elif configDlg.isResetConfig:
+            print('resetting config!')
+            # setting _config to None will cause reload of config file:
+            self._config = None
+            self._applyLogLevel()
 
     def closeEvent(self, evt: QCloseEvent):
         print('main window close', evt)
@@ -277,7 +280,6 @@ class MainWindow(QMainWindow):
 
     def __debug(self):
         # FIXME DEBUG
-        logging.getLogger().info('test debug')
 
         def print_proc(label: str, proc: multiprocessing.Process):
             print(label % (proc.name, proc.pid), flush=True)
