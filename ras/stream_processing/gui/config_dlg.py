@@ -3,10 +3,11 @@ import logging
 from copy import deepcopy
 from functools import partial
 
+import yaml
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget
+    QSizePolicy, QWidget, QFileDialog
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem
 from .config_utils import get_current_value_and_config_path_for
@@ -230,10 +231,20 @@ class ConfigDialog(RestorableDialog):
             QDialogButtonBox.StandardButton.Cancel
             | QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Reset
+            | QDialogButtonBox.StandardButton.Save
+
+            # TODO?: opening is actually quite complicated (or un-intuitive) since we are storing config-changes in
+            #        difference to a loaded config-file: if we change the config-file, the previous differences may
+            #        not apply anymore... but it may be even more confusing, when on the next start the default
+            #        config-file is loaded and the config-changes from "custom-loaded" config-file are applied to it...
+            #        maybe it would be best, to only allow loading different config-file only via
+            #        command-line (as it is now), that would probably less confusing for users when they expect certain
+            # | QDialogButtonBox.StandardButton.Open FIXME maybe only via command-line?
         )
         buttons.accepted.connect(self.validateAndAccept)
         buttons.rejected.connect(self.discardChangesAndReject)
         buttons.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.resetConfig)
+        buttons.button(QDialogButtonBox.StandardButton.Save).clicked.connect(self.saveConfigToFile)
         return buttons
 
     def _createWidgetFor(self, config_item: ConfigurationItem, update_values: bool = True):
@@ -351,6 +362,11 @@ class ConfigDialog(RestorableDialog):
         else:
             _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
+
+    def saveConfigToFile(self):
+        filePath, _ = QFileDialog.getSaveFileName(self, "Save Configuration", "", "YAML Files(*.yaml);;All Files(*)")
+        if filePath:
+            yaml.dump(self.config, open(filePath, "w"))
 
     def resetConfig(self):
         """
