@@ -97,6 +97,6 @@ def storeSetting(settings: QSettings, field: str, get_func: Callable[[], any], c
 
 
 def checkWindowState(state: Qt.WindowState) -> Qt.WindowState | None:
-    if state == Qt.WindowState.WindowMaximized or state == Qt.WindowState.WindowFullScreen:
-        return state
-    return None
+    if state == Qt.WindowState.WindowMinimized:
+        return Qt.WindowState.WindowNoState
+    return state
