@@ -6,15 +6,20 @@ from typing import Optional
 import yaml
 from PyQt6.QtCore import QThread, QThreadPool, QSettings
 from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, QToolButton
+from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, \
+    QToolButton, QMessageBox
 from torch import multiprocessing
 
 from .config_dlg import ConfigDialog
+from .config_utils import validate_config_values
 from .gui_logging import init_gui_logging, LogWorker
 from .log_dlg import LogDialog
 from .settings_helper import storeSetting, checkWindowState, applySetting
 from .task import Task
 from ..streamer import AudioVideoStreamer
+
+
+_logger = logging.getLogger('gui.main_window')
 
 
 class MainWindow(QMainWindow):
@@ -149,10 +154,22 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(text)
 
     def startStreaming(self):
-        self.stopStreaming()
+
+        config_copy = self.getConfig(as_copy=True)
+        config_problems = validate_config_values(config_copy)
+        if config_problems:
+            _logger.warning('found unknown configuration values (may be invalid and cause errors):\n  * ' +
+                            '\n  * '.join(config_problems))
+            details = ('The configuration has some unknown values which \nmay be invalid and may cause errors:\n * ' +
+                       ('\n * '.join(config_problems)) +
+                       '\n\nDo you want to continue anyway?')
+            result = QMessageBox.question(self, 'Unknown Configuration: Continue?', details,
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Abort)
+            if result == QMessageBox.StandardButton.Abort:
+                return
+
         self.setStatusText("Start streaming...")
         self._updateUiForStreaming(is_active=True)
-        config_copy = self.getConfig(as_copy=True)
 
         # start_streaming() would block the GUI for some time, so as task:
         task = Task(start_streaming, config_copy)

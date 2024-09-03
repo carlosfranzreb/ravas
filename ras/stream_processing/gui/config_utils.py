@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -79,6 +80,21 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
             print(msg)
     return items
 
+
+def validate_config_values(config: dict) -> list[str]:
+    # NOTE use local import to avoid circular dependencies upon module initialization:
+    from .config_items import CONFIG_ITEMS, IGNORE_CONFIG_ITEM_KEYS
+
+    problems = []
+    for key, item in CONFIG_ITEMS.items():
+        if key in IGNORE_CONFIG_ITEM_KEYS:
+            continue
+        curr_val, field, sub_config = get_current_value_and_config_path_for(config, item.config_path)
+        config_value_items = item.get()
+        config_values = config_value_items if isinstance(config_value_items, list) else config_value_items.values()
+        if curr_val not in config_values:
+            problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
+    return problems
 
 
 """

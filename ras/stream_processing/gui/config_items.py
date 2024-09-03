@@ -17,6 +17,18 @@ has an invalid value.
 
 
 class ConfigurationItem:
+    """
+    class for specifying configuration items:
+    an access path (in the configuration dictionary) and a list of possible, valid configuration-values
+    (i.e. that can be safely applied to the configuration).
+
+    The configuration-values are either a (string) list, or a dictionary of labels and configuration values.
+    Alternatively, a generator-function can be supplied that creates the configuration-values.
+
+    The configuration-values should be accessed either by `ConfigurationItem.get()` or by
+    `ConfigurationItem.get_latest()`; the later one will update the values with the generator-function,
+    if one was supplied.
+    """
     def __init__(self, configuration_path: list[str], configuration_values: list[str] | dict[str, any] | Callable[[Union[list[str], dict[str, any]]], NoReturn]):
         self.config_path: list[str] = configuration_path
         if callable(configuration_values):
@@ -82,3 +94,10 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
     'video_input_devices': ConfigurationItem(['video', 'input_device'],
                                              partial(return_camera_indices, logger=_logger)),
 }
+""" definitions of configuration-items that should be configurable by users in GUI """
+
+
+IGNORE_CONFIG_ITEM_KEYS = {'video_input_devices'}  # FIXME remove entry 'video_input_devices': should also handle video input-device, when retrieving valid list is more performant
+"""
+configuration-item keys (in `CONFIG_ITEMS`) that should currently be ignored (e.g. due to performance issues)
+"""
