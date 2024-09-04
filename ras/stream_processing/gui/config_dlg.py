@@ -52,7 +52,7 @@ class ConfigDialog(RestorableDialog):
         """ will be set to `True` if user request reset for config """
         self.config = deepcopy(config)
         """ (deep copy of) the configuration """
-        self.changed_config: dict
+        self.changed_config: dict = {}
         """ 
         flattened dictionary containing changed config values (changed w.r.t. to the original config-file)
         (stored/restored from settings; the keys are "flattened" using `CONFIG_PATH_SEP` as separator)
