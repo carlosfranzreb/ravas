@@ -31,7 +31,7 @@ def main(config: dict, runtime: int = None) -> None:
     assert proc_size > buffer_size, "Proc. size should be greater than buffer size"
 
     # create a logging directory and store the config
-    log_dir = os.path.join(resolve_file_path(config["log_dir"]), str(int(time.time())))
+    log_dir = os.path.join(resolve_file_path(config["log_dir"]), datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     os.makedirs(log_dir, exist_ok=True)
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
     config["audio"]["log_dir"] = log_dir
