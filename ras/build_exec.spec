@@ -1,12 +1,40 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
+datas = [
+    ('stream_processing/models/avatar/face_landmarker.task', 'stream_processing/models/avatar'),
+    ('configs', 'configs'),
+    ('onnx', 'onnx'),
+    ('target_feats', 'target_feats'),
+    ('../rpm/dist', 'rpm/dist'),
+]
+
+hidden_imports = [
+    'stream_processing.models'
+]
+
+
+binaries = []
+
+# FIX include mediapipe binaries/models/resources for face_detection & face_landmark:
+import os
+import inspect
+import mediapipe
+mediapipe_lib = os.path.dirname(inspect.getfile(mediapipe))
+for sub_path in ["modules/face_landmark", "modules/face_detection"]:
+    for f in os.listdir(os.path.join(mediapipe_lib, sub_path)):
+        fp = os.path.join(mediapipe_lib, sub_path, f)
+        if os.path.isdir(fp):
+            continue
+        binaries.append((fp, "mediapipe/" + sub_path))
+
+
 a = Analysis(
     ['run_gui.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -21,7 +49,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='run_gui',
+    name='stream_processing_gui',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +68,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='run_gui',
+    name='stream_processing',
 )
