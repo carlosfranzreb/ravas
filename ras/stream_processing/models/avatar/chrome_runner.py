@@ -241,9 +241,7 @@ def start_browser(
             logger.info('stopping chrome driver...')
             if was_interrupted:
                 driver.service.stop()
-                logger.info('INTERRUPTED, stopped chrome driver service, forcing exit!')
-                import sys
-                sys.exit(1)
+                logger.info('INTERRUPTED, stopped chrome driver service!')
             else:
                 try:
                     driver.service.assert_process_still_running()
