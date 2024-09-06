@@ -14,7 +14,7 @@ from torch.multiprocessing import Queue, Event
 import onnxruntime as ort
 
 from ...processor import Converter
-from ...utils import clear_queue
+from ...utils import clear_queue, resolve_file_path
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
@@ -37,12 +37,14 @@ class KnnVC(Converter):
         If `target_feats_path` is a file, load the target features from it.
         Otherwise, compute the target features from the given LibriSpeech directory, and
         dump them to a file in the `target_feats` directory.
+
+        NOTE: if `target_feats_path` is a relative path, it will be resolved against the application directory.
         """
         super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
 
         # model config
         self.device = config["device"]
-        self.target_feats_path = config["target_feats_path"]
+        self.target_feats_path = resolve_file_path(config["target_feats_path"])
         self.n_neighbors = config["n_neighbors"]
 
         # VAD config
@@ -56,8 +58,8 @@ class KnnVC(Converter):
 
         # initialize the WavLM and HiFiGAN models, compiling them if needed
         input_size = config["prev_audio_queue"]["max_samples"]
-        self.wavlm = ort.InferenceSession(f"onnx/wavlm_{input_size}.onnx")
-        self.hifigan = ort.InferenceSession(f"onnx/hifigan_{input_size}.onnx")
+        self.wavlm = ort.InferenceSession(resolve_file_path(f"onnx/wavlm_{input_size}.onnx"))
+        self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{input_size}.onnx"))
 
         # load the target features
         self.target_feats = torch.load(self.target_feats_path)

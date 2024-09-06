@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, QThread, QMetaObject, Q_ARG, QObject, pyqtSignal, p
 from torch import multiprocessing
 
 from ..dist_logging import listener_configurer, worker_configurer
+from ..utils import resolve_file_path
 
 
 class LogWorker(QObject):
@@ -44,7 +45,7 @@ class LogWorker(QObject):
         if QThread.currentThread().isInterruptionRequested():
             return
 
-        log_dir = os.path.join(config["log_dir"], datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        log_dir = os.path.join(resolve_file_path(config["log_dir"]), datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         os.makedirs(log_dir, exist_ok=True)
         yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
         config["log_dir"] = log_dir

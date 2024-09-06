@@ -5,7 +5,8 @@ from glob import glob
 import torch
 import torchaudio
 
-from ..knnvc.wavlm.model import WavLM, WavLMConfig
+from .wavlm.model import WavLM, WavLMConfig
+from ...utils import resolve_file_path
 
 
 def compute_feats(ls_dir: str, wavlm_ckpt: str, wavlm_layer: int) -> str:
@@ -30,8 +31,9 @@ def compute_feats(ls_dir: str, wavlm_ckpt: str, wavlm_layer: int) -> str:
     print(f"Computed {target_feats.shape[0]} features for {ls_dir}")
 
     # dump the features
-    dump_file = os.path.join("target_feats", os.path.basename(ls_dir) + ".pt")
-    os.makedirs("target_feats", exist_ok=True)
+    save_dir = resolve_file_path("target_feats/")
+    dump_file = os.path.join(save_dir, os.path.basename(ls_dir) + ".pt")
+    os.makedirs(save_dir, exist_ok=True)
     torch.save(target_feats, dump_file)
 
     return dump_file

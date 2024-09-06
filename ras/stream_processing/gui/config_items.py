@@ -3,6 +3,8 @@ from functools import partial
 from typing import Callable, NoReturn, Union, Optional
 
 from .config_utils import get_audio_devices, return_camera_indices, get_voices_from
+from ..utils import resolve_file_path
+
 
 _logger = logging.getLogger('gui.config_items')
 
@@ -70,7 +72,7 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
     }),
 
     'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'],
-                                      partial(get_voices_from, dir_path='./target_feats', logger=_logger)),
+                                      partial(get_voices_from, dir_path=resolve_file_path('target_feats/'), logger=_logger)),
 
     'log_levels': ConfigurationItem(['log_level'], {
         '<DEFAULT>':    'INFO',

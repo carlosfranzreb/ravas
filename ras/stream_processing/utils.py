@@ -1,7 +1,12 @@
+import os.path
 import queue
 import time
 from typing import Callable, Optional
 import torch
+
+
+APPLICATION_DIR: str = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+""" the path to the application directory (on directory up from this file): `dirname(__file__)/..` """
 
 
 def batchify_input_stream(
@@ -175,3 +180,47 @@ def kill_all_child_processes(pid: int | None = None, recursive: bool = True, ver
         procs = main_proc.children()
         if len(procs) > 0:
             print('  remaining child processes: {}\n'.format(len(procs)), flush=True)
+
+
+def resolve_file_path(file_path: str) -> str:
+    """
+    resolve relative file paths against the application directory
+    (absolute paths are returned as-is)
+
+    the application directory is assumed as one directory up, from this file, i.e.
+    `dirname(__file__)/..`
+    """
+    if os.path.isabs(file_path):
+        return file_path
+    return os.path.realpath(os.path.join(APPLICATION_DIR, file_path))
+
+
+def get_config_path(config_name: Optional[str]) -> str:
+    """
+    get path to configuration file:
+    if `config_name` matches a file the in the default configuration directory, the corresponding file path will be
+    returned.
+    Otherwise, if it is a relative file path, it will be resolved against the current working directory (i.e. __not__
+    the application directory)!
+
+    :param config_name: either the name of a file in the default configuration directory at `<app dir>/configs/**`
+                        (with or without file-extension `*.yaml`), or a path to a configuration file.
+                        If default configuration directory exists, the `config_name` will first be resolved against
+                        the files in that directory.
+    """
+    if not config_name:
+        return config_name
+    config_file = config_name if config_name.lower().endswith('.yaml') else config_name + '.yaml'
+    config_dir = resolve_file_path('configs/')
+    if os.path.exists(config_dir) and os.path.isdir(config_dir):
+
+        config_file_dir = os.path.dirname(config_file)
+        if config_file_dir:
+            config_file = os.path.basename(config_file)
+
+        for f in os.listdir(config_dir):
+            if f == config_file:
+                return os.path.join(config_dir, f)
+    # NOTE if not matching a file in the config dir, then DO NOT resolve against app dir,
+    #      but against CWD (i.e. leave unchanged):
+    return config_file

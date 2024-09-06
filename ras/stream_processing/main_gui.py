@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from PyQt6.QtWidgets import QApplication
 
 from .gui.main_window import MainWindow
-from .utils import kill_all_child_processes
+from .utils import kill_all_child_processes, get_config_path
 
 
 def parse_args() -> Namespace:
@@ -25,7 +25,8 @@ def main():
     app.setApplicationVersion('0.1.0')  # TODO read from setup.py
 
     args = parse_args()
-    window = MainWindow(config_path=args.config)
+    config_path = get_config_path(args.config)
+    window = MainWindow(config_path=config_path)
 
     print('staring application (pid %s)' % (app.applicationPid()))
 

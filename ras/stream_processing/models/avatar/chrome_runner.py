@@ -16,13 +16,18 @@ BASE_URL = 'http://localhost'
 """ default URL when starting chrome driver with web URL (i.e. not with extension) """
 PORT = 3000
 """ default port when starting chrome driver with web URL (i.e. not with extension) """
-WS_ADDR: Optional[str] = None  # 'http://107.0.0.1:8888'
+WS_ADDR: Optional[str] = None  # 'http://127.0.0.1:8888'
 """ default address for web-socket (i.e. connection to python process), if `None`, the react-app will use its default setting """
 DEFAULT_EXTENSION_ID = 'mjioebaagpdpfjbicjponoajkbdphofk'
 """ default extension ID for packed & signed chrome extension """
 
 PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 """ root directory of project """
+
+# HACK "detect" if module is run from compiled EXEC (vs. run via normal python interpreter/script):
+#      compiled EXEC's "root directory" is only three dirs up (see also build configuration in `build_exec.spec`)
+if not os.path.exists(os.path.join(PROJECT_BASE_DIR, 'rpm')):
+    PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 
 class StartExtensionType(Enum):
@@ -152,7 +157,7 @@ def start_browser(
                          * if `str` and if it is a valid path:
                            * if it is a path to a _directory_, it will be loaded as _unpacked_ web-extension
                            * if it is a path to a _file_, it will be loaded as a _packed_ web-extension
-                         * if `str` but is a _no_ valid path:
+                         * if `str` but is _no_ valid path:
                            the web-extension will be loaded as _packed_ web-extension, and the `str`ing is used as
                            custom extension ID, i.e. chrome browser will be started with the URL
                            `chrome-extension://<extension ID>/index.html` for opening the the extension
