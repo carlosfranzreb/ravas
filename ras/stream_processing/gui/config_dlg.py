@@ -184,7 +184,7 @@ class ConfigDialog(RestorableDialog):
         # the configuration dialog was canceled
         # -> discard config-changes BEFORE handling close-event in parent-implementation
         #    (e.g. before storing to user settings9
-        self._discardConfigChanges()
+        self._discardConfigChanges(reset_stored_changes=False)
         super().closeEvent(evt)
 
     def _restoreAndApplyConfigChangeSettings(self):
@@ -211,8 +211,10 @@ class ConfigDialog(RestorableDialog):
         _logger.debug('storing config changes: %s', json_string)
         return json_string
 
-    def _discardConfigChanges(self):
+    def _discardConfigChanges(self, reset_stored_changes: bool):
         self.changed_config.clear()
+        if not reset_stored_changes:
+            self._restoreAndApplyConfigChangeSettings()
 
     def _forceAlignRowLabels(self):
         """
@@ -377,14 +379,15 @@ class ConfigDialog(RestorableDialog):
         """
         # signal to dialog owner, that it should discard current config / reload the default settings
         self.isResetConfig = True
-        # reset config-changes:
-        self._discardConfigChanges()
+        # reset config-changes
+        # NOTE: also discard stored config changes, so that only the config loaded from initial file remains!
+        self._discardConfigChanges(reset_stored_changes=True)
         # close the dialog (CANCEL)
         self.reject()
 
     def discardChangesAndReject(self):
         # reset config-changes:
-        self._discardConfigChanges()
+        self._discardConfigChanges(reset_stored_changes=False)
         # close the dialog (CANCEL
         self.reject()
 
