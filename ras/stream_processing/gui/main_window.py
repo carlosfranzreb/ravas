@@ -317,10 +317,17 @@ class MainWindow(QMainWindow):
             print('   AUDIO VIDEO STREAMER not started!')
             return
 
-        for p in streamer.audio_handler.procs.values():
-            print_proc('  AUDIO ~~ %s (pid %s)', p)
-        for p in streamer.video_handler.procs.values():
-            print_proc('  VIDEO ** %s (pid %s)', p)
+        if hasattr(streamer, 'audio_handler'):
+            for key, p in streamer.audio_handler.procs.items():
+                print_proc('  AUDIO ~~ {: <7} ~~  %s (pid %s)'.format(key), p)
+        else:
+            print('  AUDIO: <disabled>')
+
+        if hasattr(streamer, 'video_handler'):
+            for key, p in streamer.video_handler.procs.items():
+                print_proc('  VIDEO ** {: <7} **  %s (pid %s)'.format(key), p)
+        else:
+            print('  VIDEO: <disabled>')
 
 
 def start_streaming(config: dict) -> tuple[AudioVideoStreamer, LogWorker, QThread]:
