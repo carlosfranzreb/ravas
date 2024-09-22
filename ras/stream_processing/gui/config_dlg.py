@@ -4,12 +4,13 @@ from copy import deepcopy
 from functools import partial
 
 import yaml
+from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget, QFileDialog
+    QSizePolicy, QWidget, QFileDialog, QCheckBox
 
-from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem
+from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
 from .config_utils import get_current_value_and_config_path_for
 from .settings_helper import RestorableDialog, RestoreSettingItem, StoreSettingItem, applySetting
 
@@ -67,8 +68,7 @@ class ConfigDialog(RestorableDialog):
         # ############ INPUT ################
         inputForm = QFormLayout()
 
-        # cbbAudioIn = self._createAudioDeviceWidget(audio_input=True)
-        cbbAudioIn = self._createWidgetFor(CONFIG_ITEMS['audio_input_devices'])
+        cbbAudioIn = self._createComboBoxFor(CONFIG_ITEMS['audio_input_devices'])
         inputForm.addRow("Audio Input:", cbbAudioIn)
 
         # FIXME DISABLED takes too long, find better solution for generating video device list,
@@ -87,7 +87,7 @@ class ConfigDialog(RestorableDialog):
         outputForm = QFormLayout()
 
         # cbbAudioOut = self._createAudioDeviceWidget(audio_input=False)
-        cbbAudioOut = self._createWidgetFor(CONFIG_ITEMS['audio_output_devices'])
+        cbbAudioOut = self._createComboBoxFor(CONFIG_ITEMS['audio_output_devices'])
         outputForm.addRow("Audio Output:", cbbAudioOut)
 
         outputGroup = self._makeGroupBox("Output", outputForm)
@@ -97,7 +97,7 @@ class ConfigDialog(RestorableDialog):
 
         convertAudioForm = QFormLayout()
 
-        cbbAudioVoice = self._createWidgetFor(CONFIG_ITEMS['audio_voices'])
+        cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS['audio_voices'])
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
@@ -107,43 +107,81 @@ class ConfigDialog(RestorableDialog):
         convertVideoForm = QFormLayout()
 
         # cbbVideoConverter = self._createVideoConverterWidget()
-        cbbVideoConverter = self._createWidgetFor(CONFIG_ITEMS['video_converters'])
+        cbbVideoConverter = self._createComboBoxFor(CONFIG_ITEMS['video_converters'])
         convertVideoForm.addRow("Video Converter:", cbbVideoConverter)
 
         # cbbAvatar = self._createAvatarWidget()
-        cbbAvatar = self._createWidgetFor(CONFIG_ITEMS['video_avatars'])
+        cbbAvatar = self._createComboBoxFor(CONFIG_ITEMS['video_avatars'])
         convertVideoForm.addRow("Avatar:", cbbAvatar)
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
             cbbAvatar.setEnabled(selected_video_converter == 'Avatar')
-        _updateAvatarEnabled(cbbVideoConverter.currentText())
-        cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)
+        _updateAvatarEnabled(cbbVideoConverter.currentText())  # <- update for current config-value
+        cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
+
+        chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
+        convertVideoForm.addRow("Show Video Output Window:", chkShowVideoWindow)
 
         convertVideoGroup = self._makeGroupBox("Convert Video", convertVideoForm)
         dialogLayout.addWidget(convertVideoGroup)
+
+        # ############ ENABLE AUDIO / VIDEO SETTINGS ################
+        enableAVForm = QFormLayout()
+
+        chkUseAudio = self._createCheckBoxFor(CONFIG_ITEMS['use_audio'])
+        enableAVForm.addRow("Use Audio:", chkUseAudio)
+
+        def _set_audio_widgets_enabled(_value):
+            enable: bool = chkUseAudio.checkState() == QtCore.Qt.CheckState.Checked
+            cbbAudioIn.setEnabled(enable)
+            cbbAudioOut.setEnabled(enable)
+            cbbAudioVoice.setEnabled(enable)
+
+        _set_audio_widgets_enabled(chkUseAudio)  # <- update for current config
+        chkUseAudio.stateChanged.connect(_set_audio_widgets_enabled)  # <- update on config changes
+
+        chkUseVideo = self._createCheckBoxFor(CONFIG_ITEMS['use_video'])
+        enableAVForm.addRow("Use Video:", chkUseVideo)
+
+        def _set_video_widgets_enabled(_value):
+            enable: bool = chkUseVideo.checkState() == QtCore.Qt.CheckState.Checked
+            cbbVideoConverter.setEnabled(enable)
+            chkShowVideoWindow.setEnabled(enable)
+            enable_avatar = enable
+            if enable:
+                # enable avatar-selection, if video-converter is set to avatar converter
+                conv_val, _, _ = get_current_value_and_config_path_for(self.config, CONFIG_ITEMS['video_avatars'].config_path)
+                enable_avatar = conv_val == AVATAR_CONVERTER
+            cbbAvatar.setEnabled(enable_avatar)
+
+        _set_video_widgets_enabled(chkUseVideo)  # <- update for current config
+        chkUseVideo.stateChanged.connect(_set_video_widgets_enabled)  # <- update on config changes
+
+        enableAVGroup = self._makeGroupBox("Enable Audio / Video", enableAVForm)
+        dialogLayout.addWidget(enableAVGroup)
 
         # ############ LOG SETTINGS ################
         loggingForm = QFormLayout()
 
         # cbbMainLogging = self._createLogLevelWidget(for_gui=False)
-        cbbMainLogging = self._createWidgetFor(CONFIG_ITEMS['log_levels'])
+        cbbMainLogging = self._createComboBoxFor(CONFIG_ITEMS['log_levels'])
         loggingForm.addRow("Logging:", cbbMainLogging)
 
         # cbbGuiLogging = self._createLogLevelWidget(for_gui=True)
-        cbbGuiLogging = self._createWidgetFor(CONFIG_ITEMS['gui_log_levels'])
+        cbbGuiLogging = self._createComboBoxFor(CONFIG_ITEMS['gui_log_levels'])
         loggingForm.addRow("Logging (GUI):", cbbGuiLogging)
+
+        # FIXME [russa] could/should be a check-box, but since default value is TRUE (if omitted / not set),
+        #       it would be complicated to convert/apply in all necessary places
+        #       ... so for now, for ease of implementation, use combo-box for this
+        cbbDisableConsoleLogging = self._createComboBoxFor(CONFIG_ITEMS['disable_console_logging'])
+        loggingForm.addRow("Disable Logging To Console:", cbbDisableConsoleLogging)
 
         loggingGroup = self._makeGroupBox("Logging", loggingForm)
         dialogLayout.addWidget(loggingGroup)
 
         # TODO add config widgets for:
-        # use_audio: true
-        #
-        # use_video: true
-        # output_window: true
-        #
-        # disable_console_logging   TODO
         #
         # ? [video]/[converter]
         # max_fps: 20
@@ -249,23 +287,24 @@ class ConfigDialog(RestorableDialog):
         buttons.button(QDialogButtonBox.StandardButton.Save).clicked.connect(self.saveConfigToFile)
         return buttons
 
-    def _createWidgetFor(self, config_item: ConfigurationItem, update_values: bool = True):
+    def _createComboBoxFor(self, config_item: ConfigurationItem, update_values: bool = True) -> QComboBox:
         config_values = config_item.get_latest() if update_values else config_item.get()
+        combobox = QComboBox()
         if isinstance(config_values, list):
-            return self._createTextComboBox(config_values, config_path=config_item.config_path)
+            return self._initTextComboBox(combobox, config_values, config_path=config_item.config_path)
         else:
-            return self._createDataComboBox(config_values, config_path=config_item.config_path)
+            return self._initDataComboBox(combobox, config_values, config_path=config_item.config_path)
 
-    def _createTextComboBox(self, text_items: list[str], config_path: list[str]) -> QComboBox:
+    def _initTextComboBox(self, combobox: QComboBox, text_items: list[str], config_path: list[str]) -> QComboBox:
         """
-        HELPER create a combo-box with simple text-items:
+        HELPER initialize a combo-box with simple text-items:
         on selection the corresponding text-value will be applied to the `config_path`.
 
+        :param combobox: the combo-box to initialize
         :param text_items: the text-items; when selected their value will be applied to the config
         :param config_path: the path to the configuration value that will be updated
-        :returns: the created combo-box
+        :returns: the initialized combo-box
         """
-        combobox = QComboBox()
         combobox.addItems(text_items)
         current_value, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_path)
         # set current_value as selected index:
@@ -280,17 +319,17 @@ class ConfigDialog(RestorableDialog):
         combobox.currentTextChanged.connect(partial(self.setConfigValue, combobox, config_path, sub_config, field_name))
         return combobox
 
-    def _createDataComboBox(self, item_data: dict[str, any], config_path: list[str]) -> QComboBox:
+    def _initDataComboBox(self, combobox: QComboBox, item_data: dict[str, any], config_path: list[str]) -> QComboBox:
         """
-        HELPER create combo-box with data-items:
+        HELPER initialize combo-box with data-items:
         the `key` will be used as label in the combo-box, and the `value` will be applied  to the `config_path`, when
         the corresponding item is selected.
 
+        :param combobox: the combo-box to initialize
         :param item_data: the data-items, where the `key` is used as label and the `value` is applied to the config upon selection
         :param config_path: the path to the configuration value that will be updated
-        :returns: the created combo-box
+        :returns: the initialized combo-box
         """
-        combobox = QComboBox()
         current_value, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_path)
         idx = 0
         did_select_current = False
@@ -307,6 +346,20 @@ class ConfigDialog(RestorableDialog):
             self._createAndSetNoSelectionStyle(combobox)
         combobox.currentIndexChanged.connect(partial(self.setConfigValueByData, combobox, config_path, sub_config, field_name))
         return combobox
+
+    def _createCheckBoxFor(self, config_item: ConfigurationItem, update_values: bool = True) -> QCheckBox:
+        # config_values = config_item.get_latest() if update_values else config_item.get()
+        config_path = config_item.config_path
+        checkbox = QCheckBox()
+        current_value, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_path)
+        # if not None, set current_value as check/unchecked state:
+        try:
+            if current_value is not None:
+                checkbox.setCheckState(Qt.CheckState.Checked if current_value else Qt.CheckState.Unchecked)
+        except:
+            pass
+        checkbox.stateChanged.connect(partial(self.setConfigValue, checkbox, config_path, sub_config, field_name))
+        return checkbox
 
     def _createAndSetNoSelectionStyle(self, combobox: QComboBox):
         """
@@ -344,18 +397,29 @@ class ConfigDialog(RestorableDialog):
             defaultBrush = QPalette().brush(QPalette.ColorGroup.Normal, QPalette.ColorRole.ButtonText)
             widget.setStyleSheet('color: ' + str(defaultBrush.color().name()))
 
-    def setConfigValue(self, widget: QComboBox, config_path: list[str], sub_config: dict, field: str, value: any):
+    def setConfigValue(self, widget: QComboBox | QCheckBox, config_path: list[str], sub_config: dict, field: str, value: any):
+        is_combo = isinstance(widget, QComboBox)
+        is_check = isinstance(widget, QCheckBox)
+        if is_check:
+            # for check-box: convert checked/unchecked state to True/False:
+            value = True if widget.checkState() == Qt.CheckState.Checked else False
+        elif is_combo and widget.currentIndex() == -1:
+            # NOTE: index -1 indicates that no item in the combo-box is selected
+            value = NO_SELECTION
         _logger.debug('set config %s: %s -> %s', sub_config, field, value)
         if value != NO_SELECTION:
             sub_config[field] = value
             self.changed_config[CONFIG_PATH_SEP.join(config_path)] = value
-            self._resetStyleToValidSelection(widget)
+            if is_combo:
+                self._resetStyleToValidSelection(widget)
         else:
             _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
-            self._setStyleToInvalidSelection(widget)
+            if is_combo:
+                self._setStyleToInvalidSelection(widget)
 
     def setConfigValueByData(self, widget: QComboBox, config_path: list[str], sub_config: dict, field: str, idx: int):
-        data = widget.itemData(idx)
+        # NOTE: index -1 indicates that no item in the combo-box is selected
+        data = widget.itemData(idx) if idx > -1 else NO_SELECTION
         _logger.debug('set config by index %s: %s -> ComboBox[%s] = [%s]', sub_config, field, idx, data)
         if data != NO_SELECTION:
             sub_config[field] = data
@@ -404,6 +468,10 @@ class ConfigDialog(RestorableDialog):
             for i in range(formLayout.count()):
                 widget = formLayout.itemAt(i).widget()
                 if isinstance(widget, QComboBox):
+
+                    # TODO use ConfigurationItem.can_ignore_validation()
+                    #      instead of duplicating logic via widget.isEnabled()
+                    #      ... or use UnitTesting to make sure both are in sync
                     if not widget.isEnabled():
                         # ignore, if combo-box is disabled:
                         continue

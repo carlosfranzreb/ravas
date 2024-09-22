@@ -2,7 +2,8 @@ import logging
 from functools import partial
 from typing import Callable, Union, Optional, Literal
 
-from .config_utils import get_audio_devices, return_camera_indices, get_voices_from
+from .config_utils import get_audio_devices, return_camera_indices, get_voices_from, \
+    get_current_value_and_config_path_for
 from ..utils import resolve_file_path
 
 
@@ -16,6 +17,9 @@ a dummy label/item-data in case the current config-object has missing or invalid
 i.e. this label/item-data indicates that the corresponding widget (or its underlying configuration-field) 
 has an invalid value.
 """
+
+AVATAR_CONVERTER: str = 'stream_processing.models.Avatar'
+""" for reference: the configuration value for selecting the avatar-converter (video anonymization) """
 
 
 class ConfigurationItem:
@@ -33,9 +37,11 @@ class ConfigurationItem:
     """
     def __init__(self,
                  configuration_path: list[str],
-                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]]
+                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]],
+                 is_ignore_validation: Optional[Callable[[dict], bool]] = None
         ):
         self.config_path: list[str] = configuration_path
+        self.is_ignore_validation: Optional[Callable[[dict], bool]] = is_ignore_validation
         if callable(configuration_values):
             self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = configuration_values
             self.config_values: Optional[Union[list[str], dict[str, any]]] = None
@@ -53,8 +59,24 @@ class ConfigurationItem:
             self.config_values = self.create_values()
         return self.config_values
 
+    def can_ignore_validation(self, current_config: dict) -> bool:
+        if not self.is_ignore_validation:
+            return False
+        return self.is_ignore_validation(current_config)
+
 
 CONFIG_ITEMS: dict[str, ConfigurationItem] = {
+
+    'use_audio': ConfigurationItem(['audio', 'use_audio'], {
+        'Use Audio':        True,
+        'Disable Audio':    False,
+    }),
+
+    'use_video': ConfigurationItem(['video', 'use_video'], {
+        'Use Video':        True,
+        'Disable Video':    False,
+    }),
+
     'audio_input_devices': ConfigurationItem(['audio', 'input_device'],
                                              partial(get_audio_devices, is_input=True, logger=_logger)),
 
@@ -62,7 +84,7 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
                                               partial(get_audio_devices, is_input=False, logger=_logger)),
 
     'video_converters': ConfigurationItem(['video', 'converter', 'cls'], {
-        'Avatar':                   'stream_processing.models.Avatar',
+        'Avatar':                   AVATAR_CONVERTER,
         'FaceMask':                 'stream_processing.models.FaceMask',
         'Echo (No Anonymization)':  'stream_processing.models.Echo',
     }),
@@ -72,6 +94,11 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Avatar (Male)':        'avatar_2_m.glb',
         'Avatar 2 (Female)':    'avatar_3_f.glb',
         'Avatar 2 (Male)':      'avatar_4_m.glb',
+    }),
+
+    'output_window': ConfigurationItem(['video', 'output_window'], {
+        'Show Video Output Window': True,
+        'Do Not Show Output Video': False,
     }),
 
     'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'],
@@ -95,6 +122,13 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'DEBUG':        'DEBUG',
     }),
 
+    'disable_console_logging': ConfigurationItem(['disable_console_logging'], {
+        '<DEFAULT> (Disable)': None,
+        'Disable Logging To Console': True,
+        'Enable Logging To Console': False,
+    }),
+
+
     # FIXME current implementation of `return_camera_indices()` takes too long -> find better solution
     'video_input_devices': ConfigurationItem(['video', 'input_device'],
                                              partial(return_camera_indices, logger=_logger)),
@@ -106,3 +140,39 @@ IGNORE_CONFIG_ITEM_KEYS = {'video_input_devices'}  # FIXME remove entry 'video_i
 """
 configuration-item keys (in `CONFIG_ITEMS`) that should currently be ignored (e.g. due to performance issues)
 """
+
+
+def is_media_disabled(media: Union[Literal['audio'], Literal['video']], config: dict) -> bool:
+    field = 'use_' + media
+    val, _, _ = get_current_value_and_config_path_for(config, [media, field])
+    return val is False
+
+
+def _do_set_ignore_validation_helpers():
+    """
+    HELPER: initialize & set helper function for config-items that indicate, if their validation can be ignored
+            (based on the config-values at that time)
+    """
+    # audio-configs that can be ignored, if audio is disabled:
+    CONFIG_ITEMS['audio_input_devices'].is_ignore_validation = partial(is_media_disabled, 'audio')
+    CONFIG_ITEMS['audio_voices'].is_ignore_validation = partial(is_media_disabled, 'audio')
+    CONFIG_ITEMS['audio_output_devices'].is_ignore_validation = partial(is_media_disabled, 'audio')
+
+    # video-configs that can be ignored, if video is disabled:
+    CONFIG_ITEMS['video_input_devices'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['video_converters'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['output_window'].is_ignore_validation = partial(is_media_disabled, 'video')
+
+    # custom (i.e. more complicated) config-settings that depend on other / multiple other config-values
+
+    def can_ignore_avatar_validation(config: dict):
+        if is_media_disabled('video', config):
+            return True
+        val, _, _ = get_current_value_and_config_path_for(config, CONFIG_ITEMS['video_avatars'].config_path)
+        return val != AVATAR_CONVERTER
+
+    CONFIG_ITEMS['video_avatars'].is_ignore_validation = can_ignore_avatar_validation
+
+
+# do apply ignore-validation helpers for config-items:
+_do_set_ignore_validation_helpers()

@@ -87,7 +87,7 @@ def validate_config_values(config: dict) -> list[str]:
 
     problems = []
     for key, item in CONFIG_ITEMS.items():
-        if key in IGNORE_CONFIG_ITEM_KEYS:
+        if key in IGNORE_CONFIG_ITEM_KEYS or item.can_ignore_validation(config):
             continue
         curr_val, field, sub_config = get_current_value_and_config_path_for(config, item.config_path)
         config_value_items = item.get()
