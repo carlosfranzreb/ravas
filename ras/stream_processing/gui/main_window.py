@@ -221,7 +221,7 @@ class MainWindow(QMainWindow):
             def on_log_finished():
                 print('------ did receive finish signal!', flush=True)  # FIXME DEBUG
                 # self._log_thread = None
-                if self._log_thread.isRunning():
+                if self._log_thread and self._log_thread.isRunning():
                     self._log_thread.quit()
                 self._log_worker = None
                 self._log_thread = None
