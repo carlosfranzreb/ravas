@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Callable, NoReturn, Union, Optional
+from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, return_camera_indices, get_voices_from
 from ..utils import resolve_file_path
@@ -31,13 +31,16 @@ class ConfigurationItem:
     `ConfigurationItem.get_latest()`; the later one will update the values with the generator-function,
     if one was supplied.
     """
-    def __init__(self, configuration_path: list[str], configuration_values: list[str] | dict[str, any] | Callable[[Union[list[str], dict[str, any]]], NoReturn]):
+    def __init__(self,
+                 configuration_path: list[str],
+                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]]
+        ):
         self.config_path: list[str] = configuration_path
         if callable(configuration_values):
-            self.create_values: Optional[Callable[[Union[list[str], dict[str, any]]], NoReturn]] = configuration_values
+            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = configuration_values
             self.config_values: Optional[Union[list[str], dict[str, any]]] = None
         else:
-            self.create_values: Optional[Callable[[Union[list[str], dict[str, any]]], NoReturn]] = None
+            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = None
             self.config_values: Optional[Union[list[str], dict[str, any]]] = configuration_values
 
     def get(self):
