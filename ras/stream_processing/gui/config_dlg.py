@@ -2,13 +2,14 @@ import json
 import logging
 from copy import deepcopy
 from functools import partial
+from typing import Tuple
 
 import yaml
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget, QFileDialog, QCheckBox
+    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
 from .config_utils import get_current_value_and_config_path_for
@@ -71,14 +72,8 @@ class ConfigDialog(RestorableDialog):
         cbbAudioIn = self._createComboBoxFor(CONFIG_ITEMS['audio_input_devices'])
         inputForm.addRow("Audio Input:", cbbAudioIn)
 
-        # FIXME DISABLED takes too long, find better solution for generating video device list,
-        #                other than trying out opencv2 indicies ... or maybe show fast solution first and give users
-        #                the option to start a time consuming search, if they want to
-        # cbbVideoIn = self._createVideoDeviceWidget()
-        cbbVideoIn = QComboBox()  # FIXME dummy
-        cbbVideoIn.addItem('<disabled>')  # FIXME dummy
-        cbbVideoIn.setEnabled(False)  # FIXME dummy
-        inputForm.addRow("Video Input:", cbbVideoIn)
+        videoInLayout, cbbVideoIn = self._createVideoInputDeviceWidget()
+        inputForm.addRow("Video Input:", videoInLayout)
 
         inputGroup = self._makeGroupBox("Input", inputForm)
         dialogLayout.addWidget(inputGroup)
@@ -148,11 +143,20 @@ class ConfigDialog(RestorableDialog):
             enable: bool = chkUseVideo.checkState() == QtCore.Qt.CheckState.Checked
             cbbVideoConverter.setEnabled(enable)
             chkShowVideoWindow.setEnabled(enable)
+            enable_video_in = enable
             enable_avatar = enable
             if enable:
+                # enable video-input-device selection, if the combo-box has real items to select
+                # (i.e. count >= 1, or if it's 1, is must not be the NO_SELECTION entry)
+                if cbbVideoIn.count() == 0:
+                    enable_video_in = False
+                elif cbbVideoIn.count() == 1:
+                    video_in_data = cbbVideoIn.itemData(0)
+                    enable_video_in = video_in_data != NO_SELECTION
                 # enable avatar-selection, if video-converter is set to avatar converter
                 conv_val, _, _ = get_current_value_and_config_path_for(self.config, CONFIG_ITEMS['video_avatars'].config_path)
                 enable_avatar = conv_val == AVATAR_CONVERTER
+            cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)
 
         _set_video_widgets_enabled(chkUseVideo)  # <- update for current config
@@ -360,6 +364,76 @@ class ConfigDialog(RestorableDialog):
             pass
         checkbox.stateChanged.connect(partial(self.setConfigValue, checkbox, config_path, sub_config, field_name))
         return checkbox
+
+    def _createVideoInputDeviceWidget(self) -> Tuple[QHBoxLayout, QComboBox]:
+        """
+        HELPER for creating widget to select video-input-device:
+        detecting video-input-devices takes quite some time, so use a button to let users manually start
+        search for available video input devices
+
+        :returns: a tuple `(layout, combobox)` where the `layout` contains the combo-box and
+                  the button (for starting the device search), and the `combobox` is the selection-widget for the
+                  video input device
+        """
+        # NOTE: detecting video-input-devices takes quite some time, so use a button to let users manually start
+        #       search for available video input devices
+
+        # TODO should find better solution for generating video device list, that also includes capabilities,
+        #      i.e. other than trying out opencv2 indices ...
+
+        cbbVideoIn = QComboBox()
+        cfgVideoIn = CONFIG_ITEMS['video_input_devices']
+        if not cfgVideoIn.config_values:
+            # if search for video devices was not done yet: just show disabled selection with current config-value
+            val, _, _ = get_current_value_and_config_path_for(self.config, cfgVideoIn.config_path)
+            cbbVideoIn.addItem(str(val), NO_SELECTION)
+            cbbVideoIn.setEnabled(False)
+        else:
+            # if we already have search results, initialized combo-box with it
+            # (without refreshing/getting latest results)
+            self._initDataComboBox(cbbVideoIn, cfgVideoIn.get(), cfgVideoIn.config_path)
+
+        videoInLayout = QHBoxLayout()
+        videoInLayout.addWidget(cbbVideoIn)
+
+        def detect_video_input_devices():
+            """ HELPER: search for video-input-devices & update combo-box with results """
+            try:
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                cbbVideoIn.setEnabled(False)
+                # NOTE this will disconnect ALL signals:
+                #      currently there is only the `currentIndexChanged`, that gets re-connected in
+                #       `_initDataComboBox()`, but if there were other signals on `cbbVideoIn` they would need to get
+                #       reconnected manually!
+                #      -> if one of these two assertions raise an exception, that would indicate that there are other
+                #         signals connected and need to be (manually) reconnected after the combo-box is re-initialized!
+                try:
+                    assert cbbVideoIn.receivers(cbbVideoIn.currentIndexChanged) <= 1
+                    assert cbbVideoIn.receivers(cbbVideoIn.currentTextChanged) <= 1
+                except AssertionError as exc:
+                    _logger.error('outdated implementation for Video-Input-Device selection (ComboBox), '
+                                  'see comments in code!', exc_info=exc, stack_info=True)
+                    QMessageBox.warning(self, 'Outdated Implementation: Please contact Developer',
+                                        'Please contact developers, and include the logging output.')
+                cbbVideoIn.disconnect()
+                cbbVideoIn.clear()
+                self._initDataComboBox(cbbVideoIn, CONFIG_ITEMS['video_input_devices'].get_latest(),
+                                       CONFIG_ITEMS['video_input_devices'].config_path)
+                cbbVideoIn.setEnabled(True)
+            finally:
+                QApplication.restoreOverrideCursor()
+
+        # add button that lets users initiate the search
+        btnDetectVideoIn = QPushButton("Detect")
+        btnDetectVideoIn.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum))
+        usage_info = "detect video input devices\nWARNING: will take some time!"
+        # btnDetectVideoIn.setStatusTip(usage_info)
+        btnDetectVideoIn.setToolTip(usage_info)
+        btnDetectVideoIn.clicked.connect(detect_video_input_devices)
+
+        videoInLayout.addWidget(btnDetectVideoIn)
+
+        return videoInLayout, cbbVideoIn
 
     def _createAndSetNoSelectionStyle(self, combobox: QComboBox):
         """

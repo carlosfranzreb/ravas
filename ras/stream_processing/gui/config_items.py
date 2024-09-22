@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from typing import Callable, Union, Optional, Literal
 
-from .config_utils import get_audio_devices, return_camera_indices, get_voices_from, \
+from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
     get_current_value_and_config_path_for
 from ..utils import resolve_file_path
 
@@ -131,7 +131,7 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
 
     # FIXME current implementation of `return_camera_indices()` takes too long -> find better solution
     'video_input_devices': ConfigurationItem(['video', 'input_device'],
-                                             partial(return_camera_indices, logger=_logger)),
+                                             partial(get_camera_device_items, logger=_logger)),
 }
 """ definitions of configuration-items that should be configurable by users in GUI """
 

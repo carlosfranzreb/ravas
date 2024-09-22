@@ -97,39 +97,47 @@ def validate_config_values(config: dict) -> list[str]:
     return problems
 
 
-"""
-adapted from
-https://stackoverflow.com/a/61768256/4278324
+# adapted from
+# https://stackoverflow.com/a/61768256/4278324
+def return_camera_infos(logger: Optional[logging.Logger] = None, max_look_ahead: int = 2) -> list[dict]:
+    """
+    Get list of available cameras.
 
-NOTE: checks indices further down, even one does not work, since on systems there seem to be "empty" indices, see
-      https://stackoverflow.com/a/61768256/4278324
+    NOTE: checks indices further down, even if one does not work (see `max_look_ahead`), since on some systems there seem to be "empty" indices
+          see
+          https://stackoverflow.com/a/61768256/4278324
 
-TODO create list with device names: not supported (yet?) by opencv2
-see possible solution for windows:
-https://github.com/yushulx/python-capture-device-list
-also possible bug/solution for this:
-https://github.com/yushulx/python-capture-device-list/issues/5
+    TODO create list with device names: not supported (yet?) by opencv2
+    see possible solution for windows:
+    https://github.com/yushulx/python-capture-device-list
+    also possible bug/solution for this:
+    https://github.com/yushulx/python-capture-device-list/issues/5
 
-possible solution for linux (could this work for macos?):
-https://github.com/opencv/opencv/issues/4269#issuecomment-1936742564
-utilizes library/package v4l-utils:
-v4l2-ctl --list-devices
+    possible solution for linux (could this work for macos?):
+    https://github.com/opencv/opencv/issues/4269#issuecomment-1936742564
+    utilizes library/package v4l-utils:
+    v4l2-ctl --list-devices
 
 
-could try using ffmpeg, like
-ffmpeg -list_devices true -f dshow -i dummy
-see https://trac.ffmpeg.org/wiki/Capture/Webcam
-... but does not seem to give information to which camera these correspond,
-    using opencv2 which we are using for capturing
-"""
-def return_camera_indices(logger: Optional[logging.Logger] = None) -> list[str]:
-    # checks the first 10 indexes.
-    # WARNING: this function takes noticeable time to run
-    #          (since it does actually open cameras & captures for testing if camera is usable)
+    could try using ffmpeg, like
+    ffmpeg -list_devices true -f dshow -i dummy
+    see https://trac.ffmpeg.org/wiki/Capture/Webcam
+    ... but does not seem to give information to which camera these correspond,
+        using opencv2 which we are using for capturing
+
+    **WARNING:** this function takes noticeable time to run
+                 (since it does actually open cameras & captures for testing if camera is usable)
+
+    :param logger: OPTIONAL logger for printing debug output
+    :param max_look_ahead: OPTIONAL maximal look-ahead for checking camera indices: check at most these consecutive
+                                    indices for non-working camera-indices, before stopping
+                           (DEFAULT: `2`)
+    :returns: list of camera infos `{'index': int, 'width': float, 'height': float, 'fps': float, 'backend': str}`
+    """
     index = 0
     arr = []
-    i = 10
-    while i > 0:
+    last_valid_idx = -1
+    while True:
         cap = cv.VideoCapture(index)
 
         if logger and logger.isEnabledFor(logging.DEBUG):
@@ -137,8 +145,42 @@ def return_camera_indices(logger: Optional[logging.Logger] = None) -> list[str]:
             logger.debug('check camera %s -> opened: %s%s', index, cap.isOpened(), camera_info)
 
         if cap.isOpened() and cap.read()[0]:
-            arr.append(str(index))
+            cap_info = {
+                'index':    index,
+                'backend':  cap.getBackendName(),
+
+                # NOTE: these are the current default settings, when opening camera without specifying anything
+                #         i.e. they do NOT necessarily reflect the camera's capabilities
+                #         w.r.t. to min./max. resolution or FPS
+                'width':    cap.get(cv.CAP_PROP_FRAME_WIDTH),
+                'height':   cap.get(cv.CAP_PROP_FRAME_HEIGHT),
+                'fps':      cap.get(cv.CAP_PROP_FPS),
+            }
+            arr.append(cap_info)
             cap.release()
+            last_valid_idx = index
+            is_current_valid = True
+        else:
+            is_current_valid = False
         index += 1
-        i -= 1
+
+        # only continue testing, if last valid camera index is at most `max_look_ahead` steps back
+        if not is_current_valid:
+            if last_valid_idx == -1:
+                # -> did not find any valid camera-indices yet!
+                if index > max_look_ahead:
+                    break
+            else:
+                # abort, if last valid camera-index is more than `max_look_ahead` steps back
+                if index - last_valid_idx > max_look_ahead:
+                    break
     return arr
+
+
+def get_camera_device_items(logger: Optional[logging.Logger] = None) -> dict[str, int]:
+    camera_infos = return_camera_infos(logger)
+    items: dict[str, int] = {}
+    for info in camera_infos:
+        label = 'Camera {index} (width {width:.0f}, height {height:.0f}, FPS {fps})'.format(**info)
+        items[label] = info['index']
+    return items
