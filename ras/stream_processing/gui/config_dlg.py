@@ -72,7 +72,7 @@ class ConfigDialog(RestorableDialog):
         cbbAudioIn = self._createComboBoxFor(CONFIG_ITEMS['audio_input_devices'])
         inputForm.addRow("Audio Input:", cbbAudioIn)
 
-        videoInLayout, cbbVideoIn = self._createVideoInputDeviceWidget()
+        videoInLayout, cbbVideoIn, btnDetectVideoIn = self._createVideoInputDeviceWidget()
         inputForm.addRow("Video Input:", videoInLayout)
 
         inputGroup = self._makeGroupBox("Input", inputForm)
@@ -141,6 +141,7 @@ class ConfigDialog(RestorableDialog):
 
         def _set_video_widgets_enabled(_value):
             enable: bool = chkUseVideo.checkState() == QtCore.Qt.CheckState.Checked
+            btnDetectVideoIn.setEnabled(enable)
             cbbVideoConverter.setEnabled(enable)
             chkShowVideoWindow.setEnabled(enable)
             enable_video_in = enable
@@ -365,15 +366,16 @@ class ConfigDialog(RestorableDialog):
         checkbox.stateChanged.connect(partial(self.setConfigValue, checkbox, config_path, sub_config, field_name))
         return checkbox
 
-    def _createVideoInputDeviceWidget(self) -> Tuple[QHBoxLayout, QComboBox]:
+    def _createVideoInputDeviceWidget(self) -> Tuple[QHBoxLayout, QComboBox, QPushButton]:
         """
         HELPER for creating widget to select video-input-device:
         detecting video-input-devices takes quite some time, so use a button to let users manually start
         search for available video input devices
 
-        :returns: a tuple `(layout, combobox)` where the `layout` contains the combo-box and
-                  the button (for starting the device search), and the `combobox` is the selection-widget for the
-                  video input device
+        :returns: a tuple `(layout, combobox, button)` where the `layout` contains the combo-box and
+                  the button (for starting the device search), the `combobox` is the selection-widget for the
+                  video input device, and `button` is the button for starting the detection of available video
+                  input devices
         """
         # NOTE: detecting video-input-devices takes quite some time, so use a button to let users manually start
         #       search for available video input devices
@@ -433,7 +435,7 @@ class ConfigDialog(RestorableDialog):
 
         videoInLayout.addWidget(btnDetectVideoIn)
 
-        return videoInLayout, cbbVideoIn
+        return videoInLayout, cbbVideoIn, btnDetectVideoIn
 
     def _createAndSetNoSelectionStyle(self, combobox: QComboBox):
         """
