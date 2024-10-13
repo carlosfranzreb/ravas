@@ -162,7 +162,10 @@ class ConfigDialog(RestorableDialog):
                     video_in_data = cbbVideoIn.itemData(0)
                     enable_video_in = video_in_data != NO_SELECTION
                 # enable avatar-selection, if video-converter is set to avatar converter
-                conv_val, _, _ = get_current_value_and_config_path_for(self.config, CONFIG_ITEMS['video_avatars'].config_path)
+                conv_val, _, _ = get_current_value_and_config_path_for(
+                    self.config,
+                    CONFIG_ITEMS['video_converters'].config_path
+                )
                 enable_avatar = conv_val == AVATAR_CONVERTER
             cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)

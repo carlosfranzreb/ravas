@@ -178,7 +178,7 @@ def _do_set_ignore_validation_helpers():
     def can_ignore_avatar_validation(config: dict):
         if is_media_disabled('video', config):
             return True
-        val, _, _ = get_current_value_and_config_path_for(config, CONFIG_ITEMS['video_avatars'].config_path)
+        val, _, _ = get_current_value_and_config_path_for(config, CONFIG_ITEMS['video_converters'].config_path)
         return val != AVATAR_CONVERTER
 
     CONFIG_ITEMS['video_avatars'].is_ignore_validation = can_ignore_avatar_validation
