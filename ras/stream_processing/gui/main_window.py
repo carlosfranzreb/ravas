@@ -62,9 +62,9 @@ class MainWindow(QMainWindow):
         actShowConfig.triggered.connect(self.showConfigDialog)
         self._actShowConfig = actShowConfig
 
-        actExit = QAction("E&xit", self)
-        actExit.setShortcut("Ctrl+X")
-        actExit.setStatusTip("Exit the application")
+        actExit = QAction("&Quit", self)
+        actExit.setShortcut("Ctrl+Q")
+        actExit.setStatusTip("Quit the Application")
         actExit.triggered.connect(self.close)
         self._actExit = actExit
 
