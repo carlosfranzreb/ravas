@@ -85,6 +85,11 @@ class ConfigDialog(RestorableDialog):
         cbbAudioOut = self._createComboBoxFor(CONFIG_ITEMS['audio_output_devices'])
         outputForm.addRow("Audio Output:", cbbAudioOut)
 
+        # DISABLED selecting virtual-camera backend via combo-box (for now, use check-box for enabling/disabling):
+        # cbbEnableVirtualCamera = self._createComboBoxFor(CONFIG_ITEMS['output_virtual_cam'])
+        chkEnableVirtualCamera = self._createCheckBoxFor(CONFIG_ITEMS['output_virtual_cam'])
+        outputForm.addRow("Enable Virtual Camera Output:", chkEnableVirtualCamera)
+
         outputGroup = self._makeGroupBox("Output", outputForm)
         dialogLayout.addWidget(outputGroup)
 
@@ -114,11 +119,6 @@ class ConfigDialog(RestorableDialog):
             cbbAvatar.setEnabled(selected_video_converter == 'Avatar')
         _updateAvatarEnabled(cbbVideoConverter.currentText())  # <- update for current config-value
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
-
-        # DISABLED selecting virtual-camera backend via combo-box (for now, use check-box for enabling/disabling):
-        # cbbEnableVirtualCamera = self._createComboBoxFor(CONFIG_ITEMS['output_virtual_cam'])
-        chkEnableVirtualCamera = self._createCheckBoxFor(CONFIG_ITEMS['output_virtual_cam'])
-        convertVideoForm.addRow("Enable Virtual Camera Output:", chkEnableVirtualCamera)
 
         chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
         convertVideoForm.addRow("Show Video Output Window (DEBUG):", chkShowVideoWindow)
