@@ -115,8 +115,13 @@ class ConfigDialog(RestorableDialog):
         _updateAvatarEnabled(cbbVideoConverter.currentText())  # <- update for current config-value
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
 
+        # DISABLED selecting virtual-camera backend via combo-box (for now, use check-box for enabling/disabling):
+        # cbbEnableVirtualCamera = self._createComboBoxFor(CONFIG_ITEMS['output_virtual_cam'])
+        chkEnableVirtualCamera = self._createCheckBoxFor(CONFIG_ITEMS['output_virtual_cam'])
+        convertVideoForm.addRow("Enable Virtual Camera Output:", chkEnableVirtualCamera)
+
         chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
-        convertVideoForm.addRow("Show Video Output Window:", chkShowVideoWindow)
+        convertVideoForm.addRow("Show Video Output Window (DEBUG):", chkShowVideoWindow)
 
         convertVideoGroup = self._makeGroupBox("Convert Video", convertVideoForm)
         dialogLayout.addWidget(convertVideoGroup)
@@ -141,6 +146,8 @@ class ConfigDialog(RestorableDialog):
 
         def _set_video_widgets_enabled(_value):
             enable: bool = chkUseVideo.checkState() == QtCore.Qt.CheckState.Checked
+            # cbbEnableVirtualCamera.setEnabled(enable)
+            chkEnableVirtualCamera.setEnabled(enable)
             btnDetectVideoIn.setEnabled(enable)
             cbbVideoConverter.setEnabled(enable)
             chkShowVideoWindow.setEnabled(enable)
@@ -192,6 +199,8 @@ class ConfigDialog(RestorableDialog):
         # max_fps: 20
         # width: *video_width
         # height: *video_height
+        #
+        # ws_port: 8888
 
         buttons = self._createDlgCtrls()
         dialogLayout.addWidget(buttons)

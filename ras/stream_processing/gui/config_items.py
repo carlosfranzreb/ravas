@@ -3,7 +3,7 @@ from functools import partial
 from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
-    get_current_value_and_config_path_for
+    get_current_value_and_config_path_for, get_virtual_camera_backends
 from ..utils import resolve_file_path
 
 
@@ -101,6 +101,15 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Do Not Show Output Video': False,
     }),
 
+    # DISABLED selecting virtual-camera backend via combo-box (only enabled/disabled check-box for now):
+    # 'output_virtual_cam': ConfigurationItem(['video', 'output_virtual_cam'], get_virtual_camera_backends),
+
+    'output_virtual_cam': ConfigurationItem(['video', 'output_virtual_cam'], {
+        'Enable Virtual Camera Output': True,
+        'Disable Virtual Camera Output': False,
+    }),
+
+
     'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'],
                                       partial(get_voices_from, dir_path=resolve_file_path('target_feats/'), logger=_logger)),
 
@@ -162,6 +171,7 @@ def _do_set_ignore_validation_helpers():
     CONFIG_ITEMS['video_input_devices'].is_ignore_validation = partial(is_media_disabled, 'video')
     CONFIG_ITEMS['video_converters'].is_ignore_validation = partial(is_media_disabled, 'video')
     CONFIG_ITEMS['output_window'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['output_virtual_cam'].is_ignore_validation = partial(is_media_disabled, 'video')
 
     # custom (i.e. more complicated) config-settings that depend on other / multiple other config-values
 

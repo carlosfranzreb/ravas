@@ -129,11 +129,19 @@ class VideoProcessor(Processor):
         # ensure fps of virtual cam is higher than the fps of the input stream
         sampling_rate = self.get_sampling_rate()
         if self.config["output_virtual_cam"]:
+            virt_cam = self.config["output_virtual_cam"]
+            if isinstance(virt_cam, str):
+                virt_cam_device = virt_cam if virt_cam.startswith("/dev/video") else None
+                virt_cam_backend = virt_cam if not virt_cam.startswith("/dev/video") else None
+            else:
+                virt_cam_device = None
+                virt_cam_backend = None
             virtual_cam = pyvirtualcam.Camera(
                 width=self.config["width"],
                 height=self.config["height"],
                 fps=sampling_rate,
-                device="/dev/video4",
+                backend=virt_cam_backend,
+                device=virt_cam_device,
             )
         if self.config["store"]:
             if self.config["store_format"] == "avi":

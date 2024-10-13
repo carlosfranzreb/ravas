@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+import platform
 import re
-from typing import Optional
+from typing import Optional, Union
 
 import cv2 as cv
 import sounddevice as sd
@@ -25,6 +26,23 @@ def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -
             result.append(device["name"])
         elif not is_input and device["max_output_channels"] > 0:
             result.append(device["name"])
+    return result
+
+
+def get_virtual_camera_backends() -> dict[str, Union[str, bool]]:
+    result = {
+        'DISABLED': False,
+        'ENABLED <DEFAULT>': True,
+    }
+    # adapted from pyvirtualcam/camera.py:
+    p = platform.system()
+    if p == 'Windows':
+        result['OBS Virtual Camera'] = 'obs'
+        result['Unity Video Capture'] = 'unitycapture'
+    elif p == 'Darwin':
+        result['OBS Virtual Camera'] = 'obs'
+    elif p == 'Linux':
+        result['Loopback /dev/video<n>'] = 'v4l2loopback'
     return result
 
 
