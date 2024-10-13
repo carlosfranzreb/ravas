@@ -3,7 +3,7 @@ from functools import partial
 from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
-    get_current_value_and_config_path_for, get_virtual_camera_backends
+    get_current_value_and_config_path_for, is_port_valid
 from ..utils import resolve_file_path
 
 
@@ -28,6 +28,15 @@ class ConfigurationItem:
     an access path (in the configuration dictionary) and a list of possible, valid configuration-values
     (i.e. that can be safely applied to the configuration).
 
+    1. (infinite) Generative configuration values:
+
+    In case the configuration is infinite (or would require a large list/dictionary), and setting the
+    configuration-value is done with an input field (e.g. for entering strings or numbers), the ConfigurationItem
+    should be set with a validator function `is_valid_value(value) -> bool`.
+
+
+    2. (finite) Closed-list configuration values:
+
     The configuration-values are either a (string) list, or a dictionary of labels and configuration values.
     Alternatively, a generator-function can be supplied that creates the configuration-values.
 
@@ -37,11 +46,13 @@ class ConfigurationItem:
     """
     def __init__(self,
                  configuration_path: list[str],
-                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]],
-                 is_ignore_validation: Optional[Callable[[dict], bool]] = None
+                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]] | None,
+                 is_ignore_validation: Optional[Callable[[dict], bool]] = None,
+                 is_valid_value: Optional[Callable[[any], bool]] = None
         ):
         self.config_path: list[str] = configuration_path
         self.is_ignore_validation: Optional[Callable[[dict], bool]] = is_ignore_validation
+        self.is_valid_value: Optional[Callable[[any], bool]] = is_valid_value
         if callable(configuration_values):
             self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = configuration_values
             self.config_values: Optional[Union[list[str], dict[str, any]]] = None
@@ -95,6 +106,9 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Avatar 2 (Female)':    'avatar_3_f.glb',
         'Avatar 2 (Male)':      'avatar_4_m.glb',
     }),
+
+    'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
+                                        is_valid_value=is_port_valid),
 
     'output_window': ConfigurationItem(['video', 'output_window'], {
         'Show Video Output Window': True,
@@ -182,6 +196,8 @@ def _do_set_ignore_validation_helpers():
         return val != AVATAR_CONVERTER
 
     CONFIG_ITEMS['video_avatars'].is_ignore_validation = can_ignore_avatar_validation
+    CONFIG_ITEMS['avatar_ws_port'].is_ignore_validation = can_ignore_avatar_validation
+
 
 
 # do apply ignore-validation helpers for config-items:

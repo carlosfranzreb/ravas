@@ -3,6 +3,7 @@ import logging
 import os
 import platform
 import re
+import socket
 from typing import Optional, Union
 
 import cv2 as cv
@@ -44,6 +45,41 @@ def get_virtual_camera_backends() -> dict[str, Union[str, bool]]:
     elif p == 'Linux':
         result['Loopback /dev/video<n>'] = 'v4l2loopback'
     return result
+
+
+def is_port_valid(val: any) -> bool:
+    """
+    HELPER test configuration value for `video/converter/ws_port`
+
+    :returns: `True` if it is an integer and a free port, otherwise `False`
+    """
+    if isinstance(val, int) and val > 0:
+        return is_port_free(val)
+    return False
+
+
+def is_port_free(port: int) -> bool:
+    """
+    HELPER check if port is free
+
+    adapted from:
+    https://stackoverflow.com/a/43271125/4278324
+
+    NOTE: referenced example using `Socket.connect_ex()` is slower when testing free ports
+
+    :param port: the port number to check
+    :returns: `True` if the `port` if free (i.e. can be opened to listen to)
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # NOTE: Socket.connect_ex() is actually slower than Socket.bind(), in cases where the port is free
+        #       -> since we can assume, that the port is free in most cases, use `bind()` for quick testing
+        try:
+            s.bind(("0.0.0.0", port))
+            result = True
+        except Exception:
+            result = False
+        s.close()
+        return result
 
 
 def get_current_value_and_config_path_for(config: dict, config_path: list[str]) -> tuple[any, str, dict]:
@@ -108,10 +144,14 @@ def validate_config_values(config: dict) -> list[str]:
         if key in IGNORE_CONFIG_ITEM_KEYS or item.can_ignore_validation(config):
             continue
         curr_val, field, sub_config = get_current_value_and_config_path_for(config, item.config_path)
-        config_value_items = item.get()
-        config_values = config_value_items if isinstance(config_value_items, list) else config_value_items.values()
-        if curr_val not in config_values:
-            problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
+        if item.is_valid_value:
+            if not item.is_valid_value(curr_val):
+                problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
+        else:
+            config_value_items = item.get()
+            config_values = config_value_items if isinstance(config_value_items, list) else config_value_items.values()
+            if curr_val not in config_values:
+                problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
     return problems
 
 

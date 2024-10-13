@@ -1,18 +1,19 @@
 import json
 import logging
+import re
 from copy import deepcopy
 from functools import partial
-from typing import Tuple
+from typing import Tuple, Callable, Optional
 
 import yaml
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication
+    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication, QSpinBox
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
-from .config_utils import get_current_value_and_config_path_for
+from .config_utils import get_current_value_and_config_path_for, validate_config_values
 from .settings_helper import RestorableDialog, RestoreSettingItem, StoreSettingItem, applySetting
 
 
@@ -114,23 +115,32 @@ class ConfigDialog(RestorableDialog):
         cbbAvatar = self._createComboBoxFor(CONFIG_ITEMS['video_avatars'])
         convertVideoForm.addRow("Avatar:", cbbAvatar)
 
+        # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
+        #      to enable/disable if avatar-converter is selected
+        iptAvatarPort, containerAvatarPort = self._createPortInput()
+
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
-            cbbAvatar.setEnabled(selected_video_converter == 'Avatar')
+            enable = selected_video_converter == 'Avatar'
+            cbbAvatar.setEnabled(enable)
+            iptAvatarPort.setEnabled(enable)
         _updateAvatarEnabled(cbbVideoConverter.currentText())  # <- update for current config-value
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
-
-        chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
-        convertVideoForm.addRow("Show Video Output Window (DEBUG):", chkShowVideoWindow)
 
         convertVideoGroup = self._makeGroupBox("Convert Video", convertVideoForm)
         dialogLayout.addWidget(convertVideoGroup)
 
-        # ############ ENABLE AUDIO / VIDEO SETTINGS ################
-        enableAVForm = QFormLayout()
+        # ############ ADVANCED AUDIO / VIDEO SETTINGS ################
+        advancedSettingsForm = QFormLayout()
+
+        chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
+        advancedSettingsForm.addRow("Show Video Output Window (DEBUG):", chkShowVideoWindow)
+
+        # add port-number-widget here (created above at video-converter-selection widget):
+        advancedSettingsForm.addRow("Avatar Converter Port:", containerAvatarPort)
 
         chkUseAudio = self._createCheckBoxFor(CONFIG_ITEMS['use_audio'])
-        enableAVForm.addRow("Use Audio:", chkUseAudio)
+        advancedSettingsForm.addRow("Use Audio:", chkUseAudio)
 
         def _set_audio_widgets_enabled(_value):
             enable: bool = chkUseAudio.checkState() == QtCore.Qt.CheckState.Checked
@@ -142,7 +152,7 @@ class ConfigDialog(RestorableDialog):
         chkUseAudio.stateChanged.connect(_set_audio_widgets_enabled)  # <- update on config changes
 
         chkUseVideo = self._createCheckBoxFor(CONFIG_ITEMS['use_video'])
-        enableAVForm.addRow("Use Video:", chkUseVideo)
+        advancedSettingsForm.addRow("Use Video:", chkUseVideo)
 
         def _set_video_widgets_enabled(_value):
             enable: bool = chkUseVideo.checkState() == QtCore.Qt.CheckState.Checked
@@ -169,11 +179,12 @@ class ConfigDialog(RestorableDialog):
                 enable_avatar = conv_val == AVATAR_CONVERTER
             cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)
+            iptAvatarPort.setEnabled(enable_avatar)
 
         _set_video_widgets_enabled(chkUseVideo)  # <- update for current config
         chkUseVideo.stateChanged.connect(_set_video_widgets_enabled)  # <- update on config changes
 
-        enableAVGroup = self._makeGroupBox("Enable Audio / Video", enableAVForm)
+        enableAVGroup = self._makeGroupBox("Advanced Settings", advancedSettingsForm)
         dialogLayout.addWidget(enableAVGroup)
 
         # ############ LOG SETTINGS ################
@@ -202,8 +213,6 @@ class ConfigDialog(RestorableDialog):
         # max_fps: 20
         # width: *video_width
         # height: *video_height
-        #
-        # ws_port: 8888
 
         buttons = self._createDlgCtrls()
         dialogLayout.addWidget(buttons)
@@ -277,9 +286,15 @@ class ConfigDialog(RestorableDialog):
         """
         all_labels: list[QLabel] = self.findChildren(QLabel)
         max_width = .0
+        # HACK ignore non-field labels by internal knowledge (that all field-labels end with a colon ":")
+        re_field_label = re.compile(r':\s*$')
         for lbl in all_labels:
+            if not re_field_label.search(lbl.text()):
+                continue
             max_width = max(max_width, lbl.width())
         for lbl in all_labels:
+            if not re_field_label.search(lbl.text()):
+                continue
             lbl.setMinimumWidth(max_width)
 
     def _createDlgCtrls(self):
@@ -303,6 +318,31 @@ class ConfigDialog(RestorableDialog):
         buttons.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.resetConfig)
         buttons.button(QDialogButtonBox.StandardButton.Save).clicked.connect(self.saveConfigToFile)
         return buttons
+
+    def _createPortInput(self) -> Tuple[QSpinBox, QVBoxLayout]:
+        iptAvatarPort = QSpinBox()
+        iptAvatarPort.setMinimum(0)
+        iptAvatarPort.setMaximum(65535)
+        port_config_path = CONFIG_ITEMS['avatar_ws_port'].config_path
+        port_val, port_field, port_sub_config = get_current_value_and_config_path_for(self.config, port_config_path)
+        if not isinstance(port_val, int) or port_val < 0:
+            port_val = 0
+        iptAvatarPort.setValue(port_val)
+
+        infoLabel = QLabel('(local port for converting avatar images)')
+        iptAvatarPort.valueChanged.connect( partial(
+                self.setConfigValueAndValidation,
+                infoLabel,
+                CONFIG_ITEMS['avatar_ws_port'].is_valid_value,
+                port_config_path,
+                port_sub_config,
+                port_field
+        ))
+
+        layout = QVBoxLayout()
+        layout.addWidget(iptAvatarPort)
+        layout.addWidget(infoLabel)
+        return iptAvatarPort, layout
 
     def _createComboBoxFor(self, config_item: ConfigurationItem, update_values: bool = True) -> QComboBox:
         config_values = config_item.get_latest() if update_values else config_item.get()
@@ -517,6 +557,18 @@ class ConfigDialog(RestorableDialog):
             _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
 
+    def setConfigValueAndValidation(self, widget: QSpinBox | QLabel, validation_func: Optional[Callable[[any], bool]], config_path: list[str], sub_config: dict, field: str, value: any):
+        _logger.debug('set config %s: %s -> %s', sub_config, field, value)
+        sub_config[field] = value
+        self.changed_config[CONFIG_PATH_SEP.join(config_path)] = value
+
+        is_invalid = not validation_func(value) if validation_func else False
+        if not is_invalid:
+            self._resetStyleToValidSelection(widget)
+        else:
+            _logger.warning('selected INVALID value for %s (did set invalid value, user needs to correct this)!', field)
+            self._setStyleToInvalidSelection(widget)
+
     def saveConfigToFile(self):
         filePath, _ = QFileDialog.getSaveFileName(self, "Save Configuration", "", "YAML Files(*.yaml);;All Files(*)")
         if filePath:
@@ -581,6 +633,16 @@ class ConfigDialog(RestorableDialog):
                                 errors[label_str] = sel
                         if not did_add_error:
                             errors['unknown'] = sel
+
+        # validate non-combo-box values, if necessary
+        # FIXME should move GUI labels to ConfigurationItems and only use this validation
+        #       (instead of "validating" the GUI widgets)
+        if not has_invalid:
+            errs = validate_config_values(self.config)
+            if errs:
+                has_invalid = True
+                for err in errs:
+                    errors[err] = ''  # NOTE the error-entry are already complete, so just set empty string as value
 
         if not has_invalid:
             self.accept()
