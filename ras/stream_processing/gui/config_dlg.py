@@ -89,7 +89,10 @@ class ConfigDialog(RestorableDialog):
         # DISABLED selecting virtual-camera backend via combo-box (for now, use check-box for enabling/disabling):
         # cbbEnableVirtualCamera = self._createComboBoxFor(CONFIG_ITEMS['output_virtual_cam'])
         chkEnableVirtualCamera = self._createCheckBoxFor(CONFIG_ITEMS['output_virtual_cam'])
-        outputForm.addRow("Enable Virtual Camera Output:", chkEnableVirtualCamera)
+        layoutVirtualCamera = QVBoxLayout()
+        layoutVirtualCamera.addWidget(chkEnableVirtualCamera)
+        layoutVirtualCamera.addWidget(QLabel('(requires additional software like "OBS Virtual Camera" or "Unity Video Capture")'))
+        outputForm.addRow("Enable Virtual Camera Output:", layoutVirtualCamera)
 
         outputGroup = self._makeGroupBox("Output", outputForm)
         dialogLayout.addWidget(outputGroup)
