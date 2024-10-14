@@ -1,11 +1,11 @@
 import logging
 from functools import partial
+from inspect import signature, Parameter
 from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
-    get_current_value_and_config_path_for, is_port_valid, get_avatars_from, is_positive_number, wrap_simple_validate, \
-    is_positive_number_and_equal_to_config_path
-from ..models.avatar.chrome_runner import get_web_extension_file
+    get_current_value_and_config_path_for, is_port_valid, is_positive_number, wrap_simple_validate, \
+    is_positive_number_and_equal_to_config_path, get_avatars_for_config
 from ..utils import resolve_file_path
 
 
@@ -55,6 +55,7 @@ class ConfigurationItem:
         self.config_path: list[str] = configuration_path
         self.is_ignore_validation: Optional[Callable[[dict], bool]] = is_ignore_validation
         self.is_valid_value: Optional[Callable[[any, Optional[dict]], bool]] = is_valid_value
+        self._create_values_has_no_args: Optional[bool] = None
         if callable(configuration_values):
             self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]] = configuration_values
             self.config_values: Optional[Union[list[str], dict[str, any]]] = None
@@ -62,14 +63,38 @@ class ConfigurationItem:
             self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]] = None
             self.config_values: Optional[Union[list[str], dict[str, any]]] = configuration_values
 
-    def get(self):
+    @staticmethod
+    def _has_non_default_or_named_config_arg(func: Callable) -> bool:
+        """ helper to determine, if a `create_values()` function has the (optional) config-parameter or not """
+        for p in signature(func).parameters.values():
+            # heuristic: if a parameter has name "config", then TRUE
+            if p.name == 'config':
+                return True
+            # heuristic: if there is any parameter that has NO default value set, then TRUE
+            if p.default == Parameter.empty:
+                return True
+        return False
+
+    @property
+    def create_values(self) -> Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]]:
+        return self._create_values
+
+    @create_values.setter
+    def create_values(self, value: Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]]):
+        self._create_values = value
+        self._create_values_has_no_args = not self._has_non_default_or_named_config_arg(value) if value else None
+
+    def get(self, config: Optional[dict] = None):
         if not self.config_values and self.create_values:
-            return self.get_latest()
+            return self.get_latest(config)
         return self.config_values
 
-    def get_latest(self):
+    def get_latest(self, config: Optional[dict] = None):
         if self.create_values:
+            if self._create_values_has_no_args:
                 self.config_values = self.create_values()
+            else:
+                self.config_values = self.create_values(config)
         return self.config_values
 
     def can_ignore_validation(self, current_config: dict) -> bool:
@@ -123,7 +148,7 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Echo (No Anonymization)':  'stream_processing.models.Echo',
     }),
     'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'],
-                                       partial(get_avatars_from, get_web_extension_file(), logger=_logger)),
+                                       partial(get_avatars_for_config, logger=_logger)),
 
     'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
                                         is_valid_value=wrap_simple_validate(is_port_valid)),

@@ -4,17 +4,28 @@ import os
 import platform
 import re
 import socket
+from copy import deepcopy
 from typing import Optional, Union, Callable
 from zipfile import ZipFile
 
 import cv2 as cv
 import sounddevice as sd
 
+from utils import resolve_file_path
+from ..models.avatar.chrome_runner import get_web_extension_file
+
 
 VOICE_FILE_EXTENSION = re.compile(r'.pt$', re.RegexFlag.IGNORECASE)
 
 FEMALE_VOICES = {'tanja', 'wendy'}
 MALE_VOICES = {'herbert', 'john'}
+
+DEFAULT_AVATARS = {
+    'Default Avatar (Female)':   'avatar_1_f.glb',
+    'Default Avatar (Male)':     'avatar_2_m.glb',
+    'Default Avatar 2 (Female)': 'avatar_3_f.glb',
+    'Default Avatar 2 (Male)':   'avatar_4_m.glb',
+}
 
 
 def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -> list[str]:
@@ -178,6 +189,47 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
     return items
 
 
+def get_avatars_for_config(config: Optional[dict], logger: Optional[logging.Logger] = None) -> dict[str, str]:
+    """
+    HELPER inspect configuration and try to determine which avatar files are available.
+
+    see also `get_avatars_from()` and `models.avatar.chrome_runner.get_web_extension_file()`
+
+    :param config: the configuration (NOTE if omitted, the avatars are assumed to be in packed web-extension file)
+    :param logger: OPTIONAL logger for debug/warn output
+    :returns: a dictionary (labels -> avatar-files) for avatar-selection
+              if no avatars could be found, the default avatars are returned, see `DEFAULT_AVATARS`
+    """
+    avatars: Optional[dict] = None
+    if config:
+        config_path = ['video', 'converter', 'use_chrome_extension']
+        web_extension_config, _, _ = get_current_value_and_config_path_for(config, config_path)
+        file_path = None
+        if isinstance(web_extension_config, bool) and web_extension_config:
+            file_path = get_web_extension_file()
+        elif isinstance(web_extension_config, str):
+            file_path = web_extension_config
+            if not os.path.exists(file_path):
+                file_path = resolve_file_path(file_path)
+        elif logger:
+            logger.error('Unknown configuration value for %s: expected bool or string, but got %s (%s)', '.'.join(config_path), type(web_extension_config), web_extension_config)
+
+        if file_path:
+            if os.path.exists(file_path):
+                avatars = get_avatars_from(file_path, logger=logger)
+            elif logger:
+                logger.error('invalid configuration value for %s: file or directory does not exist at %s', '.'.join(config_path), file_path)
+    else:
+        # DEFAULT if config is omitted: try to use packed web-extension file
+        file_path = get_web_extension_file()
+
+    if not avatars:
+        if logger:
+            logger.warning('Could not detect any avatar models (*.glb), using default values instead. Did not find any at %s', file_path)
+        avatars = deepcopy(DEFAULT_AVATARS)
+    return avatars
+
+
 def get_avatars_from(dir_or_zip_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
     """
     HELPER read available avatar files (3d models for avatars in `*.glb` format) from
@@ -259,7 +311,7 @@ def validate_config_values(config: dict) -> list[str]:
             if not item.is_valid_value(curr_val, config):
                 problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
         else:
-            config_value_items = item.get()
+            config_value_items = item.get(config)
             config_values = config_value_items if isinstance(config_value_items, list) else config_value_items.values()
             if curr_val not in config_values:
                 problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))

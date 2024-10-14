@@ -346,7 +346,7 @@ class ConfigDialog(RestorableDialog):
         iptAvatarPort.setValue(port_val)
         # add info-label & also use it for invalid-values feedback (via self.setConfigValueAndValidation(), see below):
         infoLabel = QLabel('(local port for converting avatar images)')
-        
+
         iptAvatarPort.valueChanged.connect(partial(
                 self.setConfigValueAndValidation,
                 infoLabel,
@@ -416,7 +416,7 @@ class ConfigDialog(RestorableDialog):
         return slider, layout
 
     def _createComboBoxFor(self, config_item: ConfigurationItem, update_values: bool = True) -> QComboBox:
-        config_values = config_item.get_latest() if update_values else config_item.get()
+        config_values = config_item.get_latest(self.config) if update_values else config_item.get(self.config)
         combobox = QComboBox()
         if isinstance(config_values, list):
             return self._initTextComboBox(combobox, config_values, config_path=config_item.config_path)
@@ -516,7 +516,7 @@ class ConfigDialog(RestorableDialog):
         else:
             # if we already have search results, initialized combo-box with it
             # (without refreshing/getting latest results)
-            self._initDataComboBox(cbbVideoIn, cfgVideoIn.get(), cfgVideoIn.config_path)
+            self._initDataComboBox(cbbVideoIn, cfgVideoIn.get(self.config), cfgVideoIn.config_path)
 
         videoInLayout = QHBoxLayout()
         videoInLayout.addWidget(cbbVideoIn)
@@ -542,7 +542,7 @@ class ConfigDialog(RestorableDialog):
                                         'Please contact developers, and include the logging output.')
                 cbbVideoIn.disconnect()
                 cbbVideoIn.clear()
-                self._initDataComboBox(cbbVideoIn, CONFIG_ITEMS['video_input_devices'].get_latest(),
+                self._initDataComboBox(cbbVideoIn, CONFIG_ITEMS['video_input_devices'].get_latest(self.config),
                                        CONFIG_ITEMS['video_input_devices'].config_path)
                 cbbVideoIn.setEnabled(True)
             finally:
