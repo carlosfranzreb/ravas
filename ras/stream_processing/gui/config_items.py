@@ -3,7 +3,8 @@ from functools import partial
 from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
-    get_current_value_and_config_path_for, is_port_valid, get_avatars_from
+    get_current_value_and_config_path_for, is_port_valid, get_avatars_from, is_positive_number, wrap_simple_validate, \
+    is_positive_number_and_equal_to_config_path
 from ..models.avatar.chrome_runner import get_web_extension_file
 from ..utils import resolve_file_path
 
@@ -33,7 +34,7 @@ class ConfigurationItem:
 
     In case the configuration is infinite (or would require a large list/dictionary), and setting the
     configuration-value is done with an input field (e.g. for entering strings or numbers), the ConfigurationItem
-    should be set with a validator function `is_valid_value(value) -> bool`.
+    should be set with a validator function `is_valid_value(value, config | None) -> bool`.
 
 
     2. (finite) Closed-list configuration values:
@@ -47,18 +48,18 @@ class ConfigurationItem:
     """
     def __init__(self,
                  configuration_path: list[str],
-                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]] | None,
+                 configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]] | Callable[[Optional[dict]], Union[list[str], dict[str, any]]] | None,
                  is_ignore_validation: Optional[Callable[[dict], bool]] = None,
-                 is_valid_value: Optional[Callable[[any], bool]] = None
+                 is_valid_value: Optional[Callable[[any, Optional[dict]], bool]] = None
         ):
         self.config_path: list[str] = configuration_path
         self.is_ignore_validation: Optional[Callable[[dict], bool]] = is_ignore_validation
-        self.is_valid_value: Optional[Callable[[any], bool]] = is_valid_value
+        self.is_valid_value: Optional[Callable[[any, Optional[dict]], bool]] = is_valid_value
         if callable(configuration_values):
-            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = configuration_values
+            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]] = configuration_values
             self.config_values: Optional[Union[list[str], dict[str, any]]] = None
         else:
-            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] = None
+            self.create_values: Optional[Callable[[], Union[list[str], dict[str, any]]]] | Optional[Callable[[Optional[dict]], Union[list[str], dict[str, any]]]] = None
             self.config_values: Optional[Union[list[str], dict[str, any]]] = configuration_values
 
     def get(self):
@@ -68,13 +69,34 @@ class ConfigurationItem:
 
     def get_latest(self):
         if self.create_values:
-            self.config_values = self.create_values()
+                self.config_values = self.create_values()
         return self.config_values
 
     def can_ignore_validation(self, current_config: dict) -> bool:
         if not self.is_ignore_validation:
             return False
         return self.is_ignore_validation(current_config)
+
+
+# prepare configuration-items for video-height that require inter-dependent validation:
+config_item_video_output_height = ConfigurationItem(
+    ['video', 'height'], None)  # omit validation here & "back-reference", see below
+config_item_video_converter_height = ConfigurationItem(
+    ['video', 'converter', 'height'], None,
+    is_valid_value=partial(is_positive_number_and_equal_to_config_path, config_path=config_item_video_output_height.config_path))
+# no set "back-reference" validation against config_item_video_converter_height:
+config_item_video_output_height.is_valid_value = partial(is_positive_number_and_equal_to_config_path,
+                                                         config_path=config_item_video_converter_height.config_path)
+
+# prepare configuration-items for video-width that require inter-dependent validation:
+config_item_video_output_width = ConfigurationItem(
+    ['video', 'width'], None)  # omit validation here & "back-reference", see below
+config_item_video_converter_width = ConfigurationItem(
+    ['video', 'converter', 'width'], None,
+    is_valid_value=partial(is_positive_number_and_equal_to_config_path, config_path=config_item_video_output_width.config_path))
+# no set "back-reference" validation against config_item_video_converter_width:
+config_item_video_output_width.is_valid_value = partial(is_positive_number_and_equal_to_config_path,
+                                                        config_path=config_item_video_converter_width.config_path)
 
 
 CONFIG_ITEMS: dict[str, ConfigurationItem] = {
@@ -104,7 +126,7 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
                                        partial(get_avatars_from, get_web_extension_file(), logger=_logger)),
 
     'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
-                                        is_valid_value=is_port_valid),
+                                        is_valid_value=wrap_simple_validate(is_port_valid)),
 
     'output_window': ConfigurationItem(['video', 'output_window'], {
         'Show Video Output Window': True,
@@ -119,6 +141,13 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Disable Virtual Camera Output': False,
     }),
 
+    'video_output_height': config_item_video_output_height,
+    'video_converter_height': config_item_video_converter_height,
+    'video_output_width': config_item_video_output_width,
+    'video_converter_width': config_item_video_converter_width,
+
+    'video_output_fps': ConfigurationItem(['video', 'max_fps'], None,
+                                          is_valid_value=wrap_simple_validate(is_positive_number)),
 
     'audio_voices': ConfigurationItem(['audio', 'converter', 'target_feats_path'],
                                       partial(get_voices_from, dir_path=resolve_file_path('target_feats/'), logger=_logger)),
@@ -182,6 +211,12 @@ def _do_set_ignore_validation_helpers():
     CONFIG_ITEMS['video_converters'].is_ignore_validation = partial(is_media_disabled, 'video')
     CONFIG_ITEMS['output_window'].is_ignore_validation = partial(is_media_disabled, 'video')
     CONFIG_ITEMS['output_virtual_cam'].is_ignore_validation = partial(is_media_disabled, 'video')
+
+    CONFIG_ITEMS['video_output_fps'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['video_output_width'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['video_converter_width'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['video_output_height'].is_ignore_validation = partial(is_media_disabled, 'video')
+    CONFIG_ITEMS['video_converter_height'].is_ignore_validation = partial(is_media_disabled, 'video')
 
     # custom (i.e. more complicated) config-settings that depend on other / multiple other config-values
 

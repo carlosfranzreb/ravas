@@ -10,7 +10,7 @@ from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication, QSpinBox
+    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication, QSpinBox, QSlider
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
 from .config_utils import get_current_value_and_config_path_for, validate_config_values
@@ -94,6 +94,17 @@ class ConfigDialog(RestorableDialog):
         layoutVirtualCamera.addWidget(QLabel('(requires additional software like "OBS Virtual Camera" or "Unity Video Capture")'))
         outputForm.addRow("Enable Virtual Camera Output:", layoutVirtualCamera)
 
+        sldOutputFramerate, layoutOutputFramerate = self._createSliderFor(CONFIG_ITEMS['video_output_fps'], min=10, max=60, step=1)
+        outputForm.addRow("Output Video Frame Rate:", layoutOutputFramerate)
+
+        sldOutputVideoWidth, layoutOutputVideoWidth = self._createSliderFor(
+            CONFIG_ITEMS['video_output_width'], min=360, max=8192, step=16, additional_config_path=CONFIG_ITEMS['video_converter_width'].config_path)
+        outputForm.addRow("Output Video Width:", layoutOutputVideoWidth)
+
+        sldOutputVideoHeight, layoutOutputVideoHeight = self._createSliderFor(
+            CONFIG_ITEMS['video_output_height'], min=288, max=4096, step=16, additional_config_path=CONFIG_ITEMS['video_converter_height'].config_path)
+        outputForm.addRow("Output Video Height:", layoutOutputVideoHeight)
+
         outputGroup = self._makeGroupBox("Output", outputForm)
         dialogLayout.addWidget(outputGroup)
 
@@ -164,6 +175,9 @@ class ConfigDialog(RestorableDialog):
             btnDetectVideoIn.setEnabled(enable)
             cbbVideoConverter.setEnabled(enable)
             chkShowVideoWindow.setEnabled(enable)
+            sldOutputFramerate.setEnabled(enable)
+            sldOutputVideoWidth.setEnabled(enable)
+            sldOutputVideoHeight.setEnabled(enable)
             enable_video_in = enable
             enable_avatar = enable
             if enable:
@@ -324,16 +338,16 @@ class ConfigDialog(RestorableDialog):
 
     def _createPortInput(self) -> Tuple[QSpinBox, QVBoxLayout]:
         iptAvatarPort = QSpinBox()
-        iptAvatarPort.setMinimum(0)
-        iptAvatarPort.setMaximum(65535)
+        iptAvatarPort.setRange(0, 65535)
         port_config_path = CONFIG_ITEMS['avatar_ws_port'].config_path
         port_val, port_field, port_sub_config = get_current_value_and_config_path_for(self.config, port_config_path)
         if not isinstance(port_val, int) or port_val < 0:
             port_val = 0
         iptAvatarPort.setValue(port_val)
-
+        # add info-label & also use it for invalid-values feedback (via self.setConfigValueAndValidation(), see below):
         infoLabel = QLabel('(local port for converting avatar images)')
-        iptAvatarPort.valueChanged.connect( partial(
+        
+        iptAvatarPort.valueChanged.connect(partial(
                 self.setConfigValueAndValidation,
                 infoLabel,
                 CONFIG_ITEMS['avatar_ws_port'].is_valid_value,
@@ -346,6 +360,60 @@ class ConfigDialog(RestorableDialog):
         layout.addWidget(iptAvatarPort)
         layout.addWidget(infoLabel)
         return iptAvatarPort, layout
+
+    def _createSliderFor(self, config_item: ConfigurationItem, min: int, max: int, step: int, additional_config_path: Optional[list[str]] = None) -> Tuple[QSlider, QHBoxLayout]:
+
+        # slider for quick-change
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(min, max)
+        slider.setSingleStep(step)
+        curr_val, field_name, sub_config = get_current_value_and_config_path_for(self.config, config_item.config_path)
+
+        # "label" & number-input-field:
+        spin = QSpinBox()
+        spin.setRange(min, max)
+        spin.setSingleStep(step)
+        spin.setMinimumWidth(60)
+
+        slider.valueChanged.connect(spin.setValue)
+        spin.valueChanged.connect(slider.setValue)
+
+        slider.valueChanged.connect(partial(
+            self.setConfigValueAndValidation,
+            slider,
+            config_item.is_valid_value,
+            config_item.config_path,
+            sub_config,
+            field_name
+        ))
+
+        if additional_config_path:
+            _, add_field_name, add_sub_config = get_current_value_and_config_path_for(self.config, additional_config_path)
+            slider.valueChanged.connect(partial(
+                self.setConfigValueAndValidation,
+                slider,
+                config_item.is_valid_value,  # FIXME should this be set to None? ... generally the validation should be the same, but there may be some unforseen cases where that is not the case...
+                additional_config_path,
+                add_sub_config,
+                add_field_name
+            ))
+
+        # ensure valid (int) value
+        if curr_val < min:
+            curr_val = min
+        elif curr_val > max:
+            curr_val = max
+        elif not isinstance(curr_val, int):
+            curr_val = min
+
+        # set (valid) value (will apply it to configuration, if it was changed above):
+        slider.setValue(curr_val)
+
+        layout = QHBoxLayout()
+        layout.addWidget(spin)
+        layout.addWidget(slider)
+
+        return slider, layout
 
     def _createComboBoxFor(self, config_item: ConfigurationItem, update_values: bool = True) -> QComboBox:
         config_values = config_item.get_latest() if update_values else config_item.get()
@@ -560,12 +628,12 @@ class ConfigDialog(RestorableDialog):
             _logger.warning('selected NO_SELECTION for %s: ignoring change (keeping old value: %s)!', field, sub_config.get(field))
             self._setStyleToInvalidSelection(widget)
 
-    def setConfigValueAndValidation(self, widget: QSpinBox | QLabel, validation_func: Optional[Callable[[any], bool]], config_path: list[str], sub_config: dict, field: str, value: any):
+    def setConfigValueAndValidation(self, widget: QSpinBox | QLabel, validation_func: Optional[Callable[[any, Optional[dict]], bool]], config_path: list[str], sub_config: dict, field: str, value: any):
         _logger.debug('set config %s: %s -> %s', sub_config, field, value)
         sub_config[field] = value
         self.changed_config[CONFIG_PATH_SEP.join(config_path)] = value
 
-        is_invalid = not validation_func(value) if validation_func else False
+        is_invalid = not validation_func(value, None) if validation_func else False
         if not is_invalid:
             self._resetStyleToValidSelection(widget)
         else:

@@ -4,7 +4,7 @@ import os
 import platform
 import re
 import socket
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 from zipfile import ZipFile
 
 import cv2 as cv
@@ -59,6 +59,38 @@ def is_port_valid(val: any) -> bool:
     return False
 
 
+def is_positive_number(val: any) -> bool:
+    """
+    HELPER test if value is a positive number
+
+    :returns: `True` if it is a positive number (incl. zero), otherwise `False`
+    """
+    if val >= 0:
+        return True
+    return False
+
+
+def is_positive_number_and_equal_to_config_path(val: any, config: Optional[dict], config_path: list[str]) -> bool:
+    """
+    HELPER test if value is a positive number AND (if `config` is not `None`) if it
+           is equal to a value of another configuration-path
+
+    E.g. for ensuring that `video/width` is same as `video/converter/width`.
+
+    :param val: the value to test
+    :param config: the configuration dictionary (if `None`, comparison to other value will be omitted)
+    :param config_path: configuration path to other config-value that should be equal to `val`
+    :returns: `True` if it is a positive number (incl. zero) and (if `config` is not `None`) equal to other
+              configuration-path, otherwise `False`
+    """
+    if not is_positive_number(val):
+        return False
+    if config is None:
+        return True
+    other_val, _, _ = get_current_value_and_config_path_for(config, config_path)
+    return other_val == val
+
+
 def is_port_free(port: int) -> bool:
     """
     HELPER check if port is free
@@ -81,6 +113,16 @@ def is_port_free(port: int) -> bool:
             result = False
         s.close()
         return result
+
+
+def wrap_simple_validate(validate_func: Callable[[any], bool]) -> Callable[[any, Optional[dict]], bool]:
+    """
+    HELPER create wrapper function, to allow single-parameter `ConfigurationItem.is_valid_value(val)`
+           (i.e. will always ignore `config`-parameter for `ConfigurationItem.is_valid_value(val, config)`)
+    """
+    def _func(val: any, _config: Optional[dict]):
+        return validate_func(val)
+    return _func
 
 
 def get_current_value_and_config_path_for(config: dict, config_path: list[str]) -> tuple[any, str, dict]:
@@ -214,7 +256,7 @@ def validate_config_values(config: dict) -> list[str]:
             continue
         curr_val, field, sub_config = get_current_value_and_config_path_for(config, item.config_path)
         if item.is_valid_value:
-            if not item.is_valid_value(curr_val):
+            if not item.is_valid_value(curr_val, config):
                 problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
         else:
             config_value_items = item.get()
