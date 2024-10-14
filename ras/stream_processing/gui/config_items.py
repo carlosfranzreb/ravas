@@ -3,7 +3,8 @@ from functools import partial
 from typing import Callable, Union, Optional, Literal
 
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
-    get_current_value_and_config_path_for, is_port_valid
+    get_current_value_and_config_path_for, is_port_valid, get_avatars_from
+from ..models.avatar.chrome_runner import get_web_extension_file
 from ..utils import resolve_file_path
 
 
@@ -99,13 +100,8 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'FaceMask':                 'stream_processing.models.FaceMask',
         'Echo (No Anonymization)':  'stream_processing.models.Echo',
     }),
-
-    'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'], {
-        'Avatar (Female)':      'avatar_1_f.glb',
-        'Avatar (Male)':        'avatar_2_m.glb',
-        'Avatar 2 (Female)':    'avatar_3_f.glb',
-        'Avatar 2 (Male)':      'avatar_4_m.glb',
-    }),
+    'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'],
+                                       partial(get_avatars_from, get_web_extension_file(), logger=_logger)),
 
     'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
                                         is_valid_value=is_port_valid),

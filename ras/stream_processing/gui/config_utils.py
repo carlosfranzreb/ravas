@@ -5,6 +5,7 @@ import platform
 import re
 import socket
 from typing import Optional, Union
+from zipfile import ZipFile
 
 import cv2 as cv
 import sounddevice as sd
@@ -133,6 +134,74 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
         else:
             print(msg)
     return items
+
+
+def get_avatars_from(dir_or_zip_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
+    """
+    HELPER read available avatar files (3d models for avatars in `*.glb` format) from
+           either packed web-extension file (ZIP) or unpacked web-extension directory
+
+    Creates a dictionary with generated labels and the available avatars as values (file names, without paths)
+
+    EXAMPLE:
+    ```
+       {
+         'Avatar (Female)':      'avatar_1_f.glb',
+         'Avatar (Male)':        'avatar_2_m.glb',
+         'Avatar 2 (Female)':    'avatar_3_f.glb',
+         'Avatar 2 (Male)':      'avatar_4_m.glb',
+       }
+    ```
+    """
+    avatars_list = []
+    if os.path.isdir(dir_or_zip_path):
+        for p in os.listdir(dir_or_zip_path):
+            if os.path.isdir(os.path.join(dir_or_zip_path, p)):
+                continue
+            if p.lower().endswith('.glb'):
+                avatars_list.append(p)
+    else:
+        with ZipFile(dir_or_zip_path) as zip_file:
+            for n in zip_file.namelist():
+                if n.lower().endswith('.glb'):
+                    avatars_list.append(n)
+    avatars_list.sort()
+
+    female_count = 0
+    male_count = 0
+    unknown_count = 0
+    result = {}
+
+    # name pattern: "avatar_<number>_<gender>.glb"
+    re_avatar = re.compile(r'avatar_(\d+)_(\w+)')
+
+    for a in avatars_list:
+        num = ''
+        gender = ''
+        match = re_avatar.search(a.lower())
+        if match:
+            # num = '' if match.group(1) == '1' else f'{match.group(1)} '
+            # gender = 'Female' if match.group(2) == 'f' else 'Male'
+            gender = match.group(2)
+            if gender == 'm':
+                male_count += 1
+                gender = 'Male'
+                num = '' if male_count == 1 else f'{male_count} '
+            else:
+                if gender == 'f':
+                    female_count += 1
+                    gender = 'Female'
+                    num = '' if female_count == 1 else f'{female_count} '
+                elif logger:
+                    logger.warning('Unknown naming pattern for avatar files: expected "f" or "m" for gender, but got "%s" for file %s', gender, a)
+
+        if not gender:
+            unknown_count += 1
+            gender = 'Unknown'
+            num = '' if unknown_count == 1 else f'{unknown_count} '
+
+        result[f'Avatar {num}({gender})'] = a
+    return result
 
 
 def validate_config_values(config: dict) -> list[str]:
