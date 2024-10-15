@@ -10,7 +10,8 @@ from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBox, QMessageBox, QLabel, QGroupBox, \
-    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication, QSpinBox, QSlider
+    QSizePolicy, QWidget, QFileDialog, QCheckBox, QPushButton, QHBoxLayout, QApplication, QSpinBox, QSlider, QTabWidget, \
+    QScrollArea
 
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
 from .config_utils import get_current_value_and_config_path_for, validate_config_values
@@ -65,7 +66,7 @@ class ConfigDialog(RestorableDialog):
         #   (load them "flattened" into self.changed_config, and apply them to self.config)
         self._restoreAndApplyConfigChangeSettings()
 
-        dialogLayout = QVBoxLayout()
+        mainSettingsLayout = QVBoxLayout()
 
         # ############ INPUT ################
         inputForm = QFormLayout()
@@ -77,7 +78,7 @@ class ConfigDialog(RestorableDialog):
         inputForm.addRow("Video Input:", videoInLayout)
 
         inputGroup = self._makeGroupBox("Input", inputForm)
-        dialogLayout.addWidget(inputGroup)
+        mainSettingsLayout.addWidget(inputGroup)
 
         # ############ OUTPUT ################
         outputForm = QFormLayout()
@@ -106,7 +107,7 @@ class ConfigDialog(RestorableDialog):
         outputForm.addRow("Output Video Height:", layoutOutputVideoHeight)
 
         outputGroup = self._makeGroupBox("Output", outputForm)
-        dialogLayout.addWidget(outputGroup)
+        mainSettingsLayout.addWidget(outputGroup)
 
         # ############ CONVERTER AUDIO ################
 
@@ -116,7 +117,7 @@ class ConfigDialog(RestorableDialog):
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
-        dialogLayout.addWidget(convertAudioGroup)
+        mainSettingsLayout.addWidget(convertAudioGroup)
 
         # ############ CONVERTER VIDEO ################
         convertVideoForm = QFormLayout()
@@ -142,7 +143,11 @@ class ConfigDialog(RestorableDialog):
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
 
         convertVideoGroup = self._makeGroupBox("Convert Video", convertVideoForm)
-        dialogLayout.addWidget(convertVideoGroup)
+        mainSettingsLayout.addWidget(convertVideoGroup)
+
+        ########################################################################
+
+        advancedSettingsLayout = QVBoxLayout()
 
         # ############ ADVANCED AUDIO / VIDEO SETTINGS ################
         advancedSettingsForm = QFormLayout()
@@ -202,7 +207,7 @@ class ConfigDialog(RestorableDialog):
         chkUseVideo.stateChanged.connect(_set_video_widgets_enabled)  # <- update on config changes
 
         enableAVGroup = self._makeGroupBox("Advanced Settings", advancedSettingsForm)
-        dialogLayout.addWidget(enableAVGroup)
+        advancedSettingsLayout.addWidget(enableAVGroup)
 
         # ############ LOG SETTINGS ################
         loggingForm = QFormLayout()
@@ -222,14 +227,36 @@ class ConfigDialog(RestorableDialog):
         loggingForm.addRow("Disable Logging To Console:", cbbDisableConsoleLogging)
 
         loggingGroup = self._makeGroupBox("Logging", loggingForm)
-        dialogLayout.addWidget(loggingGroup)
+        advancedSettingsLayout.addWidget(loggingGroup)
 
-        # TODO add config widgets for:
-        #
-        # ? [video]/[converter]
-        # max_fps: 20
-        # width: *video_width
-        # height: *video_height
+        # ############ Dialog Layout & Controls ################
+
+        mainSettingsWidget = QWidget()
+        mainSettingsWidget.setLayout(mainSettingsLayout)
+        mainSettingsScroll = QScrollArea()
+        mainSettingsScroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        mainSettingsScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        mainSettingsScroll.setWidgetResizable(True)
+        mainSettingsScroll.setWidget(mainSettingsWidget)
+
+        advancedSettingsWidget = QWidget()
+        advancedSettingsWidget.setLayout(advancedSettingsLayout)
+        advancedSettingsScroll = QScrollArea()
+        advancedSettingsScroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        advancedSettingsScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        advancedSettingsScroll.setWidgetResizable(True)
+        advancedSettingsScroll.setWidget(advancedSettingsWidget)
+
+        tabs = QTabWidget()
+        tabs.addTab(mainSettingsScroll, 'Settings')
+        tabs.addTab(advancedSettingsScroll, 'Advanced Settings')
+
+        # NOTE cannot align labels in invisible tab(s), since they will all have the tab's width
+        #      -> recalculate alignment when tab becomes visible
+        tabs.currentChanged.connect(self._forceAlignRowLabels)
+
+        dialogLayout = QVBoxLayout()
+        dialogLayout.addWidget(tabs)
 
         buttons = self._createDlgCtrls()
         dialogLayout.addWidget(buttons)
@@ -306,11 +333,13 @@ class ConfigDialog(RestorableDialog):
         # HACK ignore non-field labels by internal knowledge (that all field-labels end with a colon ":")
         re_field_label = re.compile(r':\s*$')
         for lbl in all_labels:
-            if not re_field_label.search(lbl.text()):
+            if not lbl.isVisible() or not re_field_label.search(lbl.text()):
                 continue
             max_width = max(max_width, lbl.width())
+        if max_width <= 0:
+            return
         for lbl in all_labels:
-            if not re_field_label.search(lbl.text()):
+            if not lbl.isVisible() or not re_field_label.search(lbl.text()):
                 continue
             lbl.setMinimumWidth(max_width)
 
