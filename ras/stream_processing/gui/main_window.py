@@ -133,7 +133,11 @@ class MainWindow(QMainWindow):
     def _applyLogLevel(self, config: dict = None):
         if not config:
             config = self.getConfig(as_copy=False)
-        gui_log_level = config.get('gui_log_level', config.get('log_level'))
+        gui_log_level = config.get("gui_log_level")
+        # NOTE must explicitly check here and cannot use config.get(.., DEFAULT) for fallback config["log_level"],
+        #      since it may have explicitly been set to None in config:
+        if not gui_log_level:
+            gui_log_level = config["log_level"]
         logging.getLogger().setLevel(gui_log_level)
 
     def getConfig(self, as_copy: bool) -> dict:
