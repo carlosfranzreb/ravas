@@ -11,8 +11,8 @@ from zipfile import ZipFile
 import cv2 as cv
 import sounddevice as sd
 
-from utils import resolve_file_path
 from ..models.avatar.chrome_runner import get_web_extension_file
+from ..utils import resolve_file_path
 
 
 VOICE_FILE_EXTENSION = re.compile(r'.pt$', re.RegexFlag.IGNORECASE)
