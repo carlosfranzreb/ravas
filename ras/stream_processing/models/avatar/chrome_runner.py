@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import signal
@@ -30,6 +31,10 @@ if not os.path.exists(os.path.join(PROJECT_BASE_DIR, 'rpm')):
     PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 
+_chrome_version: str = ''
+""" version (str) of the Chrome Broswer (will be detected, see `get_chrome_version()`) """
+
+
 class StartExtensionType(Enum):
     NO_EXTENSION = 0
     PACKED_EXTENSION = 1
@@ -42,6 +47,35 @@ def get_web_extension_path() -> str:
 
 def get_web_extension_file() -> str:
     return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx')
+
+
+def get_chrome_version(logger: Optional[logging.Logger] = None) -> str:
+    """
+    HELPER detect Chrome Broswer version (as string)
+
+    CAUTION: this can take considerable time (> 5 secs) for the first run
+             (the result will be cached, so consecutive invocations will be faster)
+
+    :returns: the Chrome Browser version as a string, or EMPTY string, if detection failed
+    """
+    global _chrome_version
+
+    if not _chrome_version:
+        # NOTE [russa] try detecting Chrome version, but only ONCE:
+        #              since detection of Chrome capabilities takes a long time (> 5 secs), only do this once per run
+        #              ... this will not take into account, if Chrome was updated in the meantime, but as a compromise
+        #              the long-running detection is only done once
+        if logger:
+            logger.debug('Start detecting Chrome version...')
+        # NOTE need to apply any fixed here already, to avoid any visibility problems
+        #      IMPORTANT: must use `force`, otherwise it would this function circularly
+        options = fix_chrome_options(webdriver.ChromeOptions(), True, force=True, logger=logger)
+        driver = webdriver.Chrome(options=options)
+        _chrome_version = driver.capabilities.get('browserVersion', '')
+        driver.quit()
+        if logger:
+            logger.debug('Detected Chrome version: %s', _chrome_version)
+    return _chrome_version
 
 
 def create_options(start_extension: Optional[StartExtensionType] = None, extension_path: Optional[str] = None, run_headless: bool = True, debug_port: Optional[int] = None, logger: Optional[logging.Logger] = None) -> webdriver.ChromeOptions:
@@ -73,6 +107,9 @@ def create_options(start_extension: Optional[StartExtensionType] = None, extensi
     if isinstance(debug_port, int):
         options.add_argument('--remote-debugging-port={}'.format(debug_port))
 
+    # apply ony fixes, if necessary:
+    fix_chrome_options(options, run_headless, logger=logger)
+
     # options.add_argument("--virtual-time-budget=30000")  # EXPERIMENTAL try to fast-forward internal browser clock [russa: does not seem to work for our purposes]
 
     # EXPERIMENTAL: configure browser to allow capturing video/audio from webcam/microphone
@@ -82,6 +119,30 @@ def create_options(start_extension: Optional[StartExtensionType] = None, extensi
     #     "profile.default_content_setting_values.geolocation": 2,          # 1:allow, 2:block
     #     "profile.default_content_setting_values.notifications": 2         # 1:allow, 2:block
     # })
+    return options
+
+
+def fix_chrome_options(options: webdriver.ChromeOptions, is_headless: bool, force: bool = False, logger: Optional[logging.Logger] = None) -> webdriver.ChromeOptions:
+    """
+    HELPER fix problems for Chrome by apply additional arguments, if necessary
+
+    :param options: the options to fix (INOUT parameter)
+    :param is_headless: use `True` if headless-mode is or will be enabled (in the `options`)
+    :param force: set to `True` to prevent detection (if patches are necessary) and instead force applying all patches
+    :param logger: OPTIONAl logger for debug output
+    :returns: the `options` (with applied fixes, if necessary)
+    """
+    # do NOT call get_chrome_version() if force is enabled (otherwise it will cause circular invocations):
+    chrome_version = get_chrome_version(logger) if not force else ''
+    if is_headless or force:
+        if not chrome_version or chrome_version.startswith('129.') or force:
+            # HACK for bug in Chrome 129.x on Windows, showing a blank window in new-headless mode:
+            #      WORKAROUND move window off-screen
+            #      see
+            #      https://stackoverflow.com/a/78999088/4278324
+            if logger:
+                logger.debug('Applying PATCH for Chrome version is 129.x: fix BUG that shows blank window')
+            options.add_argument("--window-position=-2400,-2400")
     return options
 
 
@@ -196,6 +257,9 @@ def start_browser(
 
         options = create_options(start_extension=start_extension, extension_path=extension_path, run_headless=run_headless, logger=logger)
         driver = webdriver.Chrome(options=options)
+
+        if logger and logger.isEnabledFor(logging.DEBUG):
+            logger.debug('Chrome driver capabilities:\n%s', json.dumps(driver.capabilities))
 
         if start_extension == StartExtensionType.NO_EXTENSION:
             if port >= 0:
