@@ -55,7 +55,11 @@ class LogWorker(QObject):
         log_queue = self.log_queue
         gui_log_queue = multiprocessing.Queue(-1)
 
-        gui_log_level = config.get("gui_log_level", config["log_level"])
+        gui_log_level = config.get("gui_log_level")
+        # NOTE must explicitly check here and cannot use config.get(.., DEFAULT) for fallback config["log_level"],
+        #      since it may have explicitly been set to None in config:
+        if not gui_log_level:
+            gui_log_level = config["log_level"]
         disable_console_logging = config.get("disable_console_logging", True)
 
         # check if already stopped, before starting logging-process
