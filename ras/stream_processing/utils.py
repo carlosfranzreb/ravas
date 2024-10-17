@@ -1,7 +1,12 @@
+import os.path
 import queue
 import time
 from typing import Callable, Optional
 import torch
+
+
+APPLICATION_DIR: str = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+""" the path to the application directory (on directory up from this file): `dirname(__file__)/..` """
 
 
 def batchify_input_stream(
@@ -18,7 +23,7 @@ def batchify_input_stream(
     """
     Read from the input stream and batch the data. This function can be used for audio and video streams.
     :param read_callback: Callback function that reads from the input stream and returns the data.
-    :param size of the desired output batch.
+    :param out_batch_size: size of the desired output batch.
     :param input_shape: Shape of the input data returned by the read_callback.
     :param sampling_rate: Sampling rate of the input stream.
     :param chunk_part_for_next_times: Part of the last chunk that was not used in the last batch.
@@ -69,7 +74,7 @@ def batchify_input_stream(
             if time.time() - last_frame_time < 1 / upper_bound_fps:
                 continue
 
-        # calculate the time coresponding to each sample in current chunk
+        # calculate the time corresponding to each sample in current chunk
         last_frame_time = chunk_end_time
         chunk_start_time = chunk_end_time - (in_chunk_size - 1) / sampling_rate
 
@@ -111,3 +116,111 @@ def clear_queue(q: queue.Queue):
             q.get_nowait()
     except queue.Empty:
         pass
+
+
+def kill_all_child_processes(pid: int | None = None, recursive: bool = True, verbose: bool = False):
+    """
+    Kill all remaining child processes (for `pid` or of the processes from which this function is called).
+
+    Helper to ensure that no processes remaining running, after exiting the main module:
+    you may use this before closing/exiting the python program.
+
+    __NOTE__ that this will force the processes to quit, i.e. does NOT terminate the processes gracefully!
+
+    :param pid: the PID for parent process, for which the children should be terminated,
+                if omitted uses the current process
+    :param recursive: if `True`, terminate child processes (of child processes) recursively
+    :param verbose: if `True`, print information of terminated/killed processes to console
+    """
+    import psutil
+
+    # code adapted from
+    # https://psutil.readthedocs.io/en/latest/#processes
+
+    if pid is not None and not psutil.pid_exists(pid):
+        if verbose:
+            print("NOTE found no process with PID {}, will not try to terminate any child processes.".format(pid), flush=True)
+        return
+
+    def on_terminate(proc):
+        if verbose:
+            print("  process {} terminated with exit code {}".format(proc, proc.returncode), flush=True)
+
+    main_proc = psutil.Process(pid=pid)
+    procs = main_proc.children()
+
+    if verbose:
+        print('Found {} child processes (for current process with PID {})'.format(len(procs), main_proc.pid), flush=True)
+
+    if len(procs) == 0:
+        return
+
+    count_terminate = 0
+    for p in procs:
+        if recursive:
+            # recursively kill child processes:
+            kill_all_child_processes(p.pid, recursive=recursive, verbose=verbose)
+        if p.is_running():
+            if verbose:
+                print('  terminating child process with PID {}'.format(p.pid), flush=True)
+            count_terminate += 1
+            p.terminate()
+
+    gone, alive = psutil.wait_procs(procs, timeout=3, callback=on_terminate)
+
+    count_kill = 0
+    for p in alive:
+        if verbose:
+            print('  KILL remaining child process with PID {} (forced termination)'.format(p.pid), flush=True)
+        count_kill += 1
+        p.kill()
+
+    if verbose:
+        print('Terminated {} child processes (forced termination for {} child processes)'.format(count_terminate, count_kill), flush=True)
+        procs = main_proc.children()
+        if len(procs) > 0:
+            print('  remaining child processes: {}\n'.format(len(procs)), flush=True)
+
+
+def resolve_file_path(file_path: str) -> str:
+    """
+    resolve relative file paths against the application directory
+    (absolute paths are returned as-is)
+
+    the application directory is assumed as one directory up, from this file, i.e.
+    `dirname(__file__)/..`
+    """
+    if os.path.isabs(file_path):
+        return file_path
+    return os.path.realpath(os.path.join(APPLICATION_DIR, file_path))
+
+
+def get_config_path(config_name: Optional[str]) -> str:
+    """
+    get path to configuration file:
+    if `config_name` matches a file the in the default configuration directory, the corresponding file path will be
+    returned.
+    Otherwise, if it is a relative file path, it will be resolved against the current working directory (i.e. __not__
+    the application directory)!
+
+    :param config_name: either the name of a file in the default configuration directory at `<app dir>/configs/**`
+                        (with or without file-extension `*.yaml`), or a path to a configuration file.
+                        If default configuration directory exists, the `config_name` will first be resolved against
+                        the files in that directory.
+    """
+    if not config_name:
+        return config_name
+    config_file = config_name if config_name.lower().endswith('.yaml') else config_name + '.yaml'
+    config_dir = resolve_file_path('configs/')
+    if os.path.exists(config_dir) and os.path.isdir(config_dir):
+
+        config_file_dir = os.path.dirname(config_file)
+        if config_file_dir:
+            config_file = os.path.basename(config_file)
+
+        for f in os.listdir(config_dir):
+            if f == config_file:
+                return os.path.join(config_dir, f)
+    # NOTE if not matching a file in the config dir, then DO NOT resolve against app dir,
+    #      but against CWD (i.e. leave unchanged):
+    return config_file

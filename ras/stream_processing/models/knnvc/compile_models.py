@@ -2,14 +2,15 @@
 Run this script to compile the WavLM and HiFi-GAN models.
 """
 
-import os
 import json
+import os
 from argparse import ArgumentParser
 
 import torch
 
-from ..knnvc.wavlm.model import WavLM, WavLMConfig
-from ..knnvc.hifigan import Generator, AttrDict
+from .hifigan import Generator, AttrDict
+from .wavlm.model import WavLM, WavLMConfig
+from ...utils import resolve_file_path
 
 
 def compile_onnx(
@@ -19,7 +20,7 @@ def compile_onnx(
     hifigan_cfg: str,
     hifigan_ckpt: str,
 ):
-    os.makedirs("onnx", exist_ok=True)
+    os.makedirs(resolve_file_path("onnx/"), exist_ok=True)
 
     # initialize the WavLM model
     ckpt = torch.load(wavlm_ckpt, map_location="cpu")
@@ -36,7 +37,7 @@ def compile_onnx(
     torch.onnx.export(
         wavlm,
         wavlm_in,
-        f"onnx/wavlm_{input_size}.onnx",
+        resolve_file_path(f"onnx/wavlm_{input_size}.onnx"),
         input_names=["input"],
         output_names=["output"],
     )
@@ -53,7 +54,7 @@ def compile_onnx(
     torch.onnx.export(
         hifigan,
         hifigan_in,
-        f"onnx/hifigan_{input_size}.onnx",
+        resolve_file_path(f"onnx/hifigan_{input_size}.onnx"),
         input_names=["input"],
         output_names=["output"],
     )

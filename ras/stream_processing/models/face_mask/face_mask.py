@@ -1,4 +1,5 @@
-from queue import Queue, Empty
+from torch.multiprocessing import Queue, Event
+from queue import Empty
 
 import cv2
 import numpy as np
@@ -20,11 +21,12 @@ class FaceMask(Converter):
         output_queue: Queue,
         log_queue: Queue,
         log_level: str,
+        ready_signal: Event,
     ) -> None:
         """
         Initialize the FaceMesh model.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level)
+        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
         self.face_mesh = mp_faces.FaceMesh(
             static_image_mode=False,
             refine_landmarks=True,
@@ -39,13 +41,19 @@ class FaceMask(Converter):
         """
         if self.config["video_file"] is None:
             clear_queue(self.input_queue)
+
+        self.ready_signal.set()
         while True:
             try:
                 ttime, data = self.input_queue.get()
+                if data is None:
+                    break
                 out = self.convert_frame(data)
                 self.output_queue.put((ttime, out))
             except Empty:
                 pass
+            except EOFError:
+                break
 
     def convert_frame(self, data: np.ndarray) -> np.ndarray:
         image = resize_image(

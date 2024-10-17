@@ -1,13 +1,15 @@
+import multiprocessing
 import queue
 import time
 import logging
 import importlib
+from ctypes import c_bool
 
 from torch import Tensor
 import numpy as np
-from torch.multiprocessing import Process, Queue, Value, Manager
+from torch.multiprocessing import Process, Queue, Value, Manager, Event
 
-from .utils import clear_queue
+from .utils import clear_queue, kill_all_child_processes
 from .dist_logging import worker_configurer
 
 
@@ -27,10 +29,19 @@ class ProcessingQueues:
         #               otherwise, using method 'spwan' for starting new Processes may cause problems, e.g.
         #               `TypeError: cannot pickle 'weakref.ReferenceType' object`
         manager = Manager()
-        self.input_queue = manager.Queue()
-        self.sync_queue = manager.Queue()
-        self.output_queue = manager.Queue()
-        self.finished = manager.Event()
+        self.input_queue: Queue = manager.Queue()
+        self.sync_queue: Queue = manager.Queue()
+        self.output_queue: Queue = manager.Queue()
+
+        self.finished: Event = manager.Event()
+        """
+        signal for finished-processing 
+        (after output queue did process last data frame and closed any open handles etc.)
+        """
+        self.ready: Event = manager.Event()
+        """
+        signal for initialization-finished / ready-for-processing
+        """
 
 
 class ProcessingSyncState:
@@ -43,6 +54,7 @@ class ProcessingSyncState:
         """
         self.last_sample_time = Value("d", np.inf)
         self.last_update = Value("d", 0)
+        self.ready: Event = None  # set this with ProcessingQueues.ready
 
 
 class Converter:
@@ -58,6 +70,7 @@ class Converter:
         output_queue: Queue,
         log_queue: Queue,
         log_level: str,
+        ready_signal: Event,
     ) -> None:
         """
         Initialize the Converter object.
@@ -73,6 +86,7 @@ class Converter:
         self.config = config
         self.input_queue = input_queue
         self.output_queue = output_queue
+        self.ready_signal = ready_signal
 
         # setup logging
         worker_configurer(log_queue, log_level)
@@ -153,6 +167,7 @@ class Processor:
             self.queues.sync_queue,
             self.log_queue,
             self.log_level,
+            self.queues.ready,
         )
         self.converter.convert()
 
@@ -225,6 +240,8 @@ class Processor:
                 sync_buffer.append((dtime, data))
             except queue.Empty:
                 pass
+            except EOFError:
+                break
 
 
 class ProcessorHandler:
@@ -240,22 +257,41 @@ class ProcessorHandler:
         self.convert_process = Process(target=self.processor.convert)
         self.sync_process = Process(target=self.processor.sync)
         self.write_process = Process(target=self.processor.write)
-        self.procs = [
-            self.read_process,
-            self.convert_process,
-            self.sync_process,
-            self.write_process,
-        ]
+        self.procs = {
+            "read": self.read_process,
+            "convert": self.convert_process,
+            "sync": self.sync_process,
+            "write": self.write_process,
+        }
 
     def start(self):
         """Start all processes."""
-        for proc in self.procs:
+        for proc in self.procs.values():
             proc.start()
 
     def stop(self):
         """Terminate all processes."""
-        for proc in self.procs:
-            proc.terminate()
+
+        # NOTE converter may have started sub-processes which would not be automatically terminated,
+        #      when their parent process stops
+        #      -> do "gracefully" stop converter process by simulating end-of-input,
+        #         so that converter process itself can stop its sub-processes
+
+        # 1. stop reading
+        self.procs["read"].terminate()
+        # 2. clear input queue from previously read data
+        clear_queue(self.processor.queues.input_queue)
+        # 3. "signal" end-of-input
+        self.processor.queues.input_queue.put((None, None))
+        # 4. wait a little to let converter handle end-of-input signal
+        #    (we do not necessarily need to wait for their termination, just so that they initiate termination
+        #     of their own sub-processes)
+        self.processor.queues.finished.wait(timeout=1)
+        # 5. force termination of remaining processes
+        for key, proc in self.procs.items():
+            # kill_all_child_processes(proc.pid, verbose=True)
+            if proc.is_alive():
+                proc.terminate()
 
     def wait(self):
         """Wait for the write process to finish."""

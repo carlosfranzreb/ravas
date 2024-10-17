@@ -1,4 +1,4 @@
-from queue import Queue
+from queue import Queue, Empty
 import logging
 import time
 import os
@@ -112,6 +112,15 @@ class AudioProcessor(Processor):
         chunk_part_for_next = torch.empty((0, self.config["record_buffersize"]))
         chunk_part_for_next_times = torch.empty((0))
         is_finished = False
+
+        self.queues.ready.wait()
+        if self.external_sync_state.ready:
+            logger.info('audio converter is ready, waiting for video converter to be ready...')
+            self.external_sync_state.ready.wait()
+            logger.info('audio and video converter are ready, start reading audio')
+        else:
+            logger.info('audio converter is ready, starting to process input...')
+
         while True:
             (processing_time, processing_data), (
                 chunk_part_for_next_times,
@@ -157,17 +166,24 @@ class AudioProcessor(Processor):
         # write the audio stream from the output queue
         data = torch.empty((0))
         while data is not None:
-            tdata, data = self.queues.output_queue.get()
-            if data is not None:
-                data = data.to(torch.int16)
-                bin_data = data.numpy().tobytes()
-                if self.config["store"]:
-                    logger.debug(f"Writing, starting at {tdata[0]} s")
-                    wav.writeframes(bin_data)
-                else:
-                    delay = round(time.time() - tdata[0].item(), 2)
-                    logger.info(f"delay: {delay} s")
-                    output_stream.write(bin_data)
+            try:
+                tdata, data = self.queues.output_queue.get()
+                if data is not None:
+                    data = data.to(torch.int16)
+                    bin_data = data.numpy().tobytes()
+                    if self.config["store"]:
+                        logger.debug(f"Writing, starting at {tdata[0]} s")
+                        wav.writeframes(bin_data)
+                    else:
+                        delay = round(time.time() - tdata[0].item(), 2)
+                        logger.info(f"delay: {delay} s")
+                        output_stream.write(bin_data)
+
+            except Empty:
+                pass
+            except EOFError:
+                break
+
         logger.info("finish audio")
         if self.config["store"]:
             wav.close()

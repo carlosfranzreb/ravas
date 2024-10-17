@@ -26,8 +26,8 @@ class VideoProcessor(Processor):
     ):
         """
         Initialize a AudioProcessor object.
-        :param name: Name of the processor.
-        :param config: The config for the processor.
+        :param name: Name of the processor.
+        :param config: The config for the processor.
         :param video_sync_state: ProcessingSyncState containing the video sync state.
         :param external_sync_state: ProcessingSyncState containing the external sync state to sync the video.
         :param log_queue: log queue for logging messages.
@@ -85,6 +85,15 @@ class VideoProcessor(Processor):
         chunk_part_for_next_times = torch.empty((0))
         last_frame_time = 0
         is_finished = False
+
+        self.queues.ready.wait()
+        if self.external_sync_state.ready:
+            logger.info('video converter is ready, waiting for audio converter to be ready...')
+            self.external_sync_state.ready.wait()
+            logger.info('audio and video converter are ready, start reading video')
+        else:
+            logger.info('video converter is ready, starting to process input...')
+
         while True:
             (processing_time, processing_data), (
                 chunk_part_for_next_times,
@@ -120,11 +129,19 @@ class VideoProcessor(Processor):
         # ensure fps of virtual cam is higher than the fps of the input stream
         sampling_rate = self.get_sampling_rate()
         if self.config["output_virtual_cam"]:
+            virt_cam = self.config["output_virtual_cam"]
+            if isinstance(virt_cam, str):
+                virt_cam_device = virt_cam if virt_cam.startswith("/dev/video") else None
+                virt_cam_backend = virt_cam if not virt_cam.startswith("/dev/video") else None
+            else:
+                virt_cam_device = None
+                virt_cam_backend = None
             virtual_cam = pyvirtualcam.Camera(
                 width=self.config["width"],
                 height=self.config["height"],
                 fps=sampling_rate,
-                device="/dev/video4",
+                backend=virt_cam_backend,
+                device=virt_cam_device,
             )
         if self.config["store"]:
             if self.config["store_format"] == "avi":
@@ -176,6 +193,8 @@ class VideoProcessor(Processor):
 
             except queue.Empty:
                 pass
+            except EOFError:
+                break
 
         if self.config["store"]:
             file_writer.release()

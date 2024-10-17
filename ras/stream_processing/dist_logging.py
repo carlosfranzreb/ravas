@@ -5,20 +5,21 @@ from time import sleep
 from torch.multiprocessing import Queue
 
 
-def listener_configurer(log_dir: str, log_level: str = "INFO"):
+def listener_configurer(log_dir: str, log_level: str = "INFO", disable_console: bool = False):
     """Configure the root listener process to log to a file and the console."""
     log_file = os.path.join(log_dir, "progress.log")
     root = logging.getLogger()
-    file_handler = logging.FileHandler(log_file, "a")
-    console_handler = logging.StreamHandler()
+    handlers = [logging.FileHandler(log_file, "a")]
+    if not disable_console:
+        handlers.append(logging.StreamHandler())
     formatter = logging.Formatter(
-        "%(asctime)s %(processName)-10s %(name)s %(levelname)-8s %(message)s"
+        "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
     )
-    for handler in (file_handler, console_handler):
+    for handler in handlers:
         handler.setFormatter(formatter)
         root.addHandler(handler)
     root.setLevel(log_level)
-    print(f"Logging to {log_file} and console")
+    print(f"Logging to {log_file}{'' if disable_console else ' and console'}")
 
 
 def listener_process(log_dir: str, queue: Queue, log_level: str = "INFO"):

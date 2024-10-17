@@ -3,10 +3,12 @@ import os
 import subprocess
 import time
 from argparse import ArgumentParser
+from datetime import datetime
 
 import yaml
 from torch import multiprocessing
 
+from utils import resolve_file_path
 from .dist_logging import listener_process
 from .dist_logging import worker_configurer
 from .streamer import AudioVideoStreamer
@@ -29,7 +31,7 @@ def main(config: dict, runtime: int = None) -> None:
     assert proc_size > buffer_size, "Proc. size should be greater than buffer size"
 
     # create a logging directory and store the config
-    log_dir = os.path.join(config["log_dir"], str(int(time.time())))
+    log_dir = os.path.join(resolve_file_path(config["log_dir"]), datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     os.makedirs(log_dir, exist_ok=True)
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
     config["audio"]["log_dir"] = log_dir
@@ -44,7 +46,7 @@ def main(config: dict, runtime: int = None) -> None:
 
     worker_configurer(log_queue, config["log_level"])
     logger = logging.getLogger("main")
-    start_time = time.perf_counter_ns()  # FIXME perf
+    start_time = time.perf_counter_ns()  # for performance logging
 
     # start the audio-video streamer with the given config
     audio_video_streamer = AudioVideoStreamer(config, log_queue)
@@ -63,7 +65,8 @@ def main(config: dict, runtime: int = None) -> None:
             while True:
                 time.sleep(1)
 
-    duration = time.perf_counter_ns() - start_time  # FIXME perf
+    # for performance logging
+    duration = time.perf_counter_ns() - start_time
     msg = 'Total Running Time / Duration (ms): %s' % ((duration / 1000000),)
     logger.info(msg)
 
