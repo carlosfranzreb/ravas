@@ -14,3 +14,6 @@ stream_processing.egg-info
 .DS_Store
 logs
 build
+.idea
+temp
+tools

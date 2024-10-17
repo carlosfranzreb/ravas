@@ -5,7 +5,7 @@ from glob import glob
 import torch
 import torchaudio
 
-from stream_processing.models.knnvc.wavlm.model import WavLM, WavLMConfig
+from ..knnvc.wavlm.model import WavLM, WavLMConfig
 
 
 def compute_feats(ls_dir: str, wavlm_ckpt: str, wavlm_layer: int) -> str:

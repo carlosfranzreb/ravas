@@ -7,8 +7,8 @@ import torch
 from mediapipe.python.solutions import drawing_styles
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import face_mesh as mp_faces
-from stream_processing.processor import Converter
-from stream_processing.utils import clear_queue
+from ...processor import Converter
+from ...utils import clear_queue
 
 
 class FaceMask(Converter):

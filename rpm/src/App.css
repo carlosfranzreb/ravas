@@ -12,7 +12,20 @@
   position: relative;
 }
 
+.status-display {
+  position: absolute;
+  top: 1em;
+}
 
+.info-display {
+  position: fixed;
+  left: 1em;
+  top: 13em;
+}
+
+.info-display.next-line {
+  margin-top: 2em;
+}
 
 .url {
   margin: 16px;

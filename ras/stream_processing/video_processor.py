@@ -10,9 +10,9 @@ import pyvirtualcam
 import cv2 as cv
 from torch.multiprocessing import Queue
 
-from stream_processing.processor import ProcessingSyncState, Processor
-from stream_processing.utils import batchify_input_stream
-from stream_processing.dist_logging import worker_configurer
+from .processor import ProcessingSyncState, Processor
+from .utils import batchify_input_stream
+from .dist_logging import worker_configurer
 
 
 class VideoProcessor(Processor):

@@ -28,4 +28,4 @@ RUN pip install git+https://github.com/letmaik/pyvirtualcam
 RUN pip install -e .
 
 # run the app
-CMD ["python", "stream_processing/main.py", "--config", "./config.yaml"]
+CMD ["python", "-m", "stream_processing.main", "--config", "./config.yaml"]

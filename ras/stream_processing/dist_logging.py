@@ -2,7 +2,7 @@ import os
 import logging
 import logging.handlers
 from time import sleep
-from multiprocessing import Queue
+from torch.multiprocessing import Queue
 
 
 def listener_configurer(log_dir: str, log_level: str = "INFO"):

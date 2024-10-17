@@ -1,7 +1,7 @@
 import unittest
 import torch
 
-from stream_processing.models.knnvc.converter import rms
+from ..stream_processing.models.knnvc.converter import rms
 
 
 class TestRMS(unittest.TestCase):

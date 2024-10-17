@@ -1,8 +1,8 @@
 from torch.multiprocessing import Queue
 
-from stream_processing.audio_processor import AudioProcessor
-from stream_processing.processor import ProcessingSyncState, ProcessorHandler
-from stream_processing.video_processor import VideoProcessor
+from .audio_processor import AudioProcessor
+from .processor import ProcessingSyncState, ProcessorHandler
+from .video_processor import VideoProcessor
 
 
 class AudioVideoStreamer:

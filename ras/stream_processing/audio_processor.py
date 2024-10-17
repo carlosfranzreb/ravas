@@ -10,9 +10,9 @@ import torch
 
 import wave
 
-from stream_processing.processor import Processor, ProcessingSyncState
-from stream_processing.utils import batchify_input_stream, clear_queue
-from stream_processing.dist_logging import worker_configurer
+from .processor import Processor, ProcessingSyncState
+from .utils import batchify_input_stream, clear_queue
+from .dist_logging import worker_configurer
 
 
 class AudioProcessor(Processor):
@@ -186,7 +186,7 @@ def get_device_idx(device_name: str, is_input: bool) -> int:
                 return idx
             elif not is_input and device["max_output_channels"] > 0:
                 return idx
-    raise ValueError(f"Device {device_name} not found. Device list: {devices}")
+    raise ValueError(f"Device {device_name} not found. Device list ({len(devices)}): {devices}")
 
 
 def get_wav_obj(path: str, sample_rate: int) -> wave.Wave_write:

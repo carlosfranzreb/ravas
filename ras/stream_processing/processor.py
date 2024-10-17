@@ -7,8 +7,8 @@ from torch import Tensor
 import numpy as np
 from torch.multiprocessing import Process, Queue, Value, Manager
 
-from stream_processing.utils import clear_queue
-from stream_processing.dist_logging import worker_configurer
+from .utils import clear_queue
+from .dist_logging import worker_configurer
 
 
 class ProcessingQueues:

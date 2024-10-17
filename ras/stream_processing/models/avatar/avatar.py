@@ -1,16 +1,21 @@
+import base64
 import json
 import os
-from multiprocessing import Queue
+import time
+from queue import Empty
+from threading import Event
+
 import cv2
+import mediapipe as mp
 import numpy as np
 import torch
-from stream_processing.processor import Converter
-from stream_processing.utils import clear_queue
+from torch.multiprocessing import Queue, Process, Event
 from websocket_server import WebsocketServer
-import base64
-from threading import Event
-from queue import Empty
-import mediapipe as mp
+
+from .chrome_runner import start_browser
+from .web_server import start_server
+from ...processor import Converter
+from ...utils import clear_queue
 
 
 class Avatar(Converter):
@@ -27,6 +32,8 @@ class Avatar(Converter):
         Initialize the Avatar Model.
         """
         super().__init__(name, config, input_queue, output_queue, log_queue, log_level)
+        self.log_queue = log_queue
+        self.log_level = log_level
 
     def initializeFaceLandmarkerModel(self):
         """
@@ -46,15 +53,68 @@ class Avatar(Converter):
         )
         self.landmarker = mp.tasks.vision.FaceLandmarker.create_from_options(mp_options)
 
+    def initializeRenderer(self):
+
+        if not self.config.get('start_chrome_renderer', True):
+            self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
+            return
+
+        app_port = int(self.config.get('app_port', 3000))
+        use_extension = self.config.get('use_chrome_extension', True)
+        if not use_extension:
+            server_args = {
+                'port': app_port,
+                'log_queue': self.log_queue,
+                'log_level': self.log_level,
+            }
+            render_app_server = Process(target=start_server, kwargs=server_args, name='render_app_server')
+            render_app_server.start()
+            self.logger.info('Started web Server for Rendering App')
+        else:
+            render_app_server = None
+
+
+        ws_port = int(self.config.get('ws_port', 8888))
+        render_app_stop = Queue()  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
+        app_args = {
+            'ws_addr': 'http://127.0.0.1:{}'.format(ws_port),
+            'stop_signal': render_app_stop,
+            'port': app_port,
+            'web_extension': use_extension,
+            'run_headless': not self.config.get('show_chrome_window', False),
+            'log_queue': self.log_queue,
+            'log_level': self.log_level,
+        }
+        render_app = Process(target=start_browser, kwargs=app_args, name='render_app')
+        render_app.start()
+        self.logger.info('Started Chrome Driver for Rendering App')
+
+        self.render_server = render_app_server
+        self.render_app = render_app
+        self.stop_render_app = render_app_stop
+
+    def stopRenderer(self):
+        if self.render_server and self.render_server.is_alive():
+            self.logger.info('Stopping Web Server Rendering App...')
+            self.render_server.terminate()
+        if self.render_app and self.render_app.is_alive():
+            self.logger.info('Stopping Chrome Driver for Rendering App...')
+            # NOTE need to signal the render_app process to stop, so that the chrome driver can be closed properly
+            #      (simply calling render_app.terminate() will leave chrome instance running)
+            self.stop_render_app.put(True)  # send any value for signaling the render_app to stop the chrome driver
+            self.render_app.join(1.5)
+            # if not stopped yet, force termination:
+            self.render_app.terminate()
+
     def initializeServer(self):
         """
         Initialize the websocket server.
         """
 
         self.recv_queue = Queue()
-        self.server = WebsocketServer(
-            os.environ["ws_host"], port=int(os.environ["ws_port"])
-        )
+        host = self.config.get("ws_host", "0.0.0.0")
+        port = int(self.config.get("ws_port", 8888))
+        self.server = WebsocketServer(host, port=port)
         self.client_available = Event()
         self.server.set_fn_message_received(
             lambda client, server, message: self.recv_queue.put(message)
@@ -66,18 +126,25 @@ class Avatar(Converter):
             lambda client, server: self.client_available.clear()
         )
         self.server.run_forever(True)
-        self.logger.info("Server started")
-        self.logger.info("Waiting for clients to connect")
+        self.logger.info("WebSocket Server started at %s:%d", host, port)
+        self.logger.info("Waiting for WebSocket Clients to connect")
         self.client_available.wait()
-        self.logger.info("Client connected")
+        self.logger.info("WebSocket Client connected")
 
     def convert(self) -> None:
         """
         Read the input queue, convert the data and put the converted data into the
         output queue.
         """
+        self.initializeRenderer()
         self.initializeFaceLandmarkerModel()
         self.initializeServer()
+
+        self.duration_detect = 0
+        self.duration_render = 0
+        self.count_detect = 0
+        self.count_render = 0
+
         if self.config["video_file"] is None:
             clear_queue(self.input_queue)
         while True:
@@ -85,6 +152,15 @@ class Avatar(Converter):
                 ttime, data = self.input_queue.get()
                 if ttime is None and data is None:
                     # end of stream
+
+                    self.logger.info('Duration for detecting (ms / frames): %s / %s (fps: %s)', (self.duration_detect/1000000), self.count_detect, round(self.count_detect / (self.duration_detect/1000000000)))  # FIXME perf
+                    self.logger.info('Duration for rendering (ms / frames): %s / %s (fps: %s)', (self.duration_render/1000000), self.count_render, round(self.count_render / (self.duration_render/1000000000)))  # FIXME perf
+                    # FIXME note that simply adding detection and rendering time may not be accurate,
+                    #       if they are running (partially) in parallel, but even then, it may give a rough
+                    #       understanding or estimate of the total time / frame rate
+                    self.logger.info('Estimated duration for detecting & rendering (ms / frames): %s / %s (fps: %s)', ((self.duration_detect + self.duration_render)/1000000), self.count_detect + self.count_render, round((self.count_detect + self.count_render) / ((self.duration_detect + self.duration_render)/1000000000)))  # FIXME perf
+
+                    self.stopRenderer()
                     self.output_queue.put((None, None))
                 else:
                     self.logger.debug(f"Converting video starting at {ttime[0]}")
@@ -108,7 +184,14 @@ class Avatar(Converter):
         """
         ms_timestamp = int(timestamp[0].item() * 1000)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=data[0].numpy())
+
+        start_detect = time.perf_counter_ns()  # FIXME perf
+
         results = self.landmarker.detect_for_video(mp_image, ms_timestamp)
+
+        self.duration_detect += time.perf_counter_ns() - start_detect  # FIXME perf
+        self.count_detect += 1
+
         if len(results.face_blendshapes) == 0:
             return None
 
@@ -143,9 +226,15 @@ class Avatar(Converter):
         if face_detection_results:
             # check if a client is connected to the server
             self.client_available.wait()
+
+            start_render = time.perf_counter_ns()  # FIXME perf
+
             self.server.send_message_to_all(json.dumps(face_detection_results))
             # wait for the client to send the avatar
             message = self.recv_queue.get(timeout=1)
+            
+            self.duration_render += time.perf_counter_ns() - start_render  # FIXME perf
+            self.count_render += 1
 
             if message.startswith("/"):
                 # received message is a base64 encoded image

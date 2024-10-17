@@ -2,7 +2,7 @@ import time
 
 import cv2
 import torch
-from stream_processing.streamer import AudioVideoStreamer
+from ..ras.stream_processing.streamer import AudioVideoStreamer
 import librosa
 import numpy as np
 
