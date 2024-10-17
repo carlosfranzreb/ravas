@@ -28,6 +28,10 @@ for sub_path in ["modules/face_landmark", "modules/face_detection"]:
             continue
         binaries.append((fp, "mediapipe/" + sub_path))
 
+# FIX avoid warning message for onnx runtime by including the DLLs
+from PyInstaller.utils.hooks import collect_dynamic_libs
+binaries.extend(collect_dynamic_libs('onnxruntime', destdir='onnxruntime/capi'))
+
 
 a = Analysis(
     ['run_gui.py'],
