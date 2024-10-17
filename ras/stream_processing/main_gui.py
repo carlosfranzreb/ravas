@@ -10,7 +10,7 @@ from .utils import kill_all_child_processes, get_config_path
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/onnx_models.yaml")
+    parser.add_argument("--config", type=str, default="configs/onnx_models_ui.yaml")
     return parser.parse_args()
 
 
