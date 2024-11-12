@@ -28,17 +28,28 @@ DEFAULT_AVATARS = {
 }
 
 
-def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -> list[str]:
+def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -> dict[str, int]:
     """Retrieve the device names for audio-input or -output index"""
     devices = sd.query_devices()
     if logger:
         logger.debug('audio devices: %s', devices)
-    result = []
+    result = {}
+    # NOTE: use counter instead of idx, to show "nice" increasing numbering without gaps in config-labels
+    count = 1
+    is_match = False
     for idx, device in enumerate(devices):
         if is_input and device["max_input_channels"] > 0:
-            result.append(device["name"])
+            is_match = True
         elif not is_input and device["max_output_channels"] > 0:
-            result.append(device["name"])
+            is_match = True
+        else:
+            is_match = False
+
+        if is_match:
+            # NOTE: need to include number in dict-key, since on Windows the same device name may occur multiple times
+            result['{: >2}. {} [ID {}]'.format(count, device["name"], idx)] = idx
+            count += 1
+
     return result
 
 

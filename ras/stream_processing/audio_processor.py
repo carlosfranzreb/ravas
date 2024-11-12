@@ -52,6 +52,8 @@ class AudioProcessor(Processor):
         worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("audio_input")
 
+        logger.info('Using audio device indices AUDIO_INPUT=%s | AUDIO_OUTPUT=%s', self.input_device, self.output_device)
+
         # Create a PyAudio object to read the audio stream
         if self.config["video_file"]:
             # extract the audio from the video file with ffmpeg
@@ -193,9 +195,15 @@ class AudioProcessor(Processor):
         self.queues.finished.set()
 
 
-def get_device_idx(device_name: str, is_input: bool) -> int:
+def get_device_idx(device_name: str | int, is_input: bool) -> int:
     """Retrieve the device index from the device name with sounddevice."""
     devices = sd.query_devices()
+    try:
+        device_idx = int(device_name)
+        if device_idx < len(devices):
+            return device_idx
+    except ValueError:
+        pass
     for idx, device in enumerate(devices):
         if device["name"] == device_name:
             if is_input and device["max_input_channels"] > 0:
