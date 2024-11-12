@@ -55,6 +55,12 @@ class ProcessingSyncState:
         self.last_sample_time = Value("d", np.inf)
         self.last_update = Value("d", 0)
         self.ready: Event = None  # set this with ProcessingQueues.ready
+        self.disabled = Value("b", False)
+        """ 
+        WARNING [russa: current implementation limitations for `ProcessingSyncState.disabled`] 
+        this is actually only read once at start of `Processor.sync()`, i.e. later changes, after sync-ing has started,
+        will be IGNORED!
+        """
 
 
 class Converter:
@@ -187,11 +193,15 @@ class Processor:
         logger = logging.getLogger(f"{self.name}_sync")
         logger.info("Syncing initialized")
 
+        # NOTE: only read `self.external_sync_state.disabled` once, before sync-loop starts
+        #       WANING: later changes to shared Value `external_sync_state.disabled.value` will be ignored (for now)!
+        ignore_external_sync = self.converting_file or self.external_sync_state.disabled.value
+
         def get_left_time() -> float:
             """Return the timestamp where the output should be at the current time."""
             if len(sync_buffer) == 0:
                 return None
-            if self.converting_file:
+            if ignore_external_sync:
                 return 0
 
             external_time = self.external_sync_state.last_sample_time.value + (
@@ -218,7 +228,7 @@ class Processor:
                 if (
                     self.external_sync_state.last_update.value != 0
                     or self.own_sync_state.last_update.value == 0
-                    or self.converting_file
+                    or ignore_external_sync
                 ):
                     logger.debug("Syncing sample")
 

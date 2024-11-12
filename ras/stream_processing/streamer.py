@@ -32,6 +32,10 @@ class AudioVideoStreamer:
                 # set to be stored in a file
                 # (NOTE audio is either written to file or to output-stream; not both)
                 audio_sync_state.ready = audio_processor.queues.ready
+            else:
+                # if video is disabled (and neither video nor audio are stored):
+                # indicate that sync-ing for video is disabled
+                video_sync_state.disabled.value = True
             self.audio_handler = ProcessorHandler(audio_processor)
         if self.use_video:
             video_processor = VideoProcessor(
@@ -45,6 +49,10 @@ class AudioVideoStreamer:
                 # only need synced ready-signal with audio, if audio is enabled, and if both video & audio are NOT
                 # set to be stored in a file
                 video_sync_state.ready = video_processor.queues.ready
+            else:
+                # if audio is disabled (and neither audio nor video are stored):
+                # indicate that sync-ing for audio is disabled
+                audio_sync_state.disabled.value = True
             self.video_handler = ProcessorHandler(video_processor)
 
     def start(self):
