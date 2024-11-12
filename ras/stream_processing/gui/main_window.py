@@ -95,6 +95,8 @@ class MainWindow(QMainWindow):
         main.setLayout(layout)
         self.setCentralWidget(main)
 
+        self._updateUiForStreaming(is_active=False)
+
         self._restoreSettings()
 
     def _createMenu(self):
@@ -183,6 +185,7 @@ class MainWindow(QMainWindow):
 
     def _updateUiForStreaming(self, is_active: bool):
         self._actStart.setEnabled(not is_active)
+        self._actStop.setEnabled(is_active)
         self._actShowConfig.setEnabled(not is_active)
 
     def _setAudioVideoStreamer(self, args):
@@ -232,7 +235,6 @@ class MainWindow(QMainWindow):
 
                 self.setStatusText("Stopped streaming.")
                 self._updateUiForStreaming(is_active=False)
-                self._actStop.setEnabled(True)
 
                 print('stopped streaming!', flush=True)  # FIXME DEBUG
 
