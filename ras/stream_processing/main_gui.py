@@ -23,7 +23,7 @@ def main():
     app.setOrganizationDomain("dfki.de")
     app.setApplicationName("VERANDA Audio Video Streamer")  # TODO name/description: should this be the same as in setup.py?
     app.setApplicationDisplayName("VERANDA A/V Streamer")
-    app.setApplicationVersion('0.1.0')  # TODO read from setup.py
+    app.setApplicationVersion('0.4.0')  # TODO read from setup.py
 
     args = parse_args()
     config_path = get_config_path(args.config)
