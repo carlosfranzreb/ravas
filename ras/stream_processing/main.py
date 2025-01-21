@@ -8,7 +8,7 @@ from datetime import datetime
 import yaml
 from torch import multiprocessing
 
-from utils import resolve_file_path
+from .utils import resolve_file_path
 from .dist_logging import listener_process
 from .dist_logging import worker_configurer
 from .streamer import AudioVideoStreamer
