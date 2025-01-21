@@ -43,6 +43,9 @@ class AudioProcessor(Processor):
         if not self.config["video_file"]:
             self.input_device = get_device_idx(config["input_device"], True)
             self.output_device = get_device_idx(config["output_device"], False)
+        else:
+            self.input_device = None
+            self.output_device = None
 
         if self.config["store"]:
             self.store_path = os.path.join(self.config["log_dir"], "audio.wav")
