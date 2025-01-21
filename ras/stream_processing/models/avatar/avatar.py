@@ -5,7 +5,7 @@ import os
 import time
 from queue import Empty
 from threading import Event
-from typing import Optional
+from typing import Optional, IO
 
 import cv2
 import mediapipe as mp
@@ -39,6 +39,8 @@ class Avatar(Converter):
         self.log_level = log_level
         self._stopped = False
 
+        self.detection_log_file: IO | None = None
+
     def initializeFaceLandmarkerModel(self):
         """
         Initialize the face landmarker model.
@@ -56,6 +58,13 @@ class Avatar(Converter):
             output_facial_transformation_matrixes=True,
         )
         self.landmarker = mp.tasks.vision.FaceLandmarker.create_from_options(mp_options)
+
+        detection_log_file = self.config.get("detection_log")
+        if detection_log_file:
+            if not os.path.isabs(detection_log_file):
+                detection_log_file = os.path.join(self.config.get("log_dir", ''), detection_log_file)
+            self.detection_log_file = open(detection_log_file, 'wt+', encoding='utf-8')
+            self.detection_log_file.write('[\n')
 
     def initializeRenderer(self):
 
@@ -111,6 +120,13 @@ class Avatar(Converter):
 
     def stopRenderer(self, render_app: Optional[Process] = None, stop_render_app: Optional[Queue] = None, render_server: Optional[Process] = None):
         self._stopped = True
+
+        if self.detection_log_file:
+            # NOTE add an empty object before closing the array, to ensure a valid JSON format
+            #      due to possible pending comma in previous entry / write to the file
+            self.detection_log_file.write('{}\n]\n')
+            self.detection_log_file.close()
+            self.detection_log_file = None
 
         # NOTE: usually, we do not really need to wait for rendering-app-process to shut down completely
         #       (i.e. only initiate its shutdown, and then leave it to its clean-up etc.)
@@ -269,6 +285,12 @@ class Avatar(Converter):
 
         ft = results.facial_transformation_matrixes[0].T.reshape(-1)
         out_dict = {"blendshapes": fb_dict, "transformation_matrix": ft.tolist()}
+
+        if self.detection_log_file:
+            log_data = out_dict.copy()
+            log_data['ts'] = ms_timestamp
+            self.detection_log_file.write(json.dumps(log_data, ensure_ascii=False))
+            self.detection_log_file.write(',\n')
 
         return out_dict
 

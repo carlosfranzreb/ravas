@@ -30,6 +30,9 @@ video:
     use_chrome_extension: true
     show_chrome_window: false
     avatar_uri: ./default_avatar.glb
+    # store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
+    # NOTE that the last entry in the array will be an empty object, i.e. without "blendshapes" field!
+#    detection_log: detectionLog.json
 
 audio:
   max_unsynced_time: *max_unsynced_time

@@ -166,6 +166,7 @@ class Processor:
         """
         converter_cls = get_cls(self.config["converter"]["cls"])
         self.config["converter"]["video_file"] = self.config["video_file"]
+        self.config["converter"]["log_dir"] = self.config["log_dir"]
         self.converter = converter_cls(
             self.name,
             self.config["converter"],
