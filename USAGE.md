@@ -2,10 +2,16 @@
 
 # Prerequisites
 
-> **NOTE:** for minimal testing of the anonymization functionality, __no__ other software is required (for "FaceMask" video anonymization), 
->           or only the [Chrome Browser][1] (for "Avatar" video anonymization).  
+> **NOTE:** For minimal testing of the anonymization functionality, the new default avatar renderer as __NO__ additional
+>           dependencies. The following minimal requirements only concern the __BROWSER__ based avatar renderer.
 >           \
->           In this case, you should disable "Enable Virtual Camera Output:" in the `Configuration/Settings` tab, and instead enable
+>           _(the avatar renderer can be changed in the `Advanced Settings` tab of the configuration)_
+>           \
+>           For minimal testing of the anonymization functionality with the __BROWSER__ based avatar renderer, 
+>           the [Chrome Browser][1] is _only_ required for the `"Avatar"` video anonymization; however, for the 
+>           `"FaceMask"` video anonymization, __no__ other software is required!
+>           \
+>           For minimal testing, you should disable "Enable Virtual Camera Output:" in the `Configuration/Settings` tab, and instead enable
 >           "Show Video Output Window (DEBUG):" in the `Configuration/Advanced Settings` tab.  
 >           \
 >           This will allow to test the anonymization functionality for video (and for audio). Additional software (see below) is necessary
@@ -13,8 +19,9 @@
 >           or microphone ("audio loopback") in video conferencing software.
 
 
- * [Chrome Browser][1] for rendering avatar
-   _(NOTE the rendering is done locally, but uses the Chrome browser as rendering engine with local port `8888` by default)
+ * [Chrome Browser][1] required for rendering avatar with the __browser-based__ avatar renderer
+   _(NOTE the rendering is done locally, even in case of using the Chrome browser as rendering engine; in this case, 
+     rendering uses the local port `8888` by default to communicate with the browser locally)
 
  * Virtual Camera: for using anonymized camera output as virtual camera
    * `Windows`: either of these 2 solutions
@@ -79,6 +86,12 @@ and then select the virtual camera in your other application.
 
  * `Advanced Settings`:
    * `Show Video Output Window (DEBUG):` enabled / disable a debug video output window that shows the anonymized video output
+   * `Avatar Renderer:` select the rendering engine for avatar-anonyminizer:  \
+                        either `OpenGL` for internal renderer, or `Browser` for browser-based renderer (see notes above w.r.t. to
+                        browser-based renderer; requires installed `Google Chrome` browser)
+   * `Show Avatar Renderer Window (DEBUG):` enabled / disable the window for the avatar renderer (for DEBUG purposes).  \
+                                            __NOTE__ this is a _different_ window than the `Video Output Window` 
+                                            (the later one shows the final result/camera image).
 
 
 
