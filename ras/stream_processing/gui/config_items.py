@@ -6,6 +6,7 @@ from typing import Callable, Union, Optional, Literal
 from .config_utils import get_audio_devices, get_camera_device_items, get_voices_from, \
     get_current_value_and_config_path_for, is_port_valid, is_positive_number, wrap_simple_validate, \
     is_positive_number_and_equal_to_config_path, get_avatars_for_config
+from ..models.avatar.avatar import RenderAppType
 from ..utils import resolve_file_path
 
 
@@ -150,12 +151,22 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
     'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'],
                                        partial(get_avatars_for_config, logger=_logger)),
 
+    'avatar_renderer': ConfigurationItem(['video', 'converter', 'avatar_renderer'], {
+        'OpenGL App (Default)': RenderAppType.OPENGL_APP.value,
+        'Browser (Chrome)':     RenderAppType.BROWSER.value,
+    }),
+
     'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
                                         is_valid_value=wrap_simple_validate(is_port_valid)),
 
     'output_window': ConfigurationItem(['video', 'output_window'], {
         'Show Video Output Window': True,
         'Do Not Show Output Video': False,
+    }),
+
+    'avatar_render_window': ConfigurationItem(['video', 'converter', 'show_renderer_window'], {
+        'Show Avatar Renderer Window':        True,
+        'Do Not Show Avatar Renderer Window': False,
     }),
 
     # DISABLED selecting virtual-camera backend via combo-box (only enabled/disabled check-box for now):
@@ -252,6 +263,7 @@ def _do_set_ignore_validation_helpers():
         return val != AVATAR_CONVERTER
 
     CONFIG_ITEMS['video_avatars'].is_ignore_validation = can_ignore_avatar_validation
+    CONFIG_ITEMS['avatar_renderer'].is_ignore_validation = can_ignore_avatar_validation
     CONFIG_ITEMS['avatar_ws_port'].is_ignore_validation = can_ignore_avatar_validation
 
 

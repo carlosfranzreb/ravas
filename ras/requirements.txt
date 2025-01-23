@@ -9,3 +9,4 @@ pyyaml
 onnxruntime
 selenium
 websocket_server
+moderngl-window

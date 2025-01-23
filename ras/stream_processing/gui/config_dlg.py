@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import QDialogButtonBox, QFormLayout, QVBoxLayout, QComboBo
 from .config_items import CONFIG_ITEMS, NO_SELECTION, ConfigurationItem, AVATAR_CONVERTER
 from .config_utils import get_current_value_and_config_path_for, validate_config_values
 from .settings_helper import RestorableDialog, RestoreSettingItem, StoreSettingItem, applySetting
+from ..models.avatar.avatar import RenderAppType
 
 
 _logger = logging.getLogger('gui.config_dlg')
@@ -132,13 +133,23 @@ class ConfigDialog(RestorableDialog):
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
-        iptAvatarPort, containerAvatarPort = self._createPortInput()
+        cbbAvatarRenderer = self._createComboBoxFor(CONFIG_ITEMS['avatar_renderer'])
+
+        # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
+        #      to enable/disable if avatar-converter is selected
+        chkShowAvatarRendererWindow = self._createCheckBoxFor(CONFIG_ITEMS['avatar_render_window'])
+
+        # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
+        #      to enable/disable if avatar-converter is selected
+        iptAvatarPort, lbAvatarPort, containerAvatarPort = self._createPortInput()
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
             enable = selected_video_converter == 'Avatar'
             cbbAvatar.setEnabled(enable)
+            cbbAvatarRenderer.setEnabled(enable)
             iptAvatarPort.setEnabled(enable)
+            lbAvatarPort.setEnabled(enable)
         _updateAvatarEnabled(cbbVideoConverter.currentText())  # <- update for current config-value
         cbbVideoConverter.currentTextChanged.connect(_updateAvatarEnabled)  # <- update for config-changes
 
@@ -155,8 +166,23 @@ class ConfigDialog(RestorableDialog):
         chkShowVideoWindow = self._createCheckBoxFor(CONFIG_ITEMS['output_window'])
         advancedSettingsForm.addRow("Show Video Output Window (DEBUG):", chkShowVideoWindow)
 
+        # NOTE cbbAvatarRenderer was created before, so it can be used in _updateAvatarEnabled()
+        advancedSettingsForm.addRow("Avatar Renderer:", cbbAvatarRenderer)
+
+        # NOTE chkShowAvatarRendererWindow was created before, so it can be used in _updateAvatarEnabled()
+        advancedSettingsForm.addRow("Show Avatar Renderer Window (DEBUG):", chkShowAvatarRendererWindow)
+
         # add port-number-widget here (created above at video-converter-selection widget):
-        advancedSettingsForm.addRow("Avatar Converter Port:", containerAvatarPort)
+        advancedSettingsForm.addRow("Avatar Converter Port (Browser Renderer):", containerAvatarPort)
+
+        # MOD cbbAvatarRenderer: enable/disable iptAvatarPort when renderer is not browser/Chrome
+        def _updateAvatarRendererSelected(selected_avatar_renderer: str):
+            enable = 'browser' in selected_avatar_renderer.lower()
+            containerAvatarPort.setEnabled(enable)
+            iptAvatarPort.setEnabled(enable)
+            lbAvatarPort.setEnabled(enable)
+        _updateAvatarRendererSelected(cbbAvatarRenderer.currentText())  # <- update for current config-value
+        cbbAvatarRenderer.currentTextChanged.connect(_updateAvatarRendererSelected)  # <- update for config-changes
 
         chkUseAudio = self._createCheckBoxFor(CONFIG_ITEMS['use_audio'])
         advancedSettingsForm.addRow("Use Audio:", chkUseAudio)
@@ -201,7 +227,9 @@ class ConfigDialog(RestorableDialog):
                 enable_avatar = conv_val == AVATAR_CONVERTER
             cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)
+            cbbAvatarRenderer.setEnabled(enable_avatar)
             iptAvatarPort.setEnabled(enable_avatar)
+            lbAvatarPort.setEnabled(enable_avatar)
 
         _set_video_widgets_enabled(chkUseVideo)  # <- update for current config
         chkUseVideo.stateChanged.connect(_set_video_widgets_enabled)  # <- update on config changes
@@ -251,9 +279,21 @@ class ConfigDialog(RestorableDialog):
         tabs.addTab(mainSettingsScroll, 'Settings')
         tabs.addTab(advancedSettingsScroll, 'Advanced Settings')
 
+        self.is_first_tab_change = True
+        def on_tab_changed():
+            # HACK: for some reason, the disabling due to cbbAvatarRenderer's selection is not updated
+            #       in the advanced tab on the first time ... force selection change on first tab change
+            #       so that the attached disable-updater function gets triggered when it becomes visible
+            if self.is_first_tab_change:
+                curr_idx = cbbAvatarRenderer.currentIndex()
+                cbbAvatarRenderer.setCurrentIndex(-1)
+                cbbAvatarRenderer.setCurrentIndex(curr_idx)
+                self.is_first_tab_change = False
+            self._forceAlignRowLabels()
+
         # NOTE cannot align labels in invisible tab(s), since they will all have the tab's width
         #      -> recalculate alignment when tab becomes visible
-        tabs.currentChanged.connect(self._forceAlignRowLabels)
+        tabs.currentChanged.connect(on_tab_changed)
 
         dialogLayout = QVBoxLayout()
         dialogLayout.addWidget(tabs)
@@ -365,7 +405,7 @@ class ConfigDialog(RestorableDialog):
         buttons.button(QDialogButtonBox.StandardButton.Save).clicked.connect(self.saveConfigToFile)
         return buttons
 
-    def _createPortInput(self) -> Tuple[QSpinBox, QVBoxLayout]:
+    def _createPortInput(self) -> Tuple[QSpinBox, QLabel, QVBoxLayout]:
         iptAvatarPort = QSpinBox()
         iptAvatarPort.setRange(0, 65535)
         port_config_path = CONFIG_ITEMS['avatar_ws_port'].config_path
@@ -374,7 +414,7 @@ class ConfigDialog(RestorableDialog):
             port_val = 0
         iptAvatarPort.setValue(port_val)
         # add info-label & also use it for invalid-values feedback (via self.setConfigValueAndValidation(), see below):
-        infoLabel = QLabel('(local port for converting avatar images)')
+        infoLabel = QLabel('(local port for converting avatar images with the browser renderer)')
 
         iptAvatarPort.valueChanged.connect(partial(
                 self.setConfigValueAndValidation,
@@ -388,7 +428,7 @@ class ConfigDialog(RestorableDialog):
         layout = QVBoxLayout()
         layout.addWidget(iptAvatarPort)
         layout.addWidget(infoLabel)
-        return iptAvatarPort, layout
+        return iptAvatarPort, infoLabel, layout
 
     def _createSliderFor(self, config_item: ConfigurationItem, min: int, max: int, step: int, additional_config_path: Optional[list[str]] = None) -> Tuple[QSlider, QHBoxLayout]:
 
