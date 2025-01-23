@@ -25,5 +25,5 @@ def get_avatar_models_dir() -> str:
     # ... so use the rpm/public/ directory as a fallback, since that in included in the git repo
     unpacked_ext_dir_path = get_web_extension_path()
     if os.path.exists(unpacked_ext_dir_path):
-        return get_web_extension_path
+        return unpacked_ext_dir_path
     return os.path.join(PROJECT_BASE_DIR, 'rpm', 'public')
