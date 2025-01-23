@@ -69,9 +69,11 @@ def main(config: dict, runtime: int = None) -> None:
     duration = time.perf_counter_ns() - start_time
     msg = 'Total Running Time / Duration (ms): %s' % ((duration / 1000000),)
     logger.info(msg)
+    print(msg, flush=True)
 
     # stop the audio-video streamer and the logging
     audio_video_streamer.stop()
+    time.sleep(1)  # <- wait a little to give logging process some time to flush its queue & write everything to the log-file
     log_listener.terminate()
     if config["audio"]["store"] and config["video"]["store"]:
         merge_audio_video(log_dir)

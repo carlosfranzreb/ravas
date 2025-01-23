@@ -2,15 +2,14 @@
 Wrapper for a loaded mesh / vao with properties
 """
 
-from __future__ import annotations
 from typing import Optional
 
 import glm
 import moderngl
 
 from moderngl_window.opengl.vao import VAO
+from moderngl_window.scene import Camera
 
-from .camera import Camera
 from .mesh import Mesh
 
 
@@ -219,6 +218,12 @@ class Node:
 
             for child in self._children:
                 child.calc_model_mat(parent_matrix)
+
+        if self._mesh is not None:
+            # HACK apply node's matrices to the mesh for skeleton rendering
+            self._mesh.matrix = self._matrix
+            self._mesh.matrix_global = self._matrix_global
+            self._mesh.update_matrix_global()
 
     def __repr__(self) -> str:
         return "<Node name={}>".format(self.name)

@@ -10,6 +10,7 @@ from urllib.parse import quote
 from selenium import webdriver
 from torch.multiprocessing import Process, Event, Queue
 
+from .avatar_resources import get_web_extension_file, get_web_extension_path
 from ...dist_logging import worker_configurer
 
 
@@ -22,15 +23,6 @@ WS_ADDR: Optional[str] = None  # 'http://127.0.0.1:8888'
 DEFAULT_EXTENSION_ID = 'mjioebaagpdpfjbicjponoajkbdphofk'
 """ default extension ID for packed & signed chrome extension """
 
-PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
-""" root directory of project """
-
-# HACK "detect" if module is run from compiled EXEC (vs. run via normal python interpreter/script):
-#      compiled EXEC's "root directory" is only three dirs up (see also build configuration in `build_exec.spec`)
-if not os.path.exists(os.path.join(PROJECT_BASE_DIR, 'rpm')):
-    PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-
-
 _chrome_version: str = ''
 """ version (str) of the Chrome Broswer (will be detected, see `get_chrome_version()`) """
 
@@ -39,14 +31,6 @@ class StartExtensionType(Enum):
     NO_EXTENSION = 0
     PACKED_EXTENSION = 1
     UNPACKED_EXTENSION = 2
-
-
-def get_web_extension_path() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension')
-
-
-def get_web_extension_file() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx')
 
 
 def get_chrome_version(logger: Optional[logging.Logger] = None) -> str:
@@ -203,7 +187,7 @@ def start_browser(
     Start a (Google) Chrome browser instance for rendering avatar images.
 
     :param ws_addr: the web-socket address for receiving the avatar-pose-data & sending the rendered avatar images
-    :param stop_signal: signal for stopping the chrome browser / process: any "truthy" signal will stop the browser
+    :param stop_signal: signal for stopping the chrome browser / process: sending the value `None` will stop the browser
     :param port: the port for opening the avatar-rendering web app with `<base_url>:<port>`
                  (only used, if _not_ started with web-extension)
     :param base_url: the URL for opening the avatar-rendering web app with `<base_url>:<port>`
@@ -287,7 +271,8 @@ def start_browser(
 
         while True:
             try:
-                if stop_signal.get(timeout=1):
+                # stop signal: receiving the value None
+                if stop_signal.get(timeout=1) is None:
                     break
             except:
                 pass

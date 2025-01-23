@@ -11,7 +11,7 @@ from zipfile import ZipFile
 import cv2 as cv
 import sounddevice as sd
 
-from ..models.avatar.chrome_runner import get_web_extension_file
+from ..models.avatar.avatar_resources import get_web_extension_file
 from ..utils import resolve_file_path
 
 

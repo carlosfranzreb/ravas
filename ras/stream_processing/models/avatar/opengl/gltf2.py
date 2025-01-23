@@ -5,10 +5,11 @@ import base64
 import io
 import json
 import logging
+import math
 import struct
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict, Tuple, List
 
 import glm
 import moderngl
@@ -22,7 +23,13 @@ from moderngl_window.loaders.base import BaseLoader
 from moderngl_window.loaders.texture import t2d
 from moderngl_window.meta import SceneDescription, TextureDescription
 from moderngl_window.opengl.vao import VAO
-from moderngl_window.scene import Material, MaterialTexture, Mesh, Node, Scene
+from moderngl_window.scene import Material, MaterialTexture, Scene  # , Mesh, Node
+
+# MOD for supporting skeleton & morph targets:
+from .skeleton import Skeleton
+from .mesh import Mesh
+from .node import Node
+
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +67,16 @@ DTYPE_BUFFER_TYPE = {
     numpy.float32: "f4",  # GL_FLOAT
 }
 
+
 ACCESSOR_TYPE = {
     "SCALAR": 1,
     "VEC2": 2,
     "VEC3": 3,
     "VEC4": 4,
+    "MAT2": 2 * 2,
+    "MAT3": 3 * 3,
+    "MAT4": 4 * 4,
 }
-
 
 class Loader(BaseLoader):
     """Loader for GLTF 2.0 files"""
@@ -103,6 +113,9 @@ class Loader(BaseLoader):
         self.samplers: list[moderngl.Sampler] = []
         self.textures: list[MaterialTexture] = []
 
+        self.node_ids: Dict[int, Node] = {}
+        self.skins: list[Skeleton] = []
+
         self.path: Optional[Path] = None
         self.scene: Scene
         self.gltf: GLTFMeta
@@ -138,6 +151,8 @@ class Loader(BaseLoader):
         self.load_materials()
         self.load_meshes()
         self.load_nodes()
+
+        self.load_skins()
 
         self.scene.calc_scene_bbox()
         self.scene.prepare()
@@ -197,6 +212,17 @@ class Loader(BaseLoader):
         """Load images referenced in gltf metadata"""
         for image in self.gltf.images:
             self.images.append(image.load(self.path.parent))
+
+    def load_skins(self) -> None:
+        """
+        Load skins referenced in gltf metadata
+
+        REQUIRES:
+         * loaded nodes (and node-ID mapping)
+         * loaded meshes
+        """
+        for skin_id, skin in enumerate(self.gltf.skins):
+            self.skins.append(skin.load(skin_id, self.gltf.nodes, self.node_ids, self.meshes))
 
     def load_samplers(self) -> None:
         """Load samplers referenced in gltf metadata"""
@@ -264,6 +290,7 @@ class Loader(BaseLoader):
         # Start with root nodes in the scene
         for node_id in self.gltf.scenes[0].nodes:
             node = self.load_node(self.gltf.nodes[node_id])
+            self.node_ids[node_id] = node
             self.scene.root_nodes.append(node)
 
     def load_node(self, meta: GLTFNode, parent: Optional[Node] = None) -> Node:
@@ -292,7 +319,8 @@ class Loader(BaseLoader):
         # Follow children
         if meta.has_children:
             for node_id in meta.children:
-                self.load_node(self.gltf.nodes[node_id], parent=node)
+                loaded_node = self.load_node(self.gltf.nodes[node_id], parent=node)
+                self.node_ids[node_id] = loaded_node
 
         return node
 
@@ -327,6 +355,7 @@ class GLTFMeta:
         self.nodes = [GLTFNode(n) for n in data["nodes"]] if data.get("nodes") else []
         self.meshes = [GLTFMesh(m, self.meta) for m in data["meshes"]] if data.get("meshes") else []
         self.cameras = [GLTFCamera(c) for c in data["cameras"]] if data.get("cameras") else []
+        self.skins = [GLTFSkin(s) for s in data["skins"]] if data.get("skins") else []
         self.buffer_views = (
             [GLTFBufferView(i, v) for i, v in enumerate(data["bufferViews"])]
             if data.get("bufferViews")
@@ -374,11 +403,16 @@ class GLTFMeta:
                     primitive.accessor = self.accessors[primitive.indices]
                 for name, value in primitive.attributes.items():
                     primitive.attributes[name] = self.accessors[value]
+                for target in primitive.targets:
+                    target["_accessor"] = self.accessors[target["POSITION"]]
 
         # Link buffer views to images
         for image in self.images:
             if image.bufferViewId is not None:
                 image.bufferView = self.buffer_views[image.bufferViewId]
+
+        for skin in self.skins:
+            skin.inverseBindMatricesAccessor = self.accessors[skin.inverseBindMatrices]
 
     @property
     def version(self) -> str:
@@ -406,7 +440,8 @@ class GLTFMeta:
         if extUse is not None:
             for ext in extUse:
                 if ext not in supported:
-                    raise ValueError(f"Extension '{ext}' not supported")
+                    # raise ValueError(f"Extension '{ext}' not supported")
+                    logger.warning(f"Used (but not required) extension '{ext}' is not supported")
 
     def buffers_exist(self) -> None:
         """Checks if the bin files referenced exist"""
@@ -444,10 +479,15 @@ class GLTFMesh:
             self.extensions = data.get("extensions", {})
             self.accessor: GLTFAccessor
 
+            self.targets = data.get("targets", [])
+
     def __init__(self, data: dict[str, Any], meta: SceneDescription):
         self.meta = meta
         self.name = data.get("name", "")
         self.primitives = [GLTFMesh.Primitives(p) for p in data["primitives"]]
+
+        # self.extras = data.get("extras", {})
+        self.extras_target_names = data.get("extras", {}).get("targetNames", [])
 
     def load(self, materials: list[Material]) -> list[Mesh]:
         name_map = {
@@ -565,6 +605,9 @@ class GLTFMesh:
                             "type": vbo_info.component_type.value,
                         }
 
+                morph_texture_dim, morph_texture = self.load_targets(primitive, ctx)
+                target_name_dict = self.get_target_name_dict()
+
                 bbox_min, bbox_max = self.get_bbox(primitive)
                 meshes.append(
                     Mesh(
@@ -577,6 +620,9 @@ class GLTFMesh:
                         ),
                         bbox_min=bbox_min,
                         bbox_max=bbox_max,
+                        morph_texture=morph_texture,
+                        morph_texture_size=morph_texture_dim,
+                        morph_target_dictionary=target_name_dict,
                     )
                 )
 
@@ -591,6 +637,43 @@ class GLTFMesh:
 
         _, component_type, buffer = primitive.accessor.read()
         return component_type, buffer
+
+    def load_targets(
+            self, primitive: Primitives, ctx: moderngl.Context
+    ) -> Tuple[glm.vec2, moderngl.TextureArray]:
+
+        morphTargetsCount = len(primitive.targets)
+
+        vertexDataCount = 1  # only position, no normals or colors
+        width = primitive.attributes['POSITION'].count * vertexDataCount
+        height = 1
+
+        bins = []
+        # buffer = None
+
+        for i, morphTarget in enumerate(primitive.targets):
+            num, component_type, data = morphTarget["_accessor"].read()
+            # extend vec3 -> vec4 with 0.0 as last component:
+            vec4_data = numpy.hstack((data, numpy.zeros((data.shape[0], 1))), dtype=data.dtype)
+            bins.append(vec4_data)
+
+        # buffer = numpy.concatenate(bins, axis=0)
+        buffer = numpy.array(bins)
+
+        # RGBA (4 component) f4 texture array
+        texture = ctx.texture_array((width, height, morphTargetsCount), 4, dtype='f4', data=buffer.tobytes())
+
+        # with open('test.bin', 'wb') as f: f.write(buffer.tobytes())
+
+        return glm.vec2(width, height), texture
+
+    def get_target_name_dict(self) -> Optional[Dict[str, int]]:
+        if not self.extras_target_names:
+            return None
+        target_name_dict = {}
+        for i, target_name in enumerate(self.extras_target_names):
+            target_name_dict[target_name] = i
+        return target_name_dict
 
     def prepare_attrib_mapping(self, primitive: Primitives) -> list[VBOInfo]:
         """Pre-parse buffer mappings for each VBO to detect interleaved data for a primitive"""
@@ -620,12 +703,13 @@ class VBOInfo:
     def __init__(
         self,
         buffer: Optional[GLTFBuffer] = None,
-        buffer_view: Optional[GLTFBuffer] = None,
+        buffer_view: Optional[GLTFBufferView] = None,
         byte_length: int = 0,
         byte_offset: int = 0,
         component_type: ComponentType = ComponentType("", 0, 0),
         components: int = 0,
         count: int = 0,
+        accessor_byte_offset: int = 0,
     ):
         self.buffer = buffer  # reference to the buffer
         self.buffer_view = buffer_view
@@ -634,6 +718,8 @@ class VBOInfo:
         self.component_type = component_type  # Datatype of each component
         self.components = components
         self.count = count  # number of elements of the component type size
+
+        self.accessor_byte_offset = accessor_byte_offset
 
         # list of (name, components) tuples
         self.attributes: list[Any] = []
@@ -651,10 +737,16 @@ class VBOInfo:
         """Create the VBO"""
         assert self.buffer is not None, "No buffer defined"
         dtype = NP_COMPONENT_DTYPE[self.component_type.value]
-        data = numpy.frombuffer(
-            self.buffer.read(byte_length=self.byte_length, byte_offset=self.byte_offset),
-            count=self.count * self.components,
+        # data = numpy.frombuffer(
+        #     self.buffer.read(byte_length=self.byte_length, byte_offset=self.byte_offset),
+        #     count=self.count * self.components,
+        #     dtype=dtype,
+        # )
+        data = self.buffer_view.read(
+            byte_offset=self.accessor_byte_offset,
             dtype=dtype,
+            count=self.count * self.components,
+            accessorType=self.components,
         )
         return dtype, data
 
@@ -710,6 +802,7 @@ class GLTFAccessor:
                 byte_offset=self.byteOffset,
                 dtype=dtype,
                 count=self.count * ACCESSOR_TYPE[self.type],
+                accessorType=self.type,
             ),
         )
 
@@ -720,7 +813,7 @@ class GLTFAccessor:
         """
         return self.bufferView.read_raw(byte_offset=self.byteOffset)
 
-    def info(self) -> tuple[GLTFBuffer, GLTFBufferView, int, int, ComponentType, int, int]:
+    def info(self) -> tuple[GLTFBuffer, GLTFBufferView, int, int, ComponentType, int, int, int]:
         """
         Get underlying buffer info for this accessor
 
@@ -736,6 +829,7 @@ class GLTFAccessor:
             self.componentType,
             ACCESSOR_TYPE[self.type],
             self.count,
+            self.byteOffset,
         )
 
     def __str__(self) -> str:
@@ -755,13 +849,44 @@ class GLTFBufferView:
         # Valid: 34962 (ARRAY_BUFFER) and 34963 (ELEMENT_ARRAY_BUFFER) or None
 
     def read(
-        self, byte_offset: int = 0, dtype: Optional[type[object]] = None, count: int = 0
+        self, byte_offset: int = 0, dtype: Optional[type[object]] = None, count: int = 0, accessorType: Optional[Union[str, int]] = None
     ) -> npt.NDArray[Any]:
         data = self.buffer.read(
             byte_offset=byte_offset + self.byteOffset,
             byte_length=self.byteLength,
         )
-        vbo = numpy.frombuffer(data, count=count, dtype=dtype)
+        if self.byteStride:
+            start = 0  # self.byteOffset + byte_offset
+            per_item = ACCESSOR_TYPE[accessorType] if isinstance(accessorType, str) else accessorType
+            per_count = numpy.abs(numpy.prod(per_item))  # number of items when flattened, i.e. a (4, 4) MAT4 has 16
+            item_count = int(count / per_item)
+
+            cl_dtype = numpy.dtype(dtype)
+            shape = numpy.append(item_count, per_item)
+
+            # how many bytes for each chunk
+            stride = self.byteStride
+            # we want to get the bytes for every row
+            per_row = per_count * cl_dtype.itemsize
+            # the total block we're looking at
+            length = (item_count - 1) * stride + per_row
+            # apply as_strided for fast construction of strided array
+            # and copy to ensure contiguous layout
+            assert stride > 0, "byteStride should be positive"
+            assert 0 <= start <= start + length <= len(data)
+            vbo = numpy.array(
+                numpy.lib.stride_tricks.as_strided(
+                    numpy.frombuffer(
+                        data, dtype=numpy.uint8, offset=start, count=length
+                    ),
+                    [item_count, per_row],
+                    [stride, 1],
+                )
+                .view(cl_dtype)
+                .reshape(shape)
+            )
+        else:
+            vbo = numpy.frombuffer(data, count=count, dtype=dtype)
         return vbo
 
     def read_raw(self, byte_offset: int = 0) -> bytes:
@@ -829,12 +954,44 @@ class GLTFScene:
         self.nodes = data["nodes"]
 
 
+class GLTFSkin:
+    def __init__(self, data: dict[str, list[int]]):
+        self.name: str = data.get("name", '')
+        self.inverseBindMatrices: int = data.get("inverseBindMatrices", -1)
+        self.joints: List[int] = data.get("joints")
+        self.inverseBindMatricesAccessor: GLTFAccessor
+
+    def load(self, skin_id, meta_nodes: List[GLTFNode], node_ids: Dict[int, Node], meshes: List[List[Mesh]]):  # -> Skeleton:
+
+        owner_meta_node, owner_node_id = next(((n, i) for i, n in enumerate(meta_nodes) if n.skin == skin_id))
+        owner_node = node_ids.get(owner_node_id)
+        mesh_id = owner_meta_node.mesh
+
+        # NOTE loader.meshes array has same indices/IDs as loader.glftf.meshes array (see load_meshes())
+        meshes = meshes[mesh_id]
+
+        components, component_type, data = self.inverseBindMatricesAccessor.read()
+
+        size = int(math.sqrt(components))  # FIXME for shaping, assumes that the component type is a matrix!
+        dtype = NP_COMPONENT_DTYPE[component_type.value]
+        bone_inverses = data.view(dtype).reshape((self.inverseBindMatricesAccessor.count, size, size))  # TODO reshape to list of mat4
+
+        bones = []
+        for jn_id in self.joints:
+            bones.append(node_ids.get(jn_id))
+
+        skeleton = Skeleton(bones=bones, boneInverses=bone_inverses)
+        for m in meshes:
+            m.skeleton = skeleton
+
+
 class GLTFNode:
     def __init__(self, data: dict[str, Any]) -> None:
         self.name = data.get("name")
         self.children = data.get("children")
         self.mesh = data.get("mesh")
         self.camera = data.get("camera")
+        self.skin = data.get("skin")
 
         _matrix = data.get("matrix")
         self.matrix = glm.mat4(*_matrix) if _matrix is not None else glm.mat4()

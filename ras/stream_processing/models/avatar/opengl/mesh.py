@@ -1,15 +1,17 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Dict, Collection
 
 import glm
 import moderngl
+import numpy
+from moderngl import TextureArray
 
 from moderngl_window.opengl.vao import VAO
+from moderngl_window.scene import Material
 
-from .material import Material
+from .skeleton import Skeleton
 
 if TYPE_CHECKING:
-    from .programs import MeshProgram
+    from moderngl_window.scene import MeshProgram
 
 
 class Mesh:
@@ -23,6 +25,9 @@ class Mesh:
         attributes: Optional[dict[str, Any]] = None,
         bbox_min: glm.vec3 = glm.vec3(),
         bbox_max: glm.vec3 = glm.vec3(),
+        morph_texture: Optional[TextureArray] = None,
+        morph_texture_size: Optional[glm.vec2] = None,
+        morph_target_dictionary: Optional[Dict[str, int]] = None,
     ) -> None:
         """Initialize mesh.
 
@@ -49,6 +54,17 @@ class Mesh:
         self.bbox_min = bbox_min
         self.bbox_max = bbox_max
         self.mesh_program: Optional["MeshProgram"] = None
+
+        self.morph_texture: Optional[TextureArray] = morph_texture
+        self.morph_texture_size: Optional[glm.vec2] = morph_texture_size  # tuple (<num vertices>, 1)
+        self.morph_target_dictionary: Dict[str, int] = morph_target_dictionary
+        self.morph_target_influences: Collection[float] = numpy.zeros(len(morph_target_dictionary))
+
+        self.skeleton: Optional[Skeleton] = None
+        self.bind_matrix = glm.mat4()
+        self.bind_matrix_inverse = glm.mat4()
+        self.matrix_global = glm.mat4()  # FIXME from owning node!
+        self.matrix = glm.mat4()  # FIXME from owning node!
 
     def draw(
         self,
@@ -169,3 +185,13 @@ class Mesh:
             bool: Does the mesh have texture coordinates?
         """
         return "TEXCOORD_{}".format(layer) in self.attributes
+
+    def update_matrix_global(self):
+        self.bind_matrix_inverse = glm.inverse(self.matrix_global)
+
+    def release(self):
+        # FIXME self.texture is directly released via scene.release() & is currently NOT calling this method -> should be changed in scene implementation
+        if self.morph_texture:
+            self.morph_texture.release()
+        if self.skeleton:
+            self.skeleton.release()

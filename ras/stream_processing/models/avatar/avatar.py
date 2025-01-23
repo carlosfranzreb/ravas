@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from enum import Enum
 from queue import Empty
 from threading import Event
 from typing import Optional, IO
@@ -14,10 +15,24 @@ import torch
 from torch.multiprocessing import Queue, Process, Event
 from websocket_server import WebsocketServer
 
+from .avatar_resources import get_avatar_models_dir
 from .chrome_runner import start_browser
 from .web_server import start_server
+from .opengl_runner import start_renderer as start_opengl_renderer
 from ...processor import Converter
 from ...utils import clear_queue
+
+
+class RenderAppType(Enum):
+    BROWSER = 'browser'
+    OPENGL_APP = 'opengl'
+
+    @staticmethod
+    def to_type(string: str):
+        t = next((x for x in RenderAppType if x.value == string), None)
+        if t:
+            return t
+        raise ValueError('Invalid value "": must be one of ', [t.value for t in RenderAppType])
 
 
 class Avatar(Converter):
@@ -39,7 +54,24 @@ class Avatar(Converter):
         self.log_level = log_level
         self._stopped = False
 
+        self.client_available: Event | None = None
+
+        self.render_server: Process | None = None
+        self.render_app: Process | None = None
+        self.stop_render_app: Queue | None = None
+
+        self.render_app_type: RenderAppType | None = None
+
+        self.recv_queue: Queue | None = None
+        self.render_app_input: Queue | None = None  # only for opengl-renderer
+        self.server: WebsocketServer | None = None  # only for chrome/web renderer
+
         self.detection_log_file: IO | None = None
+
+        # convert old configuration, if necessary:
+        headless_window = config.get('show_chrome_window')
+        if headless_window is not None and config.get('show_renderer_window') is None:
+            config['show_renderer_window'] = headless_window
 
     def initializeFaceLandmarkerModel(self):
         """
@@ -66,11 +98,40 @@ class Avatar(Converter):
             self.detection_log_file = open(detection_log_file, 'wt+', encoding='utf-8')
             self.detection_log_file.write('[\n')
 
-    def initializeRenderer(self):
+    def initializeOpenGLRenderer(self):
+        self.client_available = Event()
+        in_queue = Queue()
+        out_queue = Queue()
+        avatar_file_path = os.path.join(get_avatar_models_dir(), self.config.get('avatar_uri', 'avatar_1_f.glb'))
+        app_args = {
+            'model_path': avatar_file_path,
+            'input_queue': in_queue,
+            'output_queue': out_queue,
+            'run_headless': not self.config.get('show_renderer_window', False),
+            'log_queue': self.log_queue,
+            'log_level': self.log_level,
+        }
+        render_app = Process(target=start_opengl_renderer, kwargs=app_args, name='opengl_render_app')
+        if not self._stopped:
+            render_app.start()
+            self.logger.info('Started OpenGL Rendering App (pid %s)', render_app.pid)
+            self.logger.info("Waiting for OpenGL Rendering App to send ready signal")
+            ready_signal = out_queue.get()
+            assert ready_signal is False, "did not expected 'ready' signal (value False)"
+            self.client_available.set()
+            self.logger.info("OpenGL Rendering App is ready")
 
-        self.render_server: Optional[Process] = None
-        self.render_app: Optional[Process] = None
-        self.stop_render_app: Optional[Queue] = None
+        if not self._stopped:
+            self.render_app_type = RenderAppType.OPENGL_APP
+            self.render_app_input = in_queue
+            self.recv_queue = out_queue
+            self.render_server = None
+            self.render_app = render_app
+            self.stop_render_app = in_queue
+        else:
+            self.stopRenderer(render_app=render_app, stop_render_app=in_queue, renderer_type=RenderAppType.OPENGL_APP)
+
+    def initializeBrowserRenderer(self):
 
         if not self.config.get('start_chrome_renderer', True):
             self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
@@ -100,7 +161,7 @@ class Avatar(Converter):
             'stop_signal': render_app_stop,
             'port': app_port,
             'web_extension': use_extension,
-            'run_headless': not self.config.get('show_chrome_window', False),
+            'run_headless': not self.config.get('show_renderer_window', False),
             'avatar_uri': self.config.get('avatar_uri', None),
             'hide_avatar_selection': self.config.get('hide_avatar_selection', None),
             'log_queue': self.log_queue,
@@ -112,13 +173,20 @@ class Avatar(Converter):
             self.logger.info('Started Chrome Driver for Rendering App (pid %s)', render_app.pid)
 
         if not self._stopped:
+            self.render_app_type = RenderAppType.BROWSER
             self.render_server = render_app_server
             self.render_app = render_app
             self.stop_render_app = render_app_stop
         else:
-            self.stopRenderer(render_app=render_app, stop_render_app=render_app_stop, render_server=render_app_server)
+            self.stopRenderer(render_app=render_app, stop_render_app=render_app_stop, render_server=render_app_server, renderer_type=RenderAppType.BROWSER)
 
-    def stopRenderer(self, render_app: Optional[Process] = None, stop_render_app: Optional[Queue] = None, render_server: Optional[Process] = None):
+    def stopRenderer(
+            self,
+            render_app: Optional[Process] = None,
+            stop_render_app: Optional[Queue] = None,
+            render_server: Optional[Process] = None,
+            renderer_type: Optional[RenderAppType] = None,
+    ):
         self._stopped = True
 
         if self.detection_log_file:
@@ -129,7 +197,12 @@ class Avatar(Converter):
             self.detection_log_file = None
 
         # NOTE: usually, we do not really need to wait for rendering-app-process to shut down completely
-        #       (i.e. only initiate its shutdown, and then leave it to its clean-up etc.)
+        #       (i.e. only initiate its shutdown, and then leave it to do its clean-up etc.)
+        #       ... however, in some cases, the process will not shut down:
+        #       since we did not wait, we cannot manually shut it down then.
+        #       So in these cases, it would be best to wait, and if after some timeout, we shut it down
+        #       forcefully, if it is not terminated yet.
+        #       -> setting this to True, will wait and shut down the process forcefully, if it is still running
         is_wait_for_render_app_to_finish = False  # TODO make this configurable?
 
         if not render_app:
@@ -138,30 +211,40 @@ class Avatar(Converter):
             render_server = self.render_server
         if not stop_render_app:
             stop_render_app = self.stop_render_app
+        if not renderer_type:
+            renderer_type = self.render_app_type
 
         if render_server and render_server.is_alive():
             self.logger.info('Stopping Web Server Rendering App...')
             render_server.terminate()
 
         if render_app and render_app.is_alive():
-            self.logger.info('Stopping Chrome Driver for Rendering App...')
-            # NOTE need to signal the render_app process to stop, so that the chrome driver can be closed properly
-            #      (simply calling render_app.terminate() will leave chrome instance running)
-            stop_render_app.put(True)  # send any value for signaling the render_app to stop the chrome driver
+
+            app_info_str = 'Chrome Driver for' if renderer_type == RenderAppType.BROWSER else 'OpenGL'
+            self.logger.info('Stopping %s Rendering App...', app_info_str)
+
+            if renderer_type == RenderAppType.BROWSER:
+                # NOTE need to signal the render_app process to stop, so that the chrome driver can be closed properly
+                #      (simply calling render_app.terminate() will leave chrome instance running)
+                stop_render_app.put(None)  # send value `None` for signaling the render_app to stop the chrome driver
+            else:
+                stop_render_app.put(None)  # NOTE: OpenGL render app expects None as stop signal!
 
             if is_wait_for_render_app_to_finish:
                 start = time.time()
+                # wait for max. ~ 10 secs (10 loops a 1 sec), or break, if not alive anymore
+                # (note: Chrome currently needs about ~6 secs to shut down)
                 for i in range(10):
                     render_app.join(1)
-                    self.logger.info('Waiting for Chrome Driver (Rendering App) to stop (%.3f secs)...', time.time() - start)
+                    self.logger.info('Waiting for %s Rendering App to stop (%.3f secs)...', app_info_str, time.time() - start)
                     if not render_app.is_alive():
                         break
                 # if not stopped yet, force termination:
                 if render_app.is_alive():
-                    self.logger.info('Forcing Chrome Driver (Rendering App) to stop after waiting for %.3f secs!', time.time() - start)
+                    self.logger.info('Forcing %s to stop after waiting for %.3f secs!', app_info_str, time.time() - start)
                     render_app.terminate()
                 else:
-                    self.logger.info('Waited for Chrome Driver (Rendering App) to stop for %.3f secs!', time.time() - start)
+                    self.logger.info('Waited for %s to stop for %.3f secs!', app_info_str, time.time() - start)
 
     def initializeServer(self):
         """
@@ -193,9 +276,17 @@ class Avatar(Converter):
         Read the input queue, convert the data and put the converted data into the
         output queue.
         """
-        self.initializeRenderer()
-        self.initializeFaceLandmarkerModel()
-        self.initializeServer()
+
+        renderer_type_str = self.config.get('avatar_renderer', RenderAppType.OPENGL_APP.value)
+        self.render_app_type = RenderAppType.to_type(renderer_type_str)
+
+        if self.render_app_type == RenderAppType.BROWSER:
+            self.initializeBrowserRenderer()
+            self.initializeFaceLandmarkerModel()
+            self.initializeServer()
+        else:
+            self.initializeOpenGLRenderer()
+            self.initializeFaceLandmarkerModel()
 
         self.duration_detect = 0
         self.duration_render = 0
@@ -253,7 +344,7 @@ class Avatar(Converter):
         # signal end-of-stream for writer via output-queue
         self.output_queue.put((None, None))
 
-    def detect_face(self, data: np.ndarray, timestamp) -> dict:
+    def detect_face(self, data: np.ndarray, timestamp) -> dict | None:
         """
         Detect the face in the input image and return the face blendshapes and the
         facial transformation matrix as a dictionary. The dictionary has the correct
@@ -312,16 +403,20 @@ class Avatar(Converter):
 
             start_render = time.perf_counter_ns()  # FIXME perf
 
-            self.server.send_message_to_all(json.dumps(face_detection_results))
+            if self.server:
+                self.server.send_message_to_all(json.dumps(face_detection_results))
+            else:
+                self.render_app_input.put(face_detection_results)
             # wait for the client to send the avatar
             message = self.recv_queue.get(timeout=1)
             
             self.duration_render += time.perf_counter_ns() - start_render  # FIXME perf
             self.count_render += 1
 
-            if message.startswith("/"):
+            is_binary = message and not isinstance(message, str)
+            if is_binary or (message and message.startswith("/")):
                 # received message is a base64 encoded image
-                raw_img = base64.b64decode(message)
+                raw_img = message if is_binary else base64.b64decode(message)
                 raw_array = np.frombuffer(raw_img, dtype=np.uint8)
                 avatar_img = cv2.imdecode(raw_array, 1)
                 # insert the avatar into the image

@@ -25,9 +25,11 @@ video:
     ws_host: 0.0.0.0
     ws_port: 8888
     app_port: 3000
+    # select renderer for avatar: opengl | browser
+    avatar_renderer: opengl
     start_chrome_renderer: true
     use_chrome_extension: true
-    show_chrome_window: false
+    show_renderer_window: false
 
 audio:
   max_unsynced_time: *max_unsynced_time
