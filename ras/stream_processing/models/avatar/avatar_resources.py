@@ -19,4 +19,11 @@ def get_web_extension_file() -> str:
 
 
 def get_avatar_models_dir() -> str:
+    # try the (unpacked) extension's directory first:
+    # this directory is included in the compiled/packaged app (see build_exec.spec), but
+    # it may not exist in the source/repo, if the extension was not build yet
+    # ... so use the rpm/public/ directory as a fallback, since that in included in the git repo
+    unpacked_ext_dir_path = get_web_extension_path()
+    if os.path.exists(unpacked_ext_dir_path):
+        return get_web_extension_path
     return os.path.join(PROJECT_BASE_DIR, 'rpm', 'public')
