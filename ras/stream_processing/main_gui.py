@@ -21,9 +21,9 @@ def main():
     # IMPORTANT: do this before starting the windows/dialogs, so that they can access the correct QSettings objects
     app.setOrganizationName('Deutsches Forschungszentrum für Künstliche Intelligenz GmbH (DFKI)')
     app.setOrganizationDomain("dfki.de")
-    app.setApplicationName("VERANDA Audio Video Streamer")  # TODO name/description: should this be the same as in setup.py?
-    app.setApplicationDisplayName("VERANDA A/V Streamer")
     app.setApplicationVersion('0.4.0')  # TODO read from setup.py
+    app.setApplicationName("VERANDA Audio Video Streamer")  # TODO name/description: should this be the same as in setup.py?
+    app.setApplicationDisplayName(f"RAVAS - {app.applicationVersion()}")
 
     args = parse_args()
     config_path = get_config_path(args.config)
