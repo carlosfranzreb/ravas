@@ -170,7 +170,8 @@ class MainWindow(QMainWindow):
                        ('\n * '.join(config_problems)) +
                        '\n\nDo you want to continue anyway?')
             result = QMessageBox.question(self, 'Unknown Configuration: Continue?', details,
-                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Abort)
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Abort,
+                                          defaultButton=QMessageBox.StandardButton.Abort)
             if result == QMessageBox.StandardButton.Abort:
                 return
 
