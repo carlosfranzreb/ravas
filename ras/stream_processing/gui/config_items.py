@@ -262,10 +262,16 @@ def _do_set_ignore_validation_helpers():
         val, _, _ = get_current_value_and_config_path_for(config, CONFIG_ITEMS['video_converters'].config_path)
         return val != AVATAR_CONVERTER
 
+    def can_ignore_browser_avatar_validation(config: dict):
+        if can_ignore_avatar_validation(config):
+            return True
+        val, _, _ = get_current_value_and_config_path_for(config, CONFIG_ITEMS['avatar_renderer'].config_path)
+        return val != RenderAppType.BROWSER.value
+
     CONFIG_ITEMS['video_avatars'].is_ignore_validation = can_ignore_avatar_validation
     CONFIG_ITEMS['avatar_renderer'].is_ignore_validation = can_ignore_avatar_validation
-    CONFIG_ITEMS['avatar_ws_port'].is_ignore_validation = can_ignore_avatar_validation
-
+    CONFIG_ITEMS['avatar_render_window'].is_ignore_validation = can_ignore_avatar_validation
+    CONFIG_ITEMS['avatar_ws_port'].is_ignore_validation = can_ignore_browser_avatar_validation
 
 
 # do apply ignore-validation helpers for config-items:
