@@ -22,6 +22,20 @@ from .texture_light_skeleton_morph_program import TextureLightSkeletonMorphProgr
 
 
 class GLTFRenderer(WindowConfig):
+    """
+    Main window for avatar renderer:
+    uses different implementations for the rendering-function (see `on_render()` and `_render_xxx()`).
+    These are set / enabled via the `enable_xxx()` methods.
+
+    The main rendering function for using the avatar renderer is `_render_queue_io()`
+    (see also `enable_render_queue_io()`):
+    this function waits on the `input_queue` until blendshape data becomes available (i.e. blocks the rendering loop),
+    then renders the new blendshape data to an image (by default JPEG) and sends it via the `output_queue`
+    (then waits again on the `input_queue`).
+
+    For more information etc., see moderngl-window examples:
+    https://github.com/moderngl/moderngl-window/tree/master/examples
+    """
 
     title = "Avatar Renderer"
     window_size = 1024, 600  # 1280, 720  # TODO make configurable
