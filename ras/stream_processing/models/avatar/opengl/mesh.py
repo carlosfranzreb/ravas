@@ -1,3 +1,14 @@
+
+# ##############################################################
+# [russa] MODIFIED source file from
+# https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/mesh.py
+#
+# MODIFICATIONS:
+#  * support for morph targets (morph-based animation)
+#  * support for skeleton / bone-based animation
+# ##############################################################
+
+
 from typing import TYPE_CHECKING, Any, Optional, Dict, Collection
 
 import glm

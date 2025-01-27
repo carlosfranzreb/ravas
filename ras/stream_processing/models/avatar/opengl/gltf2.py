@@ -1,3 +1,16 @@
+
+# ##############################################################
+# [russa] MODIFIED source file from
+# https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/loaders/scene/gltf2.py
+#
+# MODIFICATIONS:
+#  * make missing "usesExtension" optional
+#  * fully supporte `byteStride` for buffer views
+#  * support loading data for morph targets (morph-based animation)
+#  * support loading data for skeleton / bone-based animation
+# ##############################################################
+
+
 # Spec: https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#asset
 from __future__ import annotations
 

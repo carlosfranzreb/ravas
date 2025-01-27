@@ -1,3 +1,14 @@
+
+# ##############################################################
+# [russa] MODIFIED source: implementation based on class TextureLightProgram in
+# https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/programs.py
+#
+# MODIFICATIONS:
+#  * support for morph targets (morph-based animation)
+#  * support for skeleton / bone-based animation
+# ##############################################################
+
+
 from pathlib import Path
 from typing import Optional, Any
 

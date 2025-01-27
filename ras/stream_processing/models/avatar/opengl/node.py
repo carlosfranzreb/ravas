@@ -1,3 +1,13 @@
+
+# ##############################################################
+# [russa] MODIFIED source file from
+# https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/node.py
+#
+# MODIFICATIONS:
+#  * support release of mesh's resources for morph targets & skeleton / bone-based animation
+# ##############################################################
+
+
 """
 Wrapper for a loaded mesh / vao with properties
 """

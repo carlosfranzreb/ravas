@@ -1,7 +1,10 @@
 #version 330
 
-// based on moderngl_window's texture_light.glsl
+// based on moderngl_window's texture_light.glsl:
+// https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/programs/scene_default/texture_light.glsl
+//
 // and extended by & adapted from three.js handling of skeleton/bones & (texture-based) handling morph targets
+// (three.js version 0.152.2 and 0.172.0)
 
 #if defined VERTEX_SHADER
 
