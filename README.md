@@ -2,7 +2,30 @@
 
 Anonymized audio and video in real-time. Can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
 
-## How to use it
+
+---------
+
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
+
+__TOC__
+- [How to use the Implementation](#how-to-use-the-Implementation)
+- [Project Structure](#project-structure)
+    - [Notes](#notes)
+- [Installation guide](#installation-guide)
+- [Build Executable](#build-executable)
+- [Usage](#usage)
+    - [Console Program](#console-program)
+    - [GUI](#gui)
+- [Avatar Anonymizer](#avatar-anonymizer)
+    - [Python-based Avatar Renderer (Default)](#python-based-avatar-renderer-default)
+    - [Web-based Avatar Renderer (Legacy)](#web-based-avatar-renderer-legacy)
+    - [Changing The Avatar](#changing-the-avatar)
+
+<!-- /TOC -->
+
+---------
+
+## How to use the Implementation
 
 An example is provided in the ./example folder. The general workflow is as follows:
 1. Define the `init_callback` function for audio or video, where you can initialize all objects required for the `callback` function. Return these objects to use them in the callback.
@@ -92,7 +115,7 @@ There are currently 2 avatar renderers implemented:
     ras/stream_processing/models/avatar/opengl/*
     ```
     NOTE: to avoid unnecessary duplication, the renderer currently uses the web app's avatar model files in
-          `rpm/dist/chrome-extension/*.glb` or `rpm/public/*.glb` 
+          `rpm/dist/chrome-extension/*.glb` or `rpm/public/*.glb`
  2. the legacy web-based renderer, using `react` and `three.js`/WebGL:
     ```
     rpm/**
@@ -110,9 +133,9 @@ video:
         avatar_renderer: opengl
         # if TRUE, will show the rendering app window (e.g. for DEBUG purposes); for browser renderer, will show the browser window
         show_renderer_window: false
-        # the avatar model to be used for rendering (see `rpm/public/*.glb` 
+        # the avatar model to be used for rendering (see `rpm/public/*.glb`
         #  * the value `default_avatar.glb` will be mapped to the first available / default avatar
-        #  * for the browser renderer, the values should be file names or relative to the immediate parent directory 
+        #  * for the browser renderer, the values should be file names or relative to the immediate parent directory
         #    (i.e. no absolute file paths); the opengl renderer can also handle absolute file paths
         avatar_uri: ./default_avatar.glb
         # OPTIONAL store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
@@ -126,7 +149,7 @@ video:
         start_chrome_renderer: true
         # for browser renderer: if TRUE, use Chrome Web Extension, if FALSE start a web server for serving web app as a website
         use_chrome_extension: true
-        # for browser renderer: if `start_chrome_renderer` TRUE and `use_chrome_extension` FALSE, the port for serving the web app 
+        # for browser renderer: if `start_chrome_renderer` TRUE and `use_chrome_extension` FALSE, the port for serving the web app
         app_port: 3000
 ```
 
@@ -135,7 +158,7 @@ video:
 The `python` based avatar renderer is implemented using the Python [moderngl][5] wrapper for OpenGL and running the
 renderer in a [moderngl-window][6].
 
-> TODO: currently the implementation uses the default `pyglet` integration of moderngl-window. 
+> TODO: currently the implementation uses the default `pyglet` integration of moderngl-window.
 >       There is also a `PyQT5` integration in moderngl-window: when `PyQT6` integration becomes available, we should
 >       switch to that, so that we use the same window-system as the main app's GUI.
 
@@ -170,7 +193,7 @@ It is also possible to _"play back"_ previously recorded face expression & head 
 ### Web-based Avatar Renderer (Legacy)
 
 
-The web-based avatar renderer is a [react][7] web app that is started via the [Selenium Webdriver][8] for Chrome and 
+The web-based avatar renderer is a [react][7] web app that is started via the [Selenium Webdriver][8] for Chrome and
 connected via a `websocket`:  
 the `python` code opens a WebSocket server to which the web app connects.
 
@@ -208,7 +231,7 @@ There are basically 3 ways to use the web-based renderer:
         ws_port: 8888
         app_port: 3000
     ```
- 3. start the web app externally and open it in a web browser (e.g. install Web Extension in Chrome Browser, or 
+ 3. start the web app externally and open it in a web browser (e.g. install Web Extension in Chrome Browser, or
     start server for website in _dev_ mode, using _npm_ command `npm run start`)  
     _(recommended web browser: `Google Chrome`)_
     ```yml
@@ -248,7 +271,7 @@ If you want to change or add avatars:
    ```
    https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb
    ```
-3. __IMPORTANT__ the avatar model files __must__ include _morph target_ definitions for `ARKit` 
+3. __IMPORTANT__ the avatar model files __must__ include _morph target_ definitions for `ARKit`
    (i.e. `morphTargets=ARKit`, see [Ready Player Me REST API docs][2]),
    and the texture quality __should__ be set to high (i.e. `quality=high` or `textureAtlas=1024`):  
    add these query-parameters to the download link for the avatar, e.g.
