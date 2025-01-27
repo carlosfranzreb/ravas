@@ -42,6 +42,195 @@ To reduce latency between the streams, the data is converted into torch tensors.
 2. Install the package: `pip install .`
 3. Install a virtual audio loopback driver, e.g. `brew install blackhole-2ch`
 
-## Changing the avatar
 
-The avatar is stored in a GLB file in the public folder, and called from the React app (`rpm/src/App.tsx`). If you want to change the avatar, ensure that the new avatar you download from Avatar has a similar URL to this one: `https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024`.
+## Avatar Anonymizer
+
+The avatar anonymizer is composed of the [mediapipe's face-landmarker][4] solution for detecting face expressions and head movement
+from the camera / video images, and then using the result to render an avatar model (in `*.glb` format: binary glTF 2.0 format).
+
+There are currently 2 avatar renderers implemented:
+
+ 1. the new OpenGL renderer, using the [moderngl][5] and [moderngl-window][6] wrappers for OpenGL in `python`, see
+    ```
+    ras/stream_processing/models/avatar/opengl_runner.py
+    ras/stream_processing/models/avatar/opengl/*
+    ```
+    NOTE: to avoid unnecessary duplication, the renderer currently uses the web app's avatar model files in
+          `rpm/dist/chrome-extension/*.glb` or `rpm/public/*.glb` 
+ 2. the legacy web-based renderer, using `react` and `three.js`/WebGL:
+    ```
+    rpm/**
+    ```
+
+
+The basic configuration for the avatar renderer via the YAML configuration files (as video converter) are
+
+```yml
+video:
+    # ...
+    converter:
+        cls: stream_processing.models.Avatar
+        # select renderer for avatar: opengl (DEFAULT) | browser
+        avatar_renderer: opengl
+        # if TRUE, will show the rendering app window (e.g. for DEBUG purposes); for browser renderer, will show the browser window
+        show_renderer_window: false
+        # the avatar model to be used for rendering (see `rpm/public/*.glb` 
+        #  * the value `default_avatar.glb` will be mapped to the first available / default avatar
+        #  * for the browser renderer, the values should be file names or relative to the immediate parent directory 
+        #    (i.e. no absolute file paths); the opengl renderer can also handle absolute file paths
+        avatar_uri: ./default_avatar.glb
+        # OPTIONAL store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
+        # NOTE that the last entry in the array will be an empty object, i.e. without "blendshapes" field!
+        detection_log: detectionLog.json
+        # for browser renderer: the port for the WebSocket connection
+        ws_port: 8888
+        # for browser renderer: the URL for binding the port of the WebSocket
+        ws_host: 0.0.0.0
+        # for browser renderer: if TRUE, start Chrome Browser automatically via Selenium webdriver
+        start_chrome_renderer: true
+        # for browser renderer: if TRUE, use Chrome Web Extension, if FALSE start a web server for serving web app as a website
+        use_chrome_extension: true
+        # for browser renderer: if `start_chrome_renderer` TRUE and `use_chrome_extension` FALSE, the port for serving the web app 
+        app_port: 3000
+```
+
+### Python-based Avatar Renderer (Default)
+
+The `python` based avatar renderer is implemented using the Python [moderngl][5] wrapper for OpenGL and running the
+renderer in a [moderngl-window][6].
+
+> TODO: currently the implementation uses the default `pyglet` integration of moderngl-window. 
+>       There is also a `PyQT5` integration in moderngl-window: when `PyQT6` integration becomes available, we should
+>       switch to that, so that we use the same window-system as the main app's GUI.
+
+For testing and debugging, the `python`-based avatar renderer can be started in _standalone_ mode with
+```bash
+python -m stream_processing.models.avatar.opengl_runner
+```
+
+There are several commend line options available (use `--help`), e.g. for selecting a specific avatar model (`-a` / `--avatar`).
+
+
+It is also possible to _"play back"_ previously recorded face expression & head movements ("blendshapes"):
+ 1. configure the main app, to record `mediapipe`'s face-landmarker results in a JSON file
+    ```yml
+    video:
+        # ...
+        converter:
+            cls: stream_processing.models.Avatar
+            # ...
+            # store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
+            # NOTE that the last entry in the array will be an empty object, i.e. without "blendshapes" field!
+            detection_log: detectionLog.json
+    ```
+ 2. run the main app and store the detection results
+ 3. find the log-dir where the detection results were stored and run the `python` avatar renderer with the argument `-b` / `--blendshapes`:
+    ```bash
+    python -m stream_processing.models.avatar.opengl_runner -b <path to recorded detection results in log-directory>
+    ```
+
+
+
+### Web-based Avatar Renderer (Legacy)
+
+
+The web-based avatar renderer is a [react][7] web app that is started via the [Selenium Webdriver][8] for Chrome and 
+connected via a `websocket`:  
+the `python` code opens a WebSocket server to which the web app connects.
+
+There are basically 3 ways to use the web-based renderer:
+ 1. start the web app as _Chrome Web Extension_ (via the _Selenium_ webdriver)
+    * example configuration:
+    ```yml
+    video:
+        # ...
+        converter:
+        cls: stream_processing.models.Avatar
+        avatar_uri: ./default_avatar.glb
+        avatar_renderer: browser
+        start_chrome_renderer: true
+        use_chrome_extension: true
+        # set TRUE for showing the browser window:
+        show_renderer_window: false
+        ws_host: 0.0.0.0
+        ws_port: 8888
+    ```
+ 2. start the web app served as a single-page website (via the integrated _python_ web server)
+    * example configuration:
+    ```yml
+    video:
+        # ...
+        converter:
+        cls: stream_processing.models.Avatar
+        avatar_uri: ./default_avatar.glb
+        avatar_renderer: browser
+        start_chrome_renderer: true
+        use_chrome_extension: false
+        # set TRUE for showing the browser window:
+        show_renderer_window: false
+        ws_host: 0.0.0.0
+        ws_port: 8888
+        app_port: 3000
+    ```
+ 3. start the web app externally and open it in a web browser (e.g. install Web Extension in Chrome Browser, or 
+    start server for website in _dev_ mode, using _npm_ command `npm run start`)  
+    _(recommended web browser: `Google Chrome`)_
+    ```yml
+    video:
+        # ...
+        converter:
+        cls: stream_processing.models.Avatar
+        avatar_renderer: browser
+        start_chrome_renderer: false
+        ws_host: 0.0.0.0
+        ws_port: 8888
+    ```
+
+The implementation for the web app is located in the project folder
+```
+rpm/**
+```
+
+See [rpm/README.md][3] for more details.
+
+
+### Changing The Avatar
+
+The avatars are stored in a GLB files in the `rpm/public/` folder, and are used by the default renderer as well as the
+legacy web-based renderer (i.e. in  the React app (`rpm/src/App.tsx`)).
+
+The naming scheme for the avatar files is:
+```
+avatar_<number>_<gender: f | m>.glb
+```
+
+If you want to change or add avatars:
+
+1. create an avatar on the [Ready Player Me][1] website  
+   _(currently this is free; you do not need an account either)_
+2. get the download ID / link for created avatar, e.g. something like
+   ```
+   https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb
+   ```
+3. __IMPORTANT__ the avatar model files __must__ include _morph target_ definitions for `ARKit` 
+   (i.e. `morphTargets=ARKit`, see [Ready Player Me REST API docs][2]),
+   and the texture quality __should__ be set to high (i.e. `quality=high` or `textureAtlas=1024`):  
+   add these query-parameters to the download link for the avatar, e.g.
+   ```
+   https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024
+   ```
+4. rename the `*.glb` avatar file (see naming scheme above) and place it in the project folder:
+   ```
+   rpm/public/
+   ```
+5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
+
+
+[1]: https://readyplayer.me/avatar
+[2]: https://docs.readyplayer.me/ready-player-me/api-reference/rest-api/avatars/get-3d-avatars
+[3]: rpm/README.md
+[4]: https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker
+[5]: https://moderngl.readthedocs.io/
+[6]: https://pypi.org/project/moderngl-window/
+[7]: https://react.dev/
+[8]: https://pypi.org/project/selenium/
