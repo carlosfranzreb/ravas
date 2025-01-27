@@ -43,6 +43,42 @@ To reduce latency between the streams, the data is converted into torch tensors.
 3. Install a virtual audio loopback driver, e.g. `brew install blackhole-2ch`
 
 
+## Build Executable
+
+For building / packaging the `python` as a standalone executable see [ras/BUILD.md](ras/BUILD.md).
+
+
+## Usage
+
+
+### Console Program
+
+for starting the main app as a console program, change to directory `ras/` and run
+```bash
+python -m stream_processing.main
+```
+
+You can specify a configration file via `--config <file>`, see [ras/configs](ras/configs) for configuration examples.
+
+
+### GUI
+
+for starting the main app with a GUI, change to directory `ras/` and run
+```bash
+python run_gui.py
+```
+
+or
+```bash
+python -m stream_processing.main_gui
+```
+
+See [USAGE.md](USAGE.md) for more usage information for the GUI.
+
+
+-----------------------
+
+
 ## Avatar Anonymizer
 
 The avatar anonymizer is composed of the [mediapipe's face-landmarker][4] solution for detecting face expressions and head movement
