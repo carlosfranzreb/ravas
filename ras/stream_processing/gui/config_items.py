@@ -52,7 +52,23 @@ class ConfigurationItem:
                  configuration_values: list[str] | dict[str, any] | Callable[[], Union[list[str], dict[str, any]]] | Callable[[Optional[dict]], Union[list[str], dict[str, any]]] | None,
                  is_ignore_validation: Optional[Callable[[dict], bool]] = None,
                  is_valid_value: Optional[Callable[[any, Optional[dict]], bool]] = None
-        ):
+    ):
+        """
+
+        :param configuration_path: the "path" to the configuration property within the YAML configuration structure
+                                   (each entry in the path list represents 1 hierarchy level, the last being the
+                                    property name itself, e.g. `["video", "use_video"]`)
+        :param configuration_values: the allowed configuration values (also see class comment on more details)
+        :param is_ignore_validation: OPTIONAL helper function that will indicate, if based on the current configuration
+                                     values this configuration item can be ignored
+                                     (i.e. does not require to have a valid value at the moment):  \
+                                     `is_ignore_validation(current_config: Dict) -> bool`
+        :param is_valid_value: OPTIONAL helper function for validating, if the configuration item currently has a valid
+                               value: by default (i.e. if omitted) a valid value will be determined by using the
+                               `configuration_values` parameter; if validation needs special processing (e.g. depends on
+                               other configuration values), it can be implemented by using & setting this helper method:  \
+                               `is_valid_value(current_config: Dict) -> bool`
+        """
         self.config_path: list[str] = configuration_path
         self.is_ignore_validation: Optional[Callable[[dict], bool]] = is_ignore_validation
         self.is_valid_value: Optional[Callable[[any, Optional[dict]], bool]] = is_valid_value
