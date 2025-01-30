@@ -5,9 +5,9 @@ Anonymized audio and video in real-time. Can also be used to anonymize videos, e
 
 ---------
 
-<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
-
 __TOC__
+<!-- TOC depthFrom:2 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
+
 - [How to use the implementation](#how-to-use-the-implementation)
 - [Project Structure](#project-structure)
     - [Notes](#notes)
@@ -20,6 +20,8 @@ __TOC__
     - [Python-based Avatar Renderer (Default)](#python-based-avatar-renderer-default)
     - [Web-based Avatar Renderer (Legacy)](#web-based-avatar-renderer-legacy)
     - [Changing The Avatar](#changing-the-avatar)
+- [Development](#development)
+    - [Add new Setting in GUI](#add-new-setting-in-gui)
 
 <!-- /TOC -->
 
@@ -40,37 +42,37 @@ An example is provided in the ./example folder. The general workflow is as follo
 The project is structured as follows:
 
 - **Processor.py**
-    - `Processor`: Abstract class providing basic functionality to process data, such as synchronization (`sync`) 
-                   and callback function handling (`process`). The `read_input_stream` and `write_output_stream` functions 
-                   are abstract and must be implemented in the child class. Since each function will be started in a new process, 
+    - `Processor`: Abstract class providing basic functionality to process data, such as synchronization (`sync`)
+                   and callback function handling (`process`). The `read_input_stream` and `write_output_stream` functions
+                   are abstract and must be implemented in the child class. Since each function will be started in a new process,
                    the class is only allowed to have attributes that are pickable.
     - `ProcessingQueues`: Provides all necessary multiprocessing queues for the `Processor` class.
     - `ProcessingSyncState`: Provides all necessary multiprocessing values to synchronize different processes.
     - `ProcessorProcessHandler`: Has only two functions used to start and stop the functions of the `Processor` class in a new process.
 - **AudioProcessor.py**
-    - `AudioProcessor`: Extends the `Processor` class and provides all necessary functions to process audio data. 
+    - `AudioProcessor`: Extends the `Processor` class and provides all necessary functions to process audio data.
        Because each function will be started in a new process, the class is only allowed to have attributes that are pickable.
 - **VideoProcessor.py**
-    - `VideoProcessor`: Extends the `Processor` class and provides all necessary functions to process video data. 
+    - `VideoProcessor`: Extends the `Processor` class and provides all necessary functions to process video data.
       Because each function will be started in a new process, the class is only allowed to have attributes that are pickable.
 - **AudioVideoStreamer.py**
     - `AudioVideoStreamer`: Provides an API to combine the `AudioProcessor` and `VideoProcessor` classes and share their sync state.
 
 ### Notes
 
-In the `AudioVideoStreamer` class, an `AudioProcessor`, `VideoProcessor`, `ProcessingSyncState`, and `ProcessingQueues` object 
-is created for each processor. The queues are used in the corresponding processor to exchange data between the processes. 
-The `ProcessingSyncState` object is used to synchronize the different processors (`AudioProcessor` and `VideoProcessor`). 
-A `ProcessorProcessHandler` object is used to start and stop the processes of the `AudioProcessor` and `VideoProcessor` class. 
-When calling the `start` function of the handler, each function of the `Processor` gets called in its own process 
+In the `AudioVideoStreamer` class, an `AudioProcessor`, `VideoProcessor`, `ProcessingSyncState`, and `ProcessingQueues` object
+is created for each processor. The queues are used in the corresponding processor to exchange data between the processes.
+The `ProcessingSyncState` object is used to synchronize the different processors (`AudioProcessor` and `VideoProcessor`).
+A `ProcessorProcessHandler` object is used to start and stop the processes of the `AudioProcessor` and `VideoProcessor` class.
+When calling the `start` function of the handler, each function of the `Processor` gets called in its own process
 (`read`, `process`, `sync`, `write`).
 
-The different processes communicate through the multiprocessing queues and synchronize through the multiprocessing values 
-provided in the sync state. Due to multiprocessing, the `Processor` class is only allowed to have attributes that are pickable. 
+The different processes communicate through the multiprocessing queues and synchronize through the multiprocessing values
+provided in the sync state. Due to multiprocessing, the `Processor` class is only allowed to have attributes that are pickable.
 Therefore, the callback and `init_callback` functions must be defined outside the main function (see example).
 
-To reduce latency between the streams, the data is converted into torch tensors. Torch tensors are stored in shared memory 
-and can be accessed by all processes through the queues without copying the data. For numpy arrays, the data has to be 
+To reduce latency between the streams, the data is converted into torch tensors. Torch tensors are stored in shared memory
+and can be accessed by all processes through the queues without copying the data. For numpy arrays, the data has to be
 pickled and unpickled to be sent through the queues, which is very slow.
 
 
@@ -305,6 +307,41 @@ If you want to change or add avatars:
    ```
 5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
 
+-------------------
+
+## Development
+
+### Add new Setting in GUI
+
+A short guide on how to add a new setting (i.e. a configuration item from the `*.yaml` based config) in the GUI
+in [ras/stream_processing/gui/](ras/stream_processing/gui).
+
+The current implementation uses `ConfigurationItem`s to represent configuration properties in the GUI. They define
+ 1. the "path" to the configuration property within the YAML configuration (e.g. something like `["video", "use_video"]`)
+ 2. specify the allowed configuration values:  \
+    these (plus, if necessary, additional helper functions) allow to validate the current configuration, and thus allow
+    feedback to users in case there is a misconfiguration.
+
+To add a new setting in the GUI:
+
+1. __New Item:__ create a new `ConfigurationItem` in [gui/config_items.py](ras/stream_processing/gui/config_items.py):  
+   add this to the module constant `CONFIG_ITEMS`.
+
+2. __Validation:__ if the new setting's _valid value validation_ depends on other settings:
+   * e.g. a setting that is only relevant in case the avatar video-converter is selected, or if audio processing is enabled,
+     then add a `is_ignore_validation(current_config: Dict) -> bool` helper function to the configuration item.  
+   * As example, see `_do_set_ignore_validation_helpers()` where this is done for several item defined in `CONFIG_ITEMS`
+     (you may modify this function to add your own adjustments).
+
+3. __Add to GUI:__ then add a GUI widget for the new item to `ConfigDialog` in [gui/config_dlg.py](ras/stream_processing/gui/config_dlg.py)
+   * currently, this is done in the class' construction `__init__()`
+   * the class provides several helper functions to create some default widgets
+     * `_createCheckBoxFor(..)`: for creating a check-box widget (usually used for boolean settings)
+     * `_createComboBoxFor(..)`: for creating a combo-box widget (usually used for settings with a list of valid values)
+     * ... as well as some more intricate widgets like `_createSliderFor(..)` for creating slider control for number settings
+   * NOTE that the GUI somewhat duplicates the validation logic in order to enable/disable configuration item widgets:  
+     see for example local functions `_updateAvatarEnabled()`, `_updateAvatarRendererSelected()`,
+     `_set_audio_widgets_enabled()`, and `_set_video_widgets_enabled()`
 
 [1]: https://readyplayer.me/avatar
 [2]: https://docs.readyplayer.me/ready-player-me/api-reference/rest-api/avatars/get-3d-avatars
