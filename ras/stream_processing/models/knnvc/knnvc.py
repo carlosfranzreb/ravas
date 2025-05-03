@@ -101,10 +101,10 @@ class KnnVC(Converter):
         self.audio_queue.add(audio_in)
 
         # if energy is too low, return silence
-        energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
-        if torch.max(energy) < self.vad_threshold:
-            self.logger.debug(f"Energy too low ({torch.max(energy)}).")
-            return torch.zeros_like(audio_in, dtype=torch.int16)
+        #energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
+        #if torch.max(energy) < self.vad_threshold:
+        #    self.logger.debug(f"Energy too low ({torch.max(energy)}).")
+        #    return torch.zeros_like(audio_in, dtype=torch.int16)
 
         # convert the audio
         audio_concat = self.audio_queue.get().unsqueeze(0)
