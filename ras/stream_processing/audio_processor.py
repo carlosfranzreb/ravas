@@ -3,6 +3,7 @@ import logging
 import time
 import os
 import subprocess
+import numpy as np
 
 import pyaudio
 import sounddevice as sd
@@ -96,6 +97,9 @@ class AudioProcessor(Processor):
             if isinstance(audio_reader, wave.Wave_read):
                 bin_data = audio_reader.readframes(self.config["record_buffersize"])
                 ts = audio_reader.tell() / self.config["sampling_rate"]
+                # Signals the end of the file
+                if len(bin_data) == 0:
+                    return None,None
             else:
                 bin_data = audio_reader.read(
                     self.config["record_buffersize"], exception_on_overflow=False
@@ -103,6 +107,7 @@ class AudioProcessor(Processor):
                 ts = time.time()
 
             try:
+                bin_data = np.frombuffer(bin_data, dtype=np.int16).copy()
                 data = torch.frombuffer(bin_data, dtype=torch.int16)
                 return data, ts
             except ValueError as err:

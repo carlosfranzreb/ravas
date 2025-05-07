@@ -1,5 +1,9 @@
 import logging
 import time
+import wave
+import os
+import subprocess
+
 from copy import deepcopy
 from typing import Optional
 
@@ -161,8 +165,8 @@ class MainWindow(QMainWindow):
 
     def startStreaming(self):
 
-        config_copy = self.getConfig(as_copy=True)
-        config_problems = validate_config_values(config_copy)
+        self.config_copy = self.getConfig(as_copy=True)
+        config_problems = validate_config_values(self.config_copy)
         if config_problems:
             _logger.warning('found unknown configuration values (may be invalid and cause errors):\n  * ' +
                             '\n  * '.join(config_problems))
@@ -179,7 +183,7 @@ class MainWindow(QMainWindow):
         self._updateUiForStreaming(is_active=True)
 
         # start_streaming() would block the GUI for some time, so as task:
-        task = Task(start_streaming, config_copy)
+        task = Task(start_streaming, self.config_copy)
         task.signals.result.connect(self._setAudioVideoStreamer)
         task.signals.error.connect(self._handleAudioVideoStreamerError)
         self._threadpool.start(task)
@@ -214,6 +218,52 @@ class MainWindow(QMainWindow):
         logging.getLogger().error('%s, %s', msg, err_info[2])
         self.setStatusText(msg)
 
+    def get_wav_duration(self, filename):
+        with wave.open(filename, 'rb') as wav_file:
+            frames = wav_file.getnframes()
+            rate = wav_file.getframerate()
+            duration = frames / float(rate)
+            return duration
+   
+    def merge_audio_video(self, log_dir: str) -> None:
+        """
+        Merge the audio and video files into a single file.
+ 
+        Args:
+        - log_dir: The directory where the audio and video files are stored.
+        """
+        audio_file = os.path.join(log_dir, "audio.wav")
+        input_audio_file = os.path.join(log_dir, "input_audio.wav")
+        video_file = os.path.join(log_dir, "video." + self.config_copy["video"]["store_format"])
+        output_file = os.path.join(log_dir, "merged.mp4")
+        # Calculates the stretch factor and atempo to delay our audio
+        audio_duration = self.get_wav_duration(audio_file)
+        input_duration = self.get_wav_duration(input_audio_file)
+       
+        stretch_factor = input_duration / audio_duration
+        atempo_value = 1 / stretch_factor
+        with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:    
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i",
+                    audio_file,
+                    "-i",
+                    video_file,
+                    "-filter:a",
+                    f"atempo={atempo_value:.6f}",   #adjust tempo because ours is faster by a bit
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
+                    "-strict",
+                    "experimental",
+                    output_file,
+                ],
+                stdout=f,
+                stderr=f,
+            )
+
     def stopStreaming(self):
         print('stop streaming...')  # FIXME DEBUG
         self.setStatusText("Stopping streaming...")
@@ -241,6 +291,10 @@ class MainWindow(QMainWindow):
 
             self._log_worker.finished.connect(on_log_finished)
             self._log_thread.requestInterruption()
+
+            log_dir = self.config_copy["log_dir"]
+            if self.config_copy["audio"]["store"] and self.config_copy["video"]["store"]:
+                self.merge_audio_video(log_dir)
 
             # TESTING
             # start = time.time()
