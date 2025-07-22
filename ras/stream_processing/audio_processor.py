@@ -5,8 +5,8 @@ import os
 import subprocess
 import numpy as np
 
-import pyaudio
 import sounddevice as sd
+import pyaudio
 import torch
 
 import wave
