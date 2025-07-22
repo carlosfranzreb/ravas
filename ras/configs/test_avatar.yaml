@@ -1,9 +1,9 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file ./videos/mourinho.mp4
-define: &video_width 1280
-define: &video_height 720
+define: &video_file ./configs/videos/Test1.mp4
+define: &video_width 1620
+define: &video_height 1080
 
 video:
   max_unsynced_time: *max_unsynced_time
@@ -17,7 +17,7 @@ video:
   output_virtual_cam: false
   output_window: false
   store: true
-  store_format: "avi"
+  store_format: "mp4"
   converter:
     cls: stream_processing.models.Avatar
     width: *video_width
@@ -34,7 +34,7 @@ video:
 audio:
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
-  use_audio: true
+  use_audio: false
   output_buffersize: 600
   processing_size: 9600
   record_buffersize: 600
