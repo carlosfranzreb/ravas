@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file ./configs/videos/Test1.mp4
+define: &video_file /netscratch/fschulz/stream_processing/Test1.mp4
 define: &video_width 1620
 define: &video_height 1080
 

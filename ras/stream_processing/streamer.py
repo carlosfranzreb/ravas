@@ -1,6 +1,5 @@
 from torch.multiprocessing import Queue
 
-from .audio_processor import AudioProcessor
 from .processor import ProcessingSyncState, ProcessorHandler
 from .video_processor import VideoProcessor
 
@@ -20,6 +19,7 @@ class AudioVideoStreamer:
         log_level = config["log_level"]
 
         if self.use_audio:
+            from .audio_processor import AudioProcessor
             audio_processor = AudioProcessor(
                 config["audio"],
                 audio_sync_state,
