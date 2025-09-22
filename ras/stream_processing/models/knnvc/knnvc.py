@@ -40,7 +40,9 @@ class KnnVC(Converter):
 
         NOTE: if `target_feats_path` is a relative path, it will be resolved against the application directory.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
+        super().__init__(
+            name, config, input_queue, output_queue, log_queue, log_level, ready_signal
+        )
 
         # model config
         self.device = config["device"]
@@ -58,8 +60,12 @@ class KnnVC(Converter):
 
         # initialize the WavLM and HiFiGAN models, compiling them if needed
         input_size = config["prev_audio_queue"]["max_samples"]
-        self.wavlm = ort.InferenceSession(resolve_file_path(f"onnx/wavlm_{input_size}.onnx"))
-        self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{input_size}.onnx"))
+        self.wavlm = ort.InferenceSession(
+            resolve_file_path(f"onnx/wavlm_{input_size}.onnx")
+        )
+        self.hifigan = ort.InferenceSession(
+            resolve_file_path(f"onnx/hifigan_{input_size}.onnx")
+        )
 
         # load the target features
         self.target_feats = torch.load(self.target_feats_path)
@@ -101,8 +107,8 @@ class KnnVC(Converter):
         self.audio_queue.add(audio_in)
 
         # if energy is too low, return silence
-        #energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
-        #if torch.max(energy) < self.vad_threshold:
+        # energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
+        # if torch.max(energy) < self.vad_threshold:
         #    self.logger.debug(f"Energy too low ({torch.max(energy)}).")
         #    return torch.zeros_like(audio_in, dtype=torch.int16)
 

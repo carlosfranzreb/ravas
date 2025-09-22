@@ -4,7 +4,11 @@ import unittest
 import numpy as np
 
 import torch
-from ..stream_processing.processor import Processor, ProcessingQueues, ProcessingSyncState
+from ..stream_processing.processor import (
+    Processor,
+    ProcessingQueues,
+    ProcessingSyncState,
+)
 
 
 class TestSync(unittest.TestCase):

@@ -24,15 +24,17 @@ from ...utils import clear_queue
 
 
 class RenderAppType(Enum):
-    BROWSER = 'browser'
-    OPENGL_APP = 'opengl'
+    BROWSER = "browser"
+    OPENGL_APP = "opengl"
 
     @staticmethod
     def to_type(string: str):
         t = next((x for x in RenderAppType if x.value == string), None)
         if t:
             return t
-        raise ValueError('Invalid value "": must be one of ', [t.value for t in RenderAppType])
+        raise ValueError(
+            'Invalid value "": must be one of ', [t.value for t in RenderAppType]
+        )
 
 
 class Avatar(Converter):
@@ -49,7 +51,9 @@ class Avatar(Converter):
         """
         Initialize the Avatar Model.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
+        super().__init__(
+            name, config, input_queue, output_queue, log_queue, log_level, ready_signal
+        )
         self.log_queue = log_queue
         self.log_level = log_level
         self._stopped = False
@@ -69,9 +73,9 @@ class Avatar(Converter):
         self.detection_log_file: IO | None = None
 
         # convert old configuration, if necessary:
-        headless_window = config.get('show_chrome_window')
-        if headless_window is not None and config.get('show_renderer_window') is None:
-            config['show_renderer_window'] = headless_window
+        headless_window = config.get("show_chrome_window")
+        if headless_window is not None and config.get("show_renderer_window") is None:
+            config["show_renderer_window"] = headless_window
 
     def initializeFaceLandmarkerModel(self):
         """
@@ -94,30 +98,38 @@ class Avatar(Converter):
         detection_log_file = self.config.get("detection_log")
         if detection_log_file:
             if not os.path.isabs(detection_log_file):
-                detection_log_file = os.path.join(self.config.get("log_dir", ''), detection_log_file)
-            self.detection_log_file = open(detection_log_file, 'wt+', encoding='utf-8')
-            self.detection_log_file.write('[\n')
+                detection_log_file = os.path.join(
+                    self.config.get("log_dir", ""), detection_log_file
+                )
+            self.detection_log_file = open(detection_log_file, "wt+", encoding="utf-8")
+            self.detection_log_file.write("[\n")
 
     def initializeOpenGLRenderer(self):
         self.client_available = Event()
         in_queue = Queue()
         out_queue = Queue()
-        avatar_file_path = os.path.join(get_avatar_models_dir(), self.config.get('avatar_uri', 'avatar_1_f.glb'))
+        avatar_file_path = os.path.join(
+            get_avatar_models_dir(), self.config.get("avatar_uri", "avatar_1_f.glb")
+        )
         app_args = {
-            'model_path': avatar_file_path,
-            'input_queue': in_queue,
-            'output_queue': out_queue,
-            'run_headless': not self.config.get('show_renderer_window', False),
-            'log_queue': self.log_queue,
-            'log_level': self.log_level,
+            "model_path": avatar_file_path,
+            "input_queue": in_queue,
+            "output_queue": out_queue,
+            "run_headless": not self.config.get("show_renderer_window", False),
+            "log_queue": self.log_queue,
+            "log_level": self.log_level,
         }
-        render_app = Process(target=start_opengl_renderer, kwargs=app_args, name='opengl_render_app')
+        render_app = Process(
+            target=start_opengl_renderer, kwargs=app_args, name="opengl_render_app"
+        )
         if not self._stopped:
             render_app.start()
-            self.logger.info('Started OpenGL Rendering App (pid %s)', render_app.pid)
+            self.logger.info("Started OpenGL Rendering App (pid %s)", render_app.pid)
             self.logger.info("Waiting for OpenGL Rendering App to send ready signal")
             ready_signal = out_queue.get()
-            assert ready_signal is False, "did not expected 'ready' signal (value False)"
+            assert (
+                ready_signal is False
+            ), "did not expected 'ready' signal (value False)"
             self.client_available.set()
             self.logger.info("OpenGL Rendering App is ready")
 
@@ -129,48 +141,65 @@ class Avatar(Converter):
             self.render_app = render_app
             self.stop_render_app = in_queue
         else:
-            self.stopRenderer(render_app=render_app, stop_render_app=in_queue, renderer_type=RenderAppType.OPENGL_APP)
+            self.stopRenderer(
+                render_app=render_app,
+                stop_render_app=in_queue,
+                renderer_type=RenderAppType.OPENGL_APP,
+            )
 
     def initializeBrowserRenderer(self):
 
-        if not self.config.get('start_chrome_renderer', True):
-            self.logger.info('Disabled automated start of Chrome driver for rendering avatar.')
+        if not self.config.get("start_chrome_renderer", True):
+            self.logger.info(
+                "Disabled automated start of Chrome driver for rendering avatar."
+            )
             return
 
-        app_port = int(self.config.get('app_port', 3000))
-        use_extension = self.config.get('use_chrome_extension', True)
+        app_port = int(self.config.get("app_port", 3000))
+        use_extension = self.config.get("use_chrome_extension", True)
         if not use_extension:
             server_args = {
-                'port': app_port,
-                'log_queue': self.log_queue,
-                'log_level': self.log_level,
+                "port": app_port,
+                "log_queue": self.log_queue,
+                "log_level": self.log_level,
             }
-            render_app_server = Process(target=start_server, kwargs=server_args, name='render_app_server')
+            render_app_server = Process(
+                target=start_server, kwargs=server_args, name="render_app_server"
+            )
             if not self._stopped:
                 render_app_server.start()
-                self.logger.info('Started web Server for Rendering App (pid %s)', render_app_server.pid)
+                self.logger.info(
+                    "Started web Server for Rendering App (pid %s)",
+                    render_app_server.pid,
+                )
             else:
-                self.logger.info('Did not started web Server for Rendering App: already stopped!')
+                self.logger.info(
+                    "Did not started web Server for Rendering App: already stopped!"
+                )
         else:
             render_app_server = None
 
-        ws_port = int(self.config.get('ws_port', 8888))
-        render_app_stop = Queue()  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
+        ws_port = int(self.config.get("ws_port", 8888))
+        render_app_stop = (
+            Queue()
+        )  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
         app_args = {
-            'ws_addr': 'http://127.0.0.1:{}'.format(ws_port),
-            'stop_signal': render_app_stop,
-            'port': app_port,
-            'web_extension': use_extension,
-            'run_headless': not self.config.get('show_renderer_window', False),
-            'avatar_uri': self.config.get('avatar_uri', None),
-            'hide_avatar_selection': self.config.get('hide_avatar_selection', None),
-            'log_queue': self.log_queue,
-            'log_level': self.log_level,
+            "ws_addr": "http://127.0.0.1:{}".format(ws_port),
+            "stop_signal": render_app_stop,
+            "port": app_port,
+            "web_extension": use_extension,
+            "run_headless": not self.config.get("show_renderer_window", False),
+            "avatar_uri": self.config.get("avatar_uri", None),
+            "hide_avatar_selection": self.config.get("hide_avatar_selection", None),
+            "log_queue": self.log_queue,
+            "log_level": self.log_level,
         }
-        render_app = Process(target=start_browser, kwargs=app_args, name='render_app')
+        render_app = Process(target=start_browser, kwargs=app_args, name="render_app")
         if not self._stopped:
             render_app.start()
-            self.logger.info('Started Chrome Driver for Rendering App (pid %s)', render_app.pid)
+            self.logger.info(
+                "Started Chrome Driver for Rendering App (pid %s)", render_app.pid
+            )
 
         if not self._stopped:
             self.render_app_type = RenderAppType.BROWSER
@@ -178,21 +207,26 @@ class Avatar(Converter):
             self.render_app = render_app
             self.stop_render_app = render_app_stop
         else:
-            self.stopRenderer(render_app=render_app, stop_render_app=render_app_stop, render_server=render_app_server, renderer_type=RenderAppType.BROWSER)
+            self.stopRenderer(
+                render_app=render_app,
+                stop_render_app=render_app_stop,
+                render_server=render_app_server,
+                renderer_type=RenderAppType.BROWSER,
+            )
 
     def stopRenderer(
-            self,
-            render_app: Optional[Process] = None,
-            stop_render_app: Optional[Queue] = None,
-            render_server: Optional[Process] = None,
-            renderer_type: Optional[RenderAppType] = None,
+        self,
+        render_app: Optional[Process] = None,
+        stop_render_app: Optional[Queue] = None,
+        render_server: Optional[Process] = None,
+        renderer_type: Optional[RenderAppType] = None,
     ):
         self._stopped = True
 
         if self.detection_log_file:
             # NOTE add an empty object before closing the array, to ensure a valid JSON format
             #      due to possible pending comma in previous entry / write to the file
-            self.detection_log_file.write('{}\n]\n')
+            self.detection_log_file.write("{}\n]\n")
             self.detection_log_file.close()
             self.detection_log_file = None
 
@@ -215,20 +249,28 @@ class Avatar(Converter):
             renderer_type = self.render_app_type
 
         if render_server and render_server.is_alive():
-            self.logger.info('Stopping Web Server Rendering App...')
+            self.logger.info("Stopping Web Server Rendering App...")
             render_server.terminate()
 
         if render_app and render_app.is_alive():
 
-            app_info_str = 'Chrome Driver for' if renderer_type == RenderAppType.BROWSER else 'OpenGL'
-            self.logger.info('Stopping %s Rendering App...', app_info_str)
+            app_info_str = (
+                "Chrome Driver for"
+                if renderer_type == RenderAppType.BROWSER
+                else "OpenGL"
+            )
+            self.logger.info("Stopping %s Rendering App...", app_info_str)
 
             if renderer_type == RenderAppType.BROWSER:
                 # NOTE need to signal the render_app process to stop, so that the chrome driver can be closed properly
                 #      (simply calling render_app.terminate() will leave chrome instance running)
-                stop_render_app.put(None)  # send value `None` for signaling the render_app to stop the chrome driver
+                stop_render_app.put(
+                    None
+                )  # send value `None` for signaling the render_app to stop the chrome driver
             else:
-                stop_render_app.put(None)  # NOTE: OpenGL render app expects None as stop signal!
+                stop_render_app.put(
+                    None
+                )  # NOTE: OpenGL render app expects None as stop signal!
 
             if is_wait_for_render_app_to_finish:
                 start = time.time()
@@ -236,15 +278,27 @@ class Avatar(Converter):
                 # (note: Chrome currently needs about ~6 secs to shut down)
                 for i in range(10):
                     render_app.join(1)
-                    self.logger.info('Waiting for %s Rendering App to stop (%.3f secs)...', app_info_str, time.time() - start)
+                    self.logger.info(
+                        "Waiting for %s Rendering App to stop (%.3f secs)...",
+                        app_info_str,
+                        time.time() - start,
+                    )
                     if not render_app.is_alive():
                         break
                 # if not stopped yet, force termination:
                 if render_app.is_alive():
-                    self.logger.info('Forcing %s to stop after waiting for %.3f secs!', app_info_str, time.time() - start)
+                    self.logger.info(
+                        "Forcing %s to stop after waiting for %.3f secs!",
+                        app_info_str,
+                        time.time() - start,
+                    )
                     render_app.terminate()
                 else:
-                    self.logger.info('Waited for %s to stop for %.3f secs!', app_info_str, time.time() - start)
+                    self.logger.info(
+                        "Waited for %s to stop for %.3f secs!",
+                        app_info_str,
+                        time.time() - start,
+                    )
 
     def initializeServer(self):
         """
@@ -277,7 +331,9 @@ class Avatar(Converter):
         output queue.
         """
 
-        renderer_type_str = self.config.get('avatar_renderer', RenderAppType.OPENGL_APP.value)
+        renderer_type_str = self.config.get(
+            "avatar_renderer", RenderAppType.OPENGL_APP.value
+        )
         self.render_app_type = RenderAppType.to_type(renderer_type_str)
 
         if self.render_app_type == RenderAppType.BROWSER:
@@ -322,23 +378,47 @@ class Avatar(Converter):
 
         # shutdown for avatar converter: print some stats, then put stop-signal on output queue
         if self.logger.isEnabledFor(logging.INFO):
-            self.logger.info('Duration for detecting (ms / frames): %s / %s (fps: %s)',
-                             (self.duration_detect / 1000000) if self.duration_detect != 0 else 0,
-                             self.count_detect,
-                             round(self.count_detect / (self.duration_detect / 1000000000)) if self.duration_detect != 0 and self.count_detect != 0 else 0)
-            self.logger.info('Duration for rendering (ms / frames): %s / %s (fps: %s)',
-                             (self.duration_render / 1000000) if self.duration_render != 0 else 0,
-                             self.count_render,
-                             round(self.count_render / (self.duration_render / 1000000000)) if self.count_render != 0 and self.duration_render != 0 else 0)  # FIXME perf
+            self.logger.info(
+                "Duration for detecting (ms / frames): %s / %s (fps: %s)",
+                (self.duration_detect / 1000000) if self.duration_detect != 0 else 0,
+                self.count_detect,
+                (
+                    round(self.count_detect / (self.duration_detect / 1000000000))
+                    if self.duration_detect != 0 and self.count_detect != 0
+                    else 0
+                ),
+            )
+            self.logger.info(
+                "Duration for rendering (ms / frames): %s / %s (fps: %s)",
+                (self.duration_render / 1000000) if self.duration_render != 0 else 0,
+                self.count_render,
+                (
+                    round(self.count_render / (self.duration_render / 1000000000))
+                    if self.count_render != 0 and self.duration_render != 0
+                    else 0
+                ),
+            )  # FIXME perf
             # FIXME note that simply adding detection and rendering time may not be accurate,
             #       if they are running (partially) in parallel, but even then, it may give a rough
             #       understanding or estimate of the total time / frame rate
-            self.logger.info('Estimated duration for detecting & rendering (ms / frames): %s / %s (fps: %s)',
-                             ((self.duration_detect + self.duration_render) / 1000000) if self.duration_detect + self.duration_render != 0 else 0,
-                             self.count_detect + self.count_render,
-                             round((self.count_detect + self.count_render) / (
-                                     (self.duration_detect + self.duration_render) / 1000000000))
-                             if self.count_detect + self.count_render != 0 and self.duration_detect + self.duration_render != 0 else 0)  # FIXME perf
+            self.logger.info(
+                "Estimated duration for detecting & rendering (ms / frames): %s / %s (fps: %s)",
+                (
+                    ((self.duration_detect + self.duration_render) / 1000000)
+                    if self.duration_detect + self.duration_render != 0
+                    else 0
+                ),
+                self.count_detect + self.count_render,
+                (
+                    round(
+                        (self.count_detect + self.count_render)
+                        / ((self.duration_detect + self.duration_render) / 1000000000)
+                    )
+                    if self.count_detect + self.count_render != 0
+                    and self.duration_detect + self.duration_render != 0
+                    else 0
+                ),
+            )  # FIXME perf
 
         self.stopRenderer()
         # signal end-of-stream for writer via output-queue
@@ -379,9 +459,9 @@ class Avatar(Converter):
 
         if self.detection_log_file:
             log_data = out_dict.copy()
-            log_data['ts'] = ms_timestamp
+            log_data["ts"] = ms_timestamp
             self.detection_log_file.write(json.dumps(log_data, ensure_ascii=False))
-            self.detection_log_file.write(',\n')
+            self.detection_log_file.write(",\n")
 
         return out_dict
 
@@ -409,7 +489,7 @@ class Avatar(Converter):
                 self.render_app_input.put(face_detection_results)
             # wait for the client to send the avatar
             message = self.recv_queue.get(timeout=1)
-            
+
             self.duration_render += time.perf_counter_ns() - start_render  # FIXME perf
             self.count_render += 1
 

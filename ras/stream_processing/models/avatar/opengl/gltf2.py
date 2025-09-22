@@ -1,4 +1,3 @@
-
 # ##############################################################
 # [russa] MODIFIED source file from
 # https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/loaders/scene/gltf2.py
@@ -91,6 +90,7 @@ ACCESSOR_TYPE = {
     "MAT4": 4 * 4,
 }
 
+
 class Loader(BaseLoader):
     """Loader for GLTF 2.0 files"""
 
@@ -154,7 +154,9 @@ class Loader(BaseLoader):
         if self.path.suffix == ".glb":
             self.load_glb()
 
-        assert self.gltf is not None, "There is a problem with your file, could not load gltf"
+        assert (
+            self.gltf is not None
+        ), "There is a problem with your file, could not load gltf"
 
         self.gltf.check_version()
         self.gltf.check_extensions(self.supported_extensions)
@@ -201,7 +203,9 @@ class Loader(BaseLoader):
             chunk_0_type = fd.read(4)
             if chunk_0_type != b"JSON":
                 raise ValueError(
-                    "Expected JSON chunk, not {!r} in file {}".format(chunk_0_type, self.path)
+                    "Expected JSON chunk, not {!r} in file {}".format(
+                        chunk_0_type, self.path
+                    )
                 )
 
             json_meta = fd.read(chunk_0_length).decode()
@@ -211,7 +215,9 @@ class Loader(BaseLoader):
             chunk_1_type = fd.read(4)
             if chunk_1_type != b"BIN\x00":
                 raise ValueError(
-                    "Expected BIN chunk, not {!r} in file {}".format(chunk_1_type, self.path)
+                    "Expected BIN chunk, not {!r} in file {}".format(
+                        chunk_1_type, self.path
+                    )
                 )
 
             self.gltf = GLTFMeta(
@@ -235,7 +241,9 @@ class Loader(BaseLoader):
          * loaded meshes
         """
         for skin_id, skin in enumerate(self.gltf.skins):
-            self.skins.append(skin.load(skin_id, self.gltf.nodes, self.node_ids, self.meshes))
+            self.skins.append(
+                skin.load(skin_id, self.gltf.nodes, self.node_ids, self.meshes)
+            )
 
     def load_samplers(self) -> None:
         """Load samplers referenced in gltf metadata"""
@@ -359,15 +367,31 @@ class GLTFMeta:
 
         self.asset = GLTFAsset(data["asset"])
         self.materials = (
-            [GLTFMaterial(m) for m in data["materials"]] if data.get("materials") else []
+            [GLTFMaterial(m) for m in data["materials"]]
+            if data.get("materials")
+            else []
         )
-        self.images = [GLTFImage(i) for i in data["images"]] if data.get("images") else []
-        self.samplers = [GLTFSampler(s) for s in data["samplers"]] if data.get("samplers") else []
-        self.textures = [GLTFTexture(t) for t in data["textures"]] if data.get("textures") else []
-        self.scenes = [GLTFScene(s) for s in data["scenes"]] if data.get("scenes") else []
+        self.images = (
+            [GLTFImage(i) for i in data["images"]] if data.get("images") else []
+        )
+        self.samplers = (
+            [GLTFSampler(s) for s in data["samplers"]] if data.get("samplers") else []
+        )
+        self.textures = (
+            [GLTFTexture(t) for t in data["textures"]] if data.get("textures") else []
+        )
+        self.scenes = (
+            [GLTFScene(s) for s in data["scenes"]] if data.get("scenes") else []
+        )
         self.nodes = [GLTFNode(n) for n in data["nodes"]] if data.get("nodes") else []
-        self.meshes = [GLTFMesh(m, self.meta) for m in data["meshes"]] if data.get("meshes") else []
-        self.cameras = [GLTFCamera(c) for c in data["cameras"]] if data.get("cameras") else []
+        self.meshes = (
+            [GLTFMesh(m, self.meta) for m in data["meshes"]]
+            if data.get("meshes")
+            else []
+        )
+        self.cameras = (
+            [GLTFCamera(c) for c in data["cameras"]] if data.get("cameras") else []
+        )
         self.skins = [GLTFSkin(s) for s in data["skins"]] if data.get("skins") else []
         self.buffer_views = (
             [GLTFBufferView(i, v) for i, v in enumerate(data["bufferViews"])]
@@ -454,7 +478,9 @@ class GLTFMeta:
             for ext in extUse:
                 if ext not in supported:
                     # raise ValueError(f"Extension '{ext}' not supported")
-                    logger.warning(f"Used (but not required) extension '{ext}' is not supported")
+                    logger.warning(
+                        f"Used (but not required) extension '{ext}' is not supported"
+                    )
 
     def buffers_exist(self) -> None:
         """Checks if the bin files referenced exist"""
@@ -522,19 +548,23 @@ class GLTFMesh:
         for primitive in self.primitives:
             # Handle draco compressed meshes
             if primitive.extensions.get("KHR_draco_mesh_compression"):
-                buffer_view = primitive.extensions["KHR_draco_mesh_compression"]["bufferView"]
+                buffer_view = primitive.extensions["KHR_draco_mesh_compression"][
+                    "bufferView"
+                ]
                 data = buffer_view.read_raw()
                 try:
                     import DracoPy
                 except ImportError:
-                    raise ImportError("DracoPy is required to load draco compressed meshes")
+                    raise ImportError(
+                        "DracoPy is required to load draco compressed meshes"
+                    )
                 mesh = DracoPy.decode(data)
 
                 attributes = {
-                    'POSITION': {
-                        'name': name_map["POSITION"],
-                        'components': 3,
-                        'type': 5126,
+                    "POSITION": {
+                        "name": name_map["POSITION"],
+                        "components": 3,
+                        "type": 5126,
                     }
                 }
 
@@ -551,23 +581,27 @@ class GLTFMesh:
                         name_map["TEXCOORD_0"],
                     )
                     attributes["TEXCOORD_0"] = {
-                        'name': name_map["TEXCOORD_0"],
-                        'components': 2,
-                        'type': 5126,
+                        "name": name_map["TEXCOORD_0"],
+                        "components": 2,
+                        "type": 5126,
                     }
                 if mesh.normals is not None and mesh.normals.any():
-                    vao.buffer(ctx.buffer(mesh.normals.astype("f4")), "3f", name_map["NORMAL"])
+                    vao.buffer(
+                        ctx.buffer(mesh.normals.astype("f4")), "3f", name_map["NORMAL"]
+                    )
                     attributes["NORMAL"] = {
-                        'name': name_map["NORMAL"],
-                        'components': 3,
-                        'type': 5126,
+                        "name": name_map["NORMAL"],
+                        "components": 3,
+                        "type": 5126,
                     }
                 if mesh.colors is not None and mesh.colors.any():
-                    vao.buffer(ctx.buffer(mesh.colors.astype("f4")), "4f", name_map["COLOR_0"])
+                    vao.buffer(
+                        ctx.buffer(mesh.colors.astype("f4")), "4f", name_map["COLOR_0"]
+                    )
                     attributes["COLOR_0"] = {
-                        'name': name_map["COLOR_0"],
-                        'components': 4,
-                        'type': 5126,
+                        "name": name_map["COLOR_0"],
+                        "components": 4,
+                        "type": 5126,
                     }
 
                 bbox_min, bbox_max = self.get_bbox(primitive)
@@ -578,7 +612,8 @@ class GLTFMesh:
                         attributes=attributes,
                         material=(
                             materials[primitive.material]
-                            if primitive.material is not None else None
+                            if primitive.material is not None
+                            else None
                         ),
                         bbox_min=bbox_min,
                         bbox_max=bbox_max,
@@ -629,7 +664,8 @@ class GLTFMesh:
                         attributes=attributes,
                         material=(
                             materials[primitive.material]
-                            if primitive.material is not None else None
+                            if primitive.material is not None
+                            else None
                         ),
                         bbox_min=bbox_min,
                         bbox_max=bbox_max,
@@ -652,13 +688,13 @@ class GLTFMesh:
         return component_type, buffer
 
     def load_targets(
-            self, primitive: Primitives, ctx: moderngl.Context
+        self, primitive: Primitives, ctx: moderngl.Context
     ) -> Tuple[glm.vec2, moderngl.TextureArray]:
 
         morphTargetsCount = len(primitive.targets)
 
         vertexDataCount = 1  # only position, no normals or colors
-        width = primitive.attributes['POSITION'].count * vertexDataCount
+        width = primitive.attributes["POSITION"].count * vertexDataCount
         height = 1
 
         bins = []
@@ -667,14 +703,18 @@ class GLTFMesh:
         for i, morphTarget in enumerate(primitive.targets):
             num, component_type, data = morphTarget["_accessor"].read()
             # extend vec3 -> vec4 with 0.0 as last component:
-            vec4_data = numpy.hstack((data, numpy.zeros((data.shape[0], 1))), dtype=data.dtype)
+            vec4_data = numpy.hstack(
+                (data, numpy.zeros((data.shape[0], 1))), dtype=data.dtype
+            )
             bins.append(vec4_data)
 
         # buffer = numpy.concatenate(bins, axis=0)
         buffer = numpy.array(bins)
 
         # RGBA (4 component) f4 texture array
-        texture = ctx.texture_array((width, height, morphTargetsCount), 4, dtype='f4', data=buffer.tobytes())
+        texture = ctx.texture_array(
+            (width, height, morphTargetsCount), 4, dtype="f4", data=buffer.tobytes()
+        )
 
         # with open('test.bin', 'wb') as f: f.write(buffer.tobytes())
 
@@ -826,14 +866,18 @@ class GLTFAccessor:
         """
         return self.bufferView.read_raw(byte_offset=self.byteOffset)
 
-    def info(self) -> tuple[GLTFBuffer, GLTFBufferView, int, int, ComponentType, int, int, int]:
+    def info(
+        self,
+    ) -> tuple[GLTFBuffer, GLTFBufferView, int, int, ComponentType, int, int, int]:
         """
         Get underlying buffer info for this accessor
 
         Return:
             buffer, byte_length, byte_offset, component_type, count
         """
-        buffer, byte_length, byte_offset = self.bufferView.info(byte_offset=self.byteOffset)
+        buffer, byte_length, byte_offset = self.bufferView.info(
+            byte_offset=self.byteOffset
+        )
         return (
             buffer,
             self.bufferView,
@@ -847,7 +891,11 @@ class GLTFAccessor:
 
     def __str__(self) -> str:
         return "Accessor<id={}, bufferView={}, byteOffset={}, componentType={}, count={}>".format(
-            self.id, self.bufferViewId, self.byteOffset, self.componentType.name, self.count
+            self.id,
+            self.bufferViewId,
+            self.byteOffset,
+            self.componentType.name,
+            self.count,
         )
 
 
@@ -862,7 +910,11 @@ class GLTFBufferView:
         # Valid: 34962 (ARRAY_BUFFER) and 34963 (ELEMENT_ARRAY_BUFFER) or None
 
     def read(
-        self, byte_offset: int = 0, dtype: Optional[type[object]] = None, count: int = 0, accessorType: Optional[Union[str, int]] = None
+        self,
+        byte_offset: int = 0,
+        dtype: Optional[type[object]] = None,
+        count: int = 0,
+        accessorType: Optional[Union[str, int]] = None,
     ) -> npt.NDArray[Any]:
         data = self.buffer.read(
             byte_offset=byte_offset + self.byteOffset,
@@ -870,8 +922,14 @@ class GLTFBufferView:
         )
         if self.byteStride:
             start = 0  # self.byteOffset + byte_offset
-            per_item = ACCESSOR_TYPE[accessorType] if isinstance(accessorType, str) else accessorType
-            per_count = numpy.abs(numpy.prod(per_item))  # number of items when flattened, i.e. a (4, 4) MAT4 has 16
+            per_item = (
+                ACCESSOR_TYPE[accessorType]
+                if isinstance(accessorType, str)
+                else accessorType
+            )
+            per_count = numpy.abs(
+                numpy.prod(per_item)
+            )  # number of items when flattened, i.e. a (4, 4) MAT4 has 16
             item_count = int(count / per_item)
 
             cl_dtype = numpy.dtype(dtype)
@@ -954,7 +1012,9 @@ class GLTFBuffer:
             self.data = base64.b64decode(self.uri[self.uri.find(",") + 1 :])
             return
 
-        with open(str(self.path / (self.uri if self.uri is not None else "")), "rb") as fd:
+        with open(
+            str(self.path / (self.uri if self.uri is not None else "")), "rb"
+        ) as fd:
             self.data = fd.read()
 
     def read(self, byte_offset: int = 0, byte_length: int = 0) -> bytes:
@@ -969,14 +1029,22 @@ class GLTFScene:
 
 class GLTFSkin:
     def __init__(self, data: dict[str, list[int]]):
-        self.name: str = data.get("name", '')
+        self.name: str = data.get("name", "")
         self.inverseBindMatrices: int = data.get("inverseBindMatrices", -1)
         self.joints: List[int] = data.get("joints")
         self.inverseBindMatricesAccessor: GLTFAccessor
 
-    def load(self, skin_id, meta_nodes: List[GLTFNode], node_ids: Dict[int, Node], meshes: List[List[Mesh]]):  # -> Skeleton:
+    def load(
+        self,
+        skin_id,
+        meta_nodes: List[GLTFNode],
+        node_ids: Dict[int, Node],
+        meshes: List[List[Mesh]],
+    ):  # -> Skeleton:
 
-        owner_meta_node, owner_node_id = next(((n, i) for i, n in enumerate(meta_nodes) if n.skin == skin_id))
+        owner_meta_node, owner_node_id = next(
+            ((n, i) for i, n in enumerate(meta_nodes) if n.skin == skin_id)
+        )
         owner_node = node_ids.get(owner_node_id)
         mesh_id = owner_meta_node.mesh
 
@@ -985,9 +1053,13 @@ class GLTFSkin:
 
         components, component_type, data = self.inverseBindMatricesAccessor.read()
 
-        size = int(math.sqrt(components))  # FIXME for shaping, assumes that the component type is a matrix!
+        size = int(
+            math.sqrt(components)
+        )  # FIXME for shaping, assumes that the component type is a matrix!
         dtype = NP_COMPONENT_DTYPE[component_type.value]
-        bone_inverses = data.view(dtype).reshape((self.inverseBindMatricesAccessor.count, size, size))  # TODO reshape to list of mat4
+        bone_inverses = data.view(dtype).reshape(
+            (self.inverseBindMatricesAccessor.count, size, size)
+        )  # TODO reshape to list of mat4
 
         bones = []
         for jn_id in self.joints:

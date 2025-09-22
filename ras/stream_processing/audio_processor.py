@@ -56,7 +56,11 @@ class AudioProcessor(Processor):
         worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("audio_input")
 
-        logger.info('Using audio device indices AUDIO_INPUT=%s | AUDIO_OUTPUT=%s', self.input_device, self.output_device)
+        logger.info(
+            "Using audio device indices AUDIO_INPUT=%s | AUDIO_OUTPUT=%s",
+            self.input_device,
+            self.output_device,
+        )
 
         # Create a PyAudio object to read the audio stream
         if self.config["video_file"]:
@@ -99,7 +103,7 @@ class AudioProcessor(Processor):
                 ts = audio_reader.tell() / self.config["sampling_rate"]
                 # Signals the end of the file
                 if len(bin_data) == 0:
-                    return None,None
+                    return None, None
             else:
                 bin_data = audio_reader.read(
                     self.config["record_buffersize"], exception_on_overflow=False
@@ -125,11 +129,13 @@ class AudioProcessor(Processor):
 
         self.queues.ready.wait()
         if self.external_sync_state.ready:
-            logger.info('audio converter is ready, waiting for video converter to be ready...')
+            logger.info(
+                "audio converter is ready, waiting for video converter to be ready..."
+            )
             self.external_sync_state.ready.wait()
-            logger.info('audio and video converter are ready, start reading audio')
+            logger.info("audio and video converter are ready, start reading audio")
         else:
-            logger.info('audio converter is ready, starting to process input...')
+            logger.info("audio converter is ready, starting to process input...")
 
         while True:
             (processing_time, processing_data), (
@@ -218,7 +224,9 @@ def get_device_idx(device_name: str | int, is_input: bool) -> int:
                 return idx
             elif not is_input and device["max_output_channels"] > 0:
                 return idx
-    raise ValueError(f"Device {device_name} not found. Device list ({len(devices)}): {devices}")
+    raise ValueError(
+        f"Device {device_name} not found. Device list ({len(devices)}): {devices}"
+    )
 
 
 def get_wav_obj(path: str, sample_rate: int) -> wave.Wave_write:

@@ -70,9 +70,9 @@ class GLTFRenderer(WindowConfig):
 
         # TODO make configurable
         self.camera_config = {
-            'fov': 10.0,  # ~ zoom for camera (smaller value ~ larger zoom)
-            'near': 0.1,
-            'far': 20.0,
+            "fov": 10.0,  # ~ zoom for camera (smaller value ~ larger zoom)
+            "near": 0.1,
+            "far": 20.0,
         }
 
         # TODO make configurable
@@ -111,7 +111,12 @@ class GLTFRenderer(WindowConfig):
         self.wnd.clear_queues = self.clear_queues
         self.wnd.enable_stats = self.enable_stats
 
-    def enable_render_queue_io(self, in_queue: Queue, out_queue: Queue, image_format: Literal['png', 'JPEG'] = 'JPEG'):
+    def enable_render_queue_io(
+        self,
+        in_queue: Queue,
+        out_queue: Queue,
+        image_format: Literal["png", "JPEG"] = "JPEG",
+    ):
         """
         enable rendering the images (from blendshapes data via `in_queue`) to `out_queue`
 
@@ -131,8 +136,13 @@ class GLTFRenderer(WindowConfig):
         self._set_image_format(image_format, for_storing=False)
         self.wnd.render_func = self._render_queue_io
 
-    def _DEBUG_enable_render_to_queue(self, out_queue: Queue, stop_on_data_end: bool = True, image_format: Literal['png', 'JPEG'] = 'JPEG'):
-        """ enable rendering the images (from recorded blendshapes data) to `out_queue`
+    def _DEBUG_enable_render_to_queue(
+        self,
+        out_queue: Queue,
+        stop_on_data_end: bool = True,
+        image_format: Literal["png", "JPEG"] = "JPEG",
+    ):
+        """enable rendering the images (from recorded blendshapes data) to `out_queue`
 
         NOTE: requires recorded blendshapes (see [[load_blendshapes_data()]]) to be loaded
 
@@ -151,8 +161,13 @@ class GLTFRenderer(WindowConfig):
         self._set_image_format(image_format, for_storing=False)
         self.wnd.render_func = self._render_to_queue
 
-    def enable_render_and_store_images(self, out_dir: Optional[str] = None, stop_on_data_end: bool = True, image_format: Literal['png', 'JPEG'] = 'JPEG'):
-        """ enable rendering the images (from recorded blendshapes data) & store them in directory `out_dir`
+    def enable_render_and_store_images(
+        self,
+        out_dir: Optional[str] = None,
+        stop_on_data_end: bool = True,
+        image_format: Literal["png", "JPEG"] = "JPEG",
+    ):
+        """enable rendering the images (from recorded blendshapes data) & store them in directory `out_dir`
 
         NOTE: requires recorded blendshapes (see [[load_blendshapes_data()]]) to be loaded
 
@@ -179,7 +194,7 @@ class GLTFRenderer(WindowConfig):
         self.wnd.render_func = self._render_to_images
 
     def enable_stats(self, enable: bool):
-        """ NOTE: only supported in default render function (i.e. if none of the `enable_render_xxx()` were invoked) """
+        """NOTE: only supported in default render function (i.e. if none of the `enable_render_xxx()` were invoked)"""
         if enable:
             self.render_stats = True
             if not self.writer:
@@ -187,17 +202,33 @@ class GLTFRenderer(WindowConfig):
         else:
             self.render_stats = False
 
-    def _set_image_format(self, image_format: Literal['png', 'JPEG'] = 'JPEG', for_storing: bool = True):
-        if image_format == 'png':
+    def _set_image_format(
+        self, image_format: Literal["png", "JPEG"] = "JPEG", for_storing: bool = True
+    ):
+        if image_format == "png":
             get_func = self._get_png_image
-            set_func = self._save_png_image_to_file if for_storing else self._put_png_image_in_queue
-        elif image_format == 'JPEG':
+            set_func = (
+                self._save_png_image_to_file
+                if for_storing
+                else self._put_png_image_in_queue
+            )
+        elif image_format == "JPEG":
             get_func = self._get_jpg_image
-            set_func = self._save_jpg_image_to_file if for_storing else self._put_jpg_image_in_queue
+            set_func = (
+                self._save_jpg_image_to_file
+                if for_storing
+                else self._put_jpg_image_in_queue
+            )
         else:
-            logging.getLogger().warning('INVALID image format "%s", using "JPEG" instead', image_format)
+            logging.getLogger().warning(
+                'INVALID image format "%s", using "JPEG" instead', image_format
+            )
             get_func = self._get_jpg_image
-            set_func = self._save_jpg_image_to_file if for_storing else self._put_jpg_image_in_queue
+            set_func = (
+                self._save_jpg_image_to_file
+                if for_storing
+                else self._put_jpg_image_in_queue
+            )
         self.get_image_from_buffer = get_func
         self.do_output_image = set_func
 
@@ -249,9 +280,8 @@ class GLTFRenderer(WindowConfig):
         if self.camera_position:
             self.camera.position = self.camera_position
         else:
-            self.camera.position = (
-                    self.scene.get_center()
-                    + glm.vec3(0.0, 0.75, self.scene.diagonal_size / 1.5)
+            self.camera.position = self.scene.get_center() + glm.vec3(
+                0.0, 0.75, self.scene.diagonal_size / 1.5
             )
 
         self.texture_morph_prog = self.create_program()
@@ -260,9 +290,9 @@ class GLTFRenderer(WindowConfig):
         # update global transformations for all nodes in (first) scene:
         self.scene.root_nodes[0].calc_model_mat(self.global_matrix)
 
-        self.node_head = self.scene.find_node('Head')
-        self.node_neck = self.scene.find_node('Neck')
-        self.node_spine2 = self.scene.find_node('Spine2')
+        self.node_head = self.scene.find_node("Head")
+        self.node_neck = self.scene.find_node("Neck")
+        self.node_spine2 = self.scene.find_node("Spine2")
 
     def create_program(self) -> MeshProgram:
         texture_morph_prog = TextureLightSkeletonMorphProgram()
@@ -281,11 +311,13 @@ class GLTFRenderer(WindowConfig):
         return texture_morph_prog
 
     def load_blendshapes_data(self, data_path: str) -> List[Dict]:
-        with open(data_path, 'r', encoding='utf-8') as f:
+        with open(data_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data
 
-    def update_morph_from_data(self, mesh: Mesh, time: float, force: bool = False) -> bool:
+    def update_morph_from_data(
+        self, mesh: Mesh, time: float, force: bool = False
+    ) -> bool:
 
         if self.morph_data_index >= self.morph_data_size:
             self.morph_data_index = 0
@@ -333,18 +365,31 @@ class GLTFRenderer(WindowConfig):
 
             # head_rot_quat = glm.quat(glm.vec3(euler.x, euler.y, euler.z))
             head_rot_inv = glm.inverse(
-                glm.mat4_cast(glm.quat(self.node_head.matrix)))  # <- "un-rotate" head, then apply new rotation
-            self.node_head.matrix = self.node_head.matrix * head_rot_inv * glm.mat4_cast(rot_quat)  # rot_mat
+                glm.mat4_cast(glm.quat(self.node_head.matrix))
+            )  # <- "un-rotate" head, then apply new rotation
+            self.node_head.matrix = (
+                self.node_head.matrix * head_rot_inv * glm.mat4_cast(rot_quat)
+            )  # rot_mat
 
-            neck_rot_quat = glm.quat(glm.vec3(euler.x / 5 + 0.3, euler.y / 5, euler.z / 5))
+            neck_rot_quat = glm.quat(
+                glm.vec3(euler.x / 5 + 0.3, euler.y / 5, euler.z / 5)
+            )
             neck_rot_inv = glm.inverse(
-                glm.mat4_cast(glm.quat(self.node_neck.matrix)))  # <- "un-rotate" neck, then apply new rotation
-            self.node_neck.matrix = self.node_neck.matrix * neck_rot_inv * glm.mat4_cast(neck_rot_quat)
+                glm.mat4_cast(glm.quat(self.node_neck.matrix))
+            )  # <- "un-rotate" neck, then apply new rotation
+            self.node_neck.matrix = (
+                self.node_neck.matrix * neck_rot_inv * glm.mat4_cast(neck_rot_quat)
+            )
 
-            spine_rot_quat = glm.quat(glm.vec3(euler.x / 10, euler.y / 10, euler.z / 10))
+            spine_rot_quat = glm.quat(
+                glm.vec3(euler.x / 10, euler.y / 10, euler.z / 10)
+            )
             spine_rot_inv = glm.inverse(
-                glm.mat4_cast(glm.quat(self.node_spine2.matrix)))  # <- "un-rotate" spine, then apply new rotation
-            self.node_spine2.matrix = self.node_spine2.matrix * spine_rot_inv * glm.mat4_cast(spine_rot_quat)
+                glm.mat4_cast(glm.quat(self.node_spine2.matrix))
+            )  # <- "un-rotate" spine, then apply new rotation
+            self.node_spine2.matrix = (
+                self.node_spine2.matrix * spine_rot_inv * glm.mat4_cast(spine_rot_quat)
+            )
 
             did_modify = True
 
@@ -356,7 +401,7 @@ class GLTFRenderer(WindowConfig):
         return True
 
     def on_render(self, time: float, frame_time: float):
-        """ Render the scene (default render function) """
+        """Render the scene (default render function)"""
 
         if self.has_morph_data:
             if self.update_morph_from_data(self.model_mesh, time):
@@ -385,20 +430,26 @@ class GLTFRenderer(WindowConfig):
         # )
 
         if self.render_stats:
-            self.writer.text = f'Camera Position: {str(self.camera.position)}'
+            self.writer.text = f"Camera Position: {str(self.camera.position)}"
             self.writer.draw((10, self.window_size[1] - 20), size=20)
 
-            self.writer.text = 'Keyboard: UP = Q, DOWN = E, LEFT = A, RIGHT = D, FORWARD = W, BACKWARD = S'
+            self.writer.text = "Keyboard: UP = Q, DOWN = E, LEFT = A, RIGHT = D, FORWARD = W, BACKWARD = S"
             self.writer.draw((10, self.window_size[1] - 40), size=20)
 
-            self.writer.text = 'FPS: {:.2f}'.format(self.timer.fps_average)
+            self.writer.text = "FPS: {:.2f}".format(self.timer.fps_average)
             self.writer.draw((10, self.window_size[1] - 80), size=20)
 
             if self.has_morph_data:
-                self.writer.text = 'Morph no. {:04} / {:04}'.format(self.step % self.morph_data_size, self.morph_data_size)
+                self.writer.text = "Morph no. {:04} / {:04}".format(
+                    self.step % self.morph_data_size, self.morph_data_size
+                )
                 self.writer.draw((10, self.window_size[1] - 110), size=20)
 
-        if self.has_morph_data and self.stop_on_data_end and self.step > self.morph_data_size:
+        if (
+            self.has_morph_data
+            and self.stop_on_data_end
+            and self.step > self.morph_data_size
+        ):
             self.wnd.close()
 
     def on_close(self):
@@ -429,7 +480,7 @@ class GLTFRenderer(WindowConfig):
             # self.input_queue.close()
 
     def _render_to_images(self, time: float, frame_time: float):
-        """Render the scene and store to images in self.out_dir (will overwrite existing images!) """
+        """Render the scene and store to images in self.out_dir (will overwrite existing images!)"""
 
         if self.wnd.is_closing:
             return
@@ -455,7 +506,7 @@ class GLTFRenderer(WindowConfig):
             self.wnd.close()
 
     def _render_to_queue(self, time: float, frame_time: float):
-        """Render the scene and store put image to self.out_queue """
+        """Render the scene and store put image to self.out_queue"""
 
         if self.wnd.is_closing:
             return
@@ -481,14 +532,14 @@ class GLTFRenderer(WindowConfig):
             self.wnd.close()
 
     def _render_queue_io(self, time: float, frame_time: float):
-        """Render the scene and store put image to self.out_queue """
+        """Render the scene and store put image to self.out_queue"""
 
         if self.wnd.is_closing:
             return
 
         shapes = self.input_queue.get()
         if shapes is None:
-            logging.getLogger().info('received empty input: stop rendering now.')
+            logging.getLogger().info("received empty input: stop rendering now.")
             self.wnd.close()
             return
 
@@ -513,36 +564,47 @@ class GLTFRenderer(WindowConfig):
         self.step += 1
 
     def get_image_from_buffer(self) -> Image:
-        raise NotImplementedError('set to self._get_jpg_image or self._get_png_image')
+        raise NotImplementedError("set to self._get_jpg_image or self._get_png_image")
 
     def _get_jpg_image(self) -> Image:
-        image = Image.frombytes("RGB", self.wnd.fbo.size, self.wnd.fbo.read(components=3))
+        image = Image.frombytes(
+            "RGB", self.wnd.fbo.size, self.wnd.fbo.read(components=3)
+        )
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
         return image
 
     def _get_png_image(self) -> Image:
-        """ WARNING: note that using PNG over JPEG almost doubles the rendering time!  """
-        image = Image.frombytes("RGBA", self.wnd.fbo.size, self.wnd.fbo.read(components=4))
+        """WARNING: note that using PNG over JPEG almost doubles the rendering time!"""
+        image = Image.frombytes(
+            "RGBA", self.wnd.fbo.size, self.wnd.fbo.read(components=4)
+        )
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
         return image
 
     def do_output_image(self, image: Image) -> None:
-        raise NotImplementedError('set to self._save_[jpg | png]_image_to_file or self._put_[jpg | png]_image_in_queue')
+        raise NotImplementedError(
+            "set to self._save_[jpg | png]_image_to_file or self._put_[jpg | png]_image_in_queue"
+        )
 
     def _save_jpg_image_to_file(self, image: Image) -> None:
-        image.save(os.path.join(self.out_dir, f"scene_{self.step}.jpg"), format='JPEG', quality=95, subsampling=0)
+        image.save(
+            os.path.join(self.out_dir, f"scene_{self.step}.jpg"),
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+        )
 
     def _put_jpg_image_in_queue(self, image: Image) -> None:
         temp = BytesIO()
-        image.save(temp, format='JPEG', quality=95, subsampling=0)
+        image.save(temp, format="JPEG", quality=95, subsampling=0)
         self.output_queue.put(temp.getvalue())
 
     def _save_png_image_to_file(self, image: Image) -> None:
-        image.save(os.path.join(self.out_dir, f"scene_{self.step}.png"), format='png')
+        image.save(os.path.join(self.out_dir, f"scene_{self.step}.png"), format="png")
 
     def _put_png_image_in_queue(self, image: Image) -> None:
         temp = BytesIO()
-        image.save(temp, format='png')
+        image.save(temp, format="png")
         self.output_queue.put(temp.getvalue())
 
 
@@ -551,9 +613,9 @@ if __name__ == "__main__":
     import moderngl_window
 
     headless = True
-    the_blendshapes_data_path = 'detectionLog.json'
-    the_model_path = os.join(__file__, '../../../../../../rpm/public/avatar_1_f.glb')
-    the_out_dir_path = os.path.realpath('output')
+    the_blendshapes_data_path = "detectionLog.json"
+    the_model_path = os.join(__file__, "../../../../../../rpm/public/avatar_1_f.glb")
+    the_out_dir_path = os.path.realpath("output")
 
     if headless:
         GLTFRenderer.hidden_window_framerate_limit = -1
@@ -576,4 +638,4 @@ if __name__ == "__main__":
 
     start_time = time.time()
     moderngl_window.run_window_config_instance(config)
-    print('duration: ', time.time() - start_time)
+    print("duration: ", time.time() - start_time)

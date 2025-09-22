@@ -1,21 +1,25 @@
 import os
 
 
-PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
+PROJECT_BASE_DIR = os.path.realpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+)
 """ root directory of project """
 
 # HACK "detect" if module is run from compiled EXEC (vs. run via normal python interpreter/script):
 #      compiled EXEC's "root directory" is only three dirs up (see also build configuration in `build_exec.spec`)
-if not os.path.exists(os.path.join(PROJECT_BASE_DIR, 'rpm')):
-    PROJECT_BASE_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if not os.path.exists(os.path.join(PROJECT_BASE_DIR, "rpm")):
+    PROJECT_BASE_DIR = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    )
 
 
 def get_web_extension_path() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension')
+    return os.path.join(PROJECT_BASE_DIR, "rpm", "dist", "chrome-extension")
 
 
 def get_web_extension_file() -> str:
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'dist', 'chrome-extension.crx')
+    return os.path.join(PROJECT_BASE_DIR, "rpm", "dist", "chrome-extension.crx")
 
 
 def get_avatar_models_dir() -> str:
@@ -26,4 +30,4 @@ def get_avatar_models_dir() -> str:
     unpacked_ext_dir_path = get_web_extension_path()
     if os.path.exists(unpacked_ext_dir_path):
         return unpacked_ext_dir_path
-    return os.path.join(PROJECT_BASE_DIR, 'rpm', 'public')
+    return os.path.join(PROJECT_BASE_DIR, "rpm", "public")

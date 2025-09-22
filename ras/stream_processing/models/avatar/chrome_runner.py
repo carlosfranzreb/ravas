@@ -14,16 +14,16 @@ from .avatar_resources import get_web_extension_file, get_web_extension_path
 from ...dist_logging import worker_configurer
 
 
-BASE_URL = 'http://localhost'
+BASE_URL = "http://localhost"
 """ default URL when starting chrome driver with web URL (i.e. not with extension) """
 PORT = 3000
 """ default port when starting chrome driver with web URL (i.e. not with extension) """
 WS_ADDR: Optional[str] = None  # 'http://127.0.0.1:8888'
 """ default address for web-socket (i.e. connection to python process), if `None`, the react-app will use its default setting """
-DEFAULT_EXTENSION_ID = 'mjioebaagpdpfjbicjponoajkbdphofk'
+DEFAULT_EXTENSION_ID = "mjioebaagpdpfjbicjponoajkbdphofk"
 """ default extension ID for packed & signed chrome extension """
 
-_chrome_version: str = ''
+_chrome_version: str = ""
 """ version (str) of the Chrome Broswer (will be detected, see `get_chrome_version()`) """
 
 
@@ -50,46 +50,60 @@ def get_chrome_version(logger: Optional[logging.Logger] = None) -> str:
         #              ... this will not take into account, if Chrome was updated in the meantime, but as a compromise
         #              the long-running detection is only done once
         if logger:
-            logger.debug('Start detecting Chrome version...')
+            logger.debug("Start detecting Chrome version...")
         # NOTE need to apply any fixed here already, to avoid any visibility problems
         #      IMPORTANT: must use `force`, otherwise it would this function circularly
-        options = fix_chrome_options(webdriver.ChromeOptions(), True, force=True, logger=logger)
+        options = fix_chrome_options(
+            webdriver.ChromeOptions(), True, force=True, logger=logger
+        )
         driver = webdriver.Chrome(options=options)
-        _chrome_version = driver.capabilities.get('browserVersion', '')
+        _chrome_version = driver.capabilities.get("browserVersion", "")
         driver.quit()
         if logger:
-            logger.debug('Detected Chrome version: %s', _chrome_version)
+            logger.debug("Detected Chrome version: %s", _chrome_version)
     return _chrome_version
 
 
-def create_options(start_extension: Optional[StartExtensionType] = None, extension_path: Optional[str] = None, run_headless: bool = True, debug_port: Optional[int] = None, logger: Optional[logging.Logger] = None) -> webdriver.ChromeOptions:
+def create_options(
+    start_extension: Optional[StartExtensionType] = None,
+    extension_path: Optional[str] = None,
+    run_headless: bool = True,
+    debug_port: Optional[int] = None,
+    logger: Optional[logging.Logger] = None,
+) -> webdriver.ChromeOptions:
     options = webdriver.ChromeOptions()
 
     if start_extension:
         if start_extension == StartExtensionType.PACKED_EXTENSION:
-            ext_path = get_web_extension_file() if not extension_path else extension_path
+            ext_path = (
+                get_web_extension_file() if not extension_path else extension_path
+            )
             if not os.path.exists(ext_path):
-                msg = 'Invalid path for packed web extension (file does not exist): "%s"'
+                msg = (
+                    'Invalid path for packed web extension (file does not exist): "%s"'
+                )
                 if logger:
                     logger.error(msg, ext_path)
                 else:
-                    print('ERROR ' + msg % ext_path, flush=True)
+                    print("ERROR " + msg % ext_path, flush=True)
             options.add_extension(ext_path)
         elif start_extension == StartExtensionType.UNPACKED_EXTENSION:
-            ext_path = get_web_extension_path() if not extension_path else extension_path
+            ext_path = (
+                get_web_extension_path() if not extension_path else extension_path
+            )
             if not os.path.exists(ext_path):
                 msg = 'Invalid path for unpacked web extension (directory does not exist): "%s"'
                 if logger:
                     logger.error(msg, ext_path)
                 else:
-                    print('ERROR ' + msg % ext_path, flush=True)
+                    print("ERROR " + msg % ext_path, flush=True)
             options.add_argument(f'load-extension="{ext_path}"')
 
     if run_headless:
         options.add_argument("--headless=new")
 
     if isinstance(debug_port, int):
-        options.add_argument('--remote-debugging-port={}'.format(debug_port))
+        options.add_argument("--remote-debugging-port={}".format(debug_port))
 
     # apply ony fixes, if necessary:
     fix_chrome_options(options, run_headless, logger=logger)
@@ -106,7 +120,12 @@ def create_options(start_extension: Optional[StartExtensionType] = None, extensi
     return options
 
 
-def fix_chrome_options(options: webdriver.ChromeOptions, is_headless: bool, force: bool = False, logger: Optional[logging.Logger] = None) -> webdriver.ChromeOptions:
+def fix_chrome_options(
+    options: webdriver.ChromeOptions,
+    is_headless: bool,
+    force: bool = False,
+    logger: Optional[logging.Logger] = None,
+) -> webdriver.ChromeOptions:
     """
     HELPER fix problems for Chrome by apply additional arguments, if necessary
 
@@ -117,15 +136,17 @@ def fix_chrome_options(options: webdriver.ChromeOptions, is_headless: bool, forc
     :returns: the `options` (with applied fixes, if necessary)
     """
     # do NOT call get_chrome_version() if force is enabled (otherwise it will cause circular invocations):
-    chrome_version = get_chrome_version(logger) if not force else ''
+    chrome_version = get_chrome_version(logger) if not force else ""
     if is_headless or force:
-        if not chrome_version or chrome_version.startswith('129.') or force:
+        if not chrome_version or chrome_version.startswith("129.") or force:
             # HACK for bug in Chrome 129.x on Windows, showing a blank window in new-headless mode:
             #      WORKAROUND move window off-screen
             #      see
             #      https://stackoverflow.com/a/78999088/4278324
             if logger:
-                logger.debug('Applying PATCH for Chrome version is 129.x: fix BUG that shows blank window')
+                logger.debug(
+                    "Applying PATCH for Chrome version is 129.x: fix BUG that shows blank window"
+                )
             options.add_argument("--window-position=-2400,-2400")
     return options
 
@@ -143,7 +164,9 @@ def select_camera(driver: webdriver.Chrome, selected_camera: str):
         ".shadowRoot.querySelector('settings-section > settings-privacy-page')"
         ".shadowRoot.querySelector('settings-animated-pages > settings-subpage > media-picker')"
         ".shadowRoot.querySelector('#picker > #mediaPicker')"
-        ".value = '{camera}'".format(camera=selected_camera)  # Change for your default camera
+        ".value = '{camera}'".format(
+            camera=selected_camera
+        )  # Change for your default camera
     )  # FIXME should check the option's textContent, since value might be some internal system ID
     #          (and not the visible text)
 
@@ -156,32 +179,34 @@ def finish_browser(driver: webdriver.Chrome, logger: logging.Logger):
     # before quitting: print some log information
     try:
         info = driver.execute_script('return window["info_init"]')
-        logger.info('web info %s (ms): %s', 'INIT', info)
+        logger.info("web info %s (ms): %s", "INIT", info)
 
         # info = driver.execute_script('return window["info_detect"]')
         # logger.info('web info %s (ms / frames): %s', 'DETECT', info)
 
         info = driver.execute_script('return window["info_render"]')
-        logger.info('web info %s (ms / frames): %s', 'RENDER', info)
+        logger.info("web info %s (ms / frames): %s", "RENDER", info)
 
     except Exception as exc:
-        logger.warning('failed to get info from web window, due to error ', exc_info=exc)
+        logger.warning(
+            "failed to get info from web window, due to error ", exc_info=exc
+        )
 
     # do quit browser:
     driver.quit()
 
 
 def start_browser(
-        ws_addr: Optional[str] = WS_ADDR,
-        stop_signal: Queue = Queue(),
-        port: int = PORT,
-        base_url: str = BASE_URL,
-        web_extension: Union[bool, str] = False,
-        run_headless: bool = True,
-        avatar_uri: Optional[str] = None,
-        hide_avatar_selection: Optional[bool] = None,
-        log_queue: Optional[Queue] = None,
-        log_level: Optional[str] = None,
+    ws_addr: Optional[str] = WS_ADDR,
+    stop_signal: Queue = Queue(),
+    port: int = PORT,
+    base_url: str = BASE_URL,
+    web_extension: Union[bool, str] = False,
+    run_headless: bool = True,
+    avatar_uri: Optional[str] = None,
+    hide_avatar_selection: Optional[bool] = None,
+    log_queue: Optional[Queue] = None,
+    log_level: Optional[str] = None,
 ):
     """
     Start a (Google) Chrome browser instance for rendering avatar images.
@@ -218,7 +243,7 @@ def start_browser(
     :param log_level: OPTIONAL the log-level for multiprocessing logging
     """
     if log_queue:
-        worker_configurer(log_queue, log_level if log_level else 'INFO')
+        worker_configurer(log_queue, log_level if log_level else "INFO")
     logger = logging.getLogger("chrome_driver_renderer")
 
     driver = None
@@ -233,40 +258,53 @@ def start_browser(
                 start_extension = StartExtensionType.PACKED_EXTENSION
         elif isinstance(web_extension, str):
             if os.path.exists(web_extension):
-                start_extension = StartExtensionType.PACKED_EXTENSION if os.path.isfile(web_extension) else StartExtensionType.UNPACKED_EXTENSION
+                start_extension = (
+                    StartExtensionType.PACKED_EXTENSION
+                    if os.path.isfile(web_extension)
+                    else StartExtensionType.UNPACKED_EXTENSION
+                )
                 extension_path = web_extension
             else:
                 start_extension = StartExtensionType.PACKED_EXTENSION
                 extension_id = web_extension
 
-        options = create_options(start_extension=start_extension, extension_path=extension_path, run_headless=run_headless, logger=logger)
+        options = create_options(
+            start_extension=start_extension,
+            extension_path=extension_path,
+            run_headless=run_headless,
+            logger=logger,
+        )
         driver = webdriver.Chrome(options=options)
 
         if logger and logger.isEnabledFor(logging.DEBUG):
-            logger.debug('Chrome driver capabilities:\n%s', json.dumps(driver.capabilities))
+            logger.debug(
+                "Chrome driver capabilities:\n%s", json.dumps(driver.capabilities)
+            )
 
         if start_extension == StartExtensionType.NO_EXTENSION:
             if port >= 0:
-                target_url = '{}:{}'.format(base_url, port)
+                target_url = "{}:{}".format(base_url, port)
             else:
                 target_url = base_url
         else:
-            target_url = 'chrome-extension://{}/index.html'.format(extension_id)
+            target_url = "chrome-extension://{}/index.html".format(extension_id)
 
         query_params = []
         if ws_addr:
-            query_params.append('ws=' + quote(ws_addr))
+            query_params.append("ws=" + quote(ws_addr))
         if not run_headless:
-            query_params.append('show-fps=' + quote('true'))
+            query_params.append("show-fps=" + quote("true"))
         if avatar_uri:
-            query_params.append('avatar=' + quote(avatar_uri))
-        if hide_avatar_selection is True or (hide_avatar_selection is None and run_headless):
+            query_params.append("avatar=" + quote(avatar_uri))
+        if hide_avatar_selection is True or (
+            hide_avatar_selection is None and run_headless
+        ):
             # NOTE default value for "show-selection" is TRUE, so omitting it is the same as setting it to true
-            query_params.append('hide-selection=' + quote('true'))
+            query_params.append("hide-selection=" + quote("true"))
         if len(query_params) > 0:
-            target_url += '?' + '&'.join(query_params)
+            target_url += "?" + "&".join(query_params)
 
-        logger.info('starting chrome driver for URL: %s', target_url)
+        logger.info("starting chrome driver for URL: %s", target_url)
         driver.get(target_url)
 
         while True:
@@ -277,29 +315,33 @@ def start_browser(
             except:
                 pass
 
-        logger.debug('finished main loop... ')
+        logger.debug("finished main loop... ")
 
     except KeyboardInterrupt:
-        logger.info('caught KeyboardInterrupt')
+        logger.info("caught KeyboardInterrupt")
         was_interrupted = True
     except Exception as exc:
-        logger.info('caught Exception', exc_info=exc, stack_info=True)
+        logger.info("caught Exception", exc_info=exc, stack_info=True)
         was_interrupted = True
     finally:
         if driver:
-            logger.info('stopping chrome driver...')
+            logger.info("stopping chrome driver...")
             if was_interrupted:
                 driver.service.stop()
-                logger.info('INTERRUPTED, stopped chrome driver service!')
+                logger.info("INTERRUPTED, stopped chrome driver service!")
             else:
                 try:
                     driver.service.assert_process_still_running()
                     finish_browser(driver, logger)
-                    logger.info('stopped chrome driver.')
+                    logger.info("stopped chrome driver.")
                 except Exception as exc:
-                    logger.info('encountered ERROR because chrome driver already stopped: ', exc_info=exc, stack_info=True)
+                    logger.info(
+                        "encountered ERROR because chrome driver already stopped: ",
+                        exc_info=exc,
+                        stack_info=True,
+                    )
         else:
-            logger.info('did not yet start chrome driver, nothing to stop.')
+            logger.info("did not yet start chrome driver, nothing to stop.")
 
 
 # ############################### FOR running as script ########################
@@ -316,37 +358,44 @@ def start_main():
     def quit_browser(sig_num, frame):
         global _cancel_count
         _cancel_count += 1
-        print('  start_main: DID receive signal "{}" (count: {})... '.format(sig_num, _cancel_count), flush=True)
+        print(
+            '  start_main: DID receive signal "{}" (count: {})... '.format(
+                sig_num, _cancel_count
+            ),
+            flush=True,
+        )
         if not e.is_set():
             e.set()
         if _cancel_count > 1:
-            print('  start_main: forcing exit ({})... '.format(_cancel_count), flush=True)
-            raise KeyboardInterrupt('Forced Exit!')
+            print(
+                "  start_main: forcing exit ({})... ".format(_cancel_count), flush=True
+            )
+            raise KeyboardInterrupt("Forced Exit!")
 
     signal.signal(signal.SIGINT, quit_browser)
     signal.signal(signal.SIGTERM, quit_browser)
 
-    p = Process(target=start_browser, args=(e, ), name='avatar_renderer')
+    p = Process(target=start_browser, args=(e,), name="avatar_renderer")
     p.start()
     try:
         while not e.is_set():
             time.sleep(5)
 
     except Exception as err:
-        print('start_main: Stopping... ')  # , err)
+        print("start_main: Stopping... ")  # , err)
         if not e.is_set():
             e.set()
     finally:
-        print('start_main: Waiting... ')
+        print("start_main: Waiting... ")
         if p.is_alive():
             p.join(20)
         if p.is_alive():
-            print('start_main: Force stopping...')
+            print("start_main: Force stopping...")
             p.terminate()
 
         sys.stdout.flush()
-        print('start_main: Stopped!')
-        print('start_main: Exit Code: ', p.exitcode)
+        print("start_main: Stopped!")
+        print("start_main: Exit Code: ", p.exitcode)
 
 
 async def start_main_async():
@@ -368,5 +417,6 @@ if __name__ == "__main__":
     #         driver.quit()
 
     import asyncio
+
     asyncio.run(start_main_async())
-    print('__main__: exit main!')
+    print("__main__: exit main!")

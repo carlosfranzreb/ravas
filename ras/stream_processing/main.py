@@ -31,7 +31,10 @@ def main(config: dict, runtime: int = None) -> None:
     assert proc_size > buffer_size, "Proc. size should be greater than buffer size"
 
     # create a logging directory and store the config
-    log_dir = os.path.join(resolve_file_path(config["log_dir"]), datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    log_dir = os.path.join(
+        resolve_file_path(config["log_dir"]),
+        datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+    )
     os.makedirs(log_dir, exist_ok=True)
     yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
     config["audio"]["log_dir"] = log_dir
@@ -67,13 +70,15 @@ def main(config: dict, runtime: int = None) -> None:
 
     # for performance logging
     duration = time.perf_counter_ns() - start_time
-    msg = 'Total Running Time / Duration (ms): %s' % ((duration / 1000000),)
+    msg = "Total Running Time / Duration (ms): %s" % ((duration / 1000000),)
     logger.info(msg)
     print(msg, flush=True)
 
     # stop the audio-video streamer and the logging
     audio_video_streamer.stop()
-    time.sleep(1)  # <- wait a little to give logging process some time to flush its queue & write everything to the log-file
+    time.sleep(
+        1
+    )  # <- wait a little to give logging process some time to flush its queue & write everything to the log-file
     log_listener.terminate()
     if config["audio"]["store"] and config["video"]["store"]:
         merge_audio_video(log_dir)

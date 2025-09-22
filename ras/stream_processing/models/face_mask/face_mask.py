@@ -27,7 +27,9 @@ class FaceMask(Converter):
         """
         Initialize the FaceMesh model.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
+        super().__init__(
+            name, config, input_queue, output_queue, log_queue, log_level, ready_signal
+        )
         self.face_mesh = mp_faces.FaceMesh(
             static_image_mode=False,
             refine_landmarks=True,
@@ -64,43 +66,43 @@ class FaceMask(Converter):
         results = self.face_mesh.process(image)
 
         # annotate image
-        #black_bg = np.zeros(
+        # black_bg = np.zeros(
         #    (self.config["height"], self.config["width"], 3), dtype="uint8"
-        #)
+        # )
 
         white_bg = np.full(
-             (self.config["height"], self.config["width"], 3), 255, dtype="uint8"
+            (self.config["height"], self.config["width"], 3), 255, dtype="uint8"
         )
         if results.multi_face_landmarks:
             white_bg = annotate(white_bg, results)
-            #black_bg = annotate(black_bg, results)
+            # black_bg = annotate(black_bg, results)
 
         data = torch.from_numpy(white_bg[None])
         return data
 
 
 def annotate(frame, results):
-    drawing_spec = mp_drawing.DrawingSpec(color=(0,0,0), thickness= 2, circle_radius= 2)
+    drawing_spec = mp_drawing.DrawingSpec(color=(0, 0, 0), thickness=2, circle_radius=2)
     facemask_connection_style = {
-        FACEMESH_FACE_OVAL : drawing_spec,
-        mp_faces.FACEMESH_LEFT_EYE : drawing_spec,
-        mp_faces.FACEMESH_RIGHT_EYE : drawing_spec,
-        FACEMESH_NOSE_VARIANT : drawing_spec,
-        mp_faces.FACEMESH_LIPS : drawing_spec,
-        mp_faces.FACEMESH_IRISES : drawing_spec,
-        FACEMESH_LEFT_EYEBROW : drawing_spec, 
-        FACEMESH_RIGHT_EYEBROW : drawing_spec,
+        FACEMESH_FACE_OVAL: drawing_spec,
+        mp_faces.FACEMESH_LEFT_EYE: drawing_spec,
+        mp_faces.FACEMESH_RIGHT_EYE: drawing_spec,
+        FACEMESH_NOSE_VARIANT: drawing_spec,
+        mp_faces.FACEMESH_LIPS: drawing_spec,
+        mp_faces.FACEMESH_IRISES: drawing_spec,
+        FACEMESH_LEFT_EYEBROW: drawing_spec,
+        FACEMESH_RIGHT_EYEBROW: drawing_spec,
     }
     for face_landmarks in results.multi_face_landmarks:
         for connection, style in facemask_connection_style.items():
             mp_drawing.draw_landmarks(
-            frame,
-            face_landmarks,
-            connection,
-            landmark_drawing_spec=None,
-            connection_drawing_spec=style,
-        )
-        # Filling out the iris     
+                frame,
+                face_landmarks,
+                connection,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=style,
+            )
+        # Filling out the iris
         height, width, _ = frame.shape
         iris_landmarks = []
         for landmark in FACEMESH_IRISES_FILL:
@@ -108,8 +110,12 @@ def annotate(frame, results):
             y = int(face_landmarks.landmark[landmark].y * height)
             iris_landmarks.append((x, y))
 
-        cv2.fillPoly(frame, [np.array(iris_landmarks[:4], dtype=np.int32)], color=(0, 0, 0)) 
-        cv2.fillPoly(frame, [np.array(iris_landmarks[4:], dtype=np.int32)], color=(0, 0, 0)) 
+        cv2.fillPoly(
+            frame, [np.array(iris_landmarks[:4], dtype=np.int32)], color=(0, 0, 0)
+        )
+        cv2.fillPoly(
+            frame, [np.array(iris_landmarks[4:], dtype=np.int32)], color=(0, 0, 0)
+        )
     return frame
 
 

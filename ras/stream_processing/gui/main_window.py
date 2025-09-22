@@ -10,8 +10,17 @@ from typing import Optional
 import yaml
 from PyQt6.QtCore import QThread, QThreadPool, QSettings
 from PyQt6.QtGui import QAction, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QStatusBar, QToolBar, QHBoxLayout, QPushButton, QWidget, QCheckBox, \
-    QToolButton, QMessageBox
+from PyQt6.QtWidgets import (
+    QMainWindow,
+    QStatusBar,
+    QToolBar,
+    QHBoxLayout,
+    QPushButton,
+    QWidget,
+    QCheckBox,
+    QToolButton,
+    QMessageBox,
+)
 from torch import multiprocessing
 
 from .config_dlg import ConfigDialog
@@ -23,7 +32,7 @@ from .task import Task
 from ..streamer import AudioVideoStreamer
 
 
-_logger = logging.getLogger('gui.main_window')
+_logger = logging.getLogger("gui.main_window")
 
 
 class MainWindow(QMainWindow):
@@ -126,9 +135,11 @@ class MainWindow(QMainWindow):
 
     def _restoreSettings(self):
         settings = QSettings()
-        applySetting(settings, 'main_window/size', self.resize)
-        applySetting(settings, 'main_window/position', self.move)
-        applySetting(settings, 'main_window/windowState', self.setWindowState, checkWindowState)
+        applySetting(settings, "main_window/size", self.resize)
+        applySetting(settings, "main_window/position", self.move)
+        applySetting(
+            settings, "main_window/windowState", self.setWindowState, checkWindowState
+        )
 
         # restore config-changes:
         # when config-dialog is created it will restore config-changes from user-settings into configDlg.config
@@ -168,14 +179,22 @@ class MainWindow(QMainWindow):
         self.config_copy = self.getConfig(as_copy=True)
         config_problems = validate_config_values(self.config_copy)
         if config_problems:
-            _logger.warning('found unknown configuration values (may be invalid and cause errors):\n  * ' +
-                            '\n  * '.join(config_problems))
-            details = ('The configuration has some unknown values which \nmay be invalid and may cause errors:\n * ' +
-                       ('\n * '.join(config_problems)) +
-                       '\n\nDo you want to continue anyway?')
-            result = QMessageBox.question(self, 'Unknown Configuration: Continue?', details,
-                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Abort,
-                                          defaultButton=QMessageBox.StandardButton.Abort)
+            _logger.warning(
+                "found unknown configuration values (may be invalid and cause errors):\n  * "
+                + "\n  * ".join(config_problems)
+            )
+            details = (
+                "The configuration has some unknown values which \nmay be invalid and may cause errors:\n * "
+                + ("\n * ".join(config_problems))
+                + "\n\nDo you want to continue anyway?"
+            )
+            result = QMessageBox.question(
+                self,
+                "Unknown Configuration: Continue?",
+                details,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Abort,
+                defaultButton=QMessageBox.StandardButton.Abort,
+            )
             if result == QMessageBox.StandardButton.Abort:
                 return
 
@@ -206,43 +225,51 @@ class MainWindow(QMainWindow):
         self._log_worker.emitLogLine.connect(self._logWindow.logWidget.add)
 
         self._audioVideoStreamer.start()
-        self.__debug() # FIXME DEBUG
+        self.__debug()  # FIXME DEBUG
 
-    def _handleAudioVideoStreamerError(self, err_info):  # : tuple[ExceptionClass, ExceptionInstance, traceback_string]
+    def _handleAudioVideoStreamerError(
+        self, err_info
+    ):  # : tuple[ExceptionClass, ExceptionInstance, traceback_string]
         """
         HELPER for handling task errors
         :param err_info: error information as `tuple[ExceptionClass, ExceptionInstance, traceback_string]`
         """
-        err_name = err_info[0].__name__ if hasattr(err_info[0], '__name__') else str(err_info[0])
-        msg = '{} occurred: {}'.format(err_name, err_info[1])
-        logging.getLogger().error('%s, %s', msg, err_info[2])
+        err_name = (
+            err_info[0].__name__
+            if hasattr(err_info[0], "__name__")
+            else str(err_info[0])
+        )
+        msg = "{} occurred: {}".format(err_name, err_info[1])
+        logging.getLogger().error("%s, %s", msg, err_info[2])
         self.setStatusText(msg)
 
     def get_wav_duration(self, filename):
-        with wave.open(filename, 'rb') as wav_file:
+        with wave.open(filename, "rb") as wav_file:
             frames = wav_file.getnframes()
             rate = wav_file.getframerate()
             duration = frames / float(rate)
             return duration
-   
+
     def merge_audio_video(self, log_dir: str) -> None:
         """
         Merge the audio and video files into a single file.
- 
+
         Args:
         - log_dir: The directory where the audio and video files are stored.
         """
         audio_file = os.path.join(log_dir, "audio.wav")
         input_audio_file = os.path.join(log_dir, "input_audio.wav")
-        video_file = os.path.join(log_dir, "video." + self.config_copy["video"]["store_format"])
+        video_file = os.path.join(
+            log_dir, "video." + self.config_copy["video"]["store_format"]
+        )
         output_file = os.path.join(log_dir, "merged.mp4")
         # Calculates the stretch factor and atempo to delay our audio
         audio_duration = self.get_wav_duration(audio_file)
         input_duration = self.get_wav_duration(input_audio_file)
-       
+
         stretch_factor = input_duration / audio_duration
         atempo_value = 1 / stretch_factor
-        with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:    
+        with open(os.path.join(log_dir, "ffmpeg.log"), "a") as f:
             subprocess.run(
                 [
                     "ffmpeg",
@@ -251,7 +278,7 @@ class MainWindow(QMainWindow):
                     "-i",
                     video_file,
                     "-filter:a",
-                    f"atempo={atempo_value:.6f}",   #adjust tempo because ours is faster by a bit
+                    f"atempo={atempo_value:.6f}",  # adjust tempo because ours is faster by a bit
                     "-c:v",
                     "copy",
                     "-c:a",
@@ -265,7 +292,7 @@ class MainWindow(QMainWindow):
             )
 
     def stopStreaming(self):
-        print('stop streaming...')  # FIXME DEBUG
+        print("stop streaming...")  # FIXME DEBUG
         self.setStatusText("Stopping streaming...")
 
         if self._audioVideoStreamer:
@@ -274,10 +301,10 @@ class MainWindow(QMainWindow):
             time.sleep(1)
 
         if self._log_worker:
-            print('  stopping logger...')  # FIXME DEBUG
+            print("  stopping logger...")  # FIXME DEBUG
 
             def on_log_finished():
-                print('------ did receive finish signal!', flush=True)  # FIXME DEBUG
+                print("------ did receive finish signal!", flush=True)  # FIXME DEBUG
                 # self._log_thread = None
                 if self._log_thread and self._log_thread.isRunning():
                     self._log_thread.quit()
@@ -287,13 +314,16 @@ class MainWindow(QMainWindow):
                 self.setStatusText("Stopped streaming.")
                 self._updateUiForStreaming(is_active=False)
 
-                print('stopped streaming!', flush=True)  # FIXME DEBUG
+                print("stopped streaming!", flush=True)  # FIXME DEBUG
 
             self._log_worker.finished.connect(on_log_finished)
             self._log_thread.requestInterruption()
 
             log_dir = self.config_copy["log_dir"]
-            if self.config_copy["audio"]["store"] and self.config_copy["video"]["store"]:
+            if (
+                self.config_copy["audio"]["store"]
+                and self.config_copy["video"]["store"]
+            ):
                 self.merge_audio_video(log_dir)
 
             # TESTING
@@ -340,25 +370,27 @@ class MainWindow(QMainWindow):
         config = self.getConfig(as_copy=True)
         configDlg = ConfigDialog(parent=self, config=config)
         result = configDlg.exec()
-        print('closed config dialog -> ', result, configDlg)
+        print("closed config dialog -> ", result, configDlg)
         if result:
-            print('applying config form config dialog -> ', result, configDlg)
+            print("applying config form config dialog -> ", result, configDlg)
             self._config = configDlg.config
             self._applyLogLevel(self._config)
         elif configDlg.isResetConfig:
-            print('resetting config!')
+            print("resetting config!")
             # setting _config to None will cause reload of config file:
             self._config = None
             self._applyLogLevel()
 
     def closeEvent(self, evt: QCloseEvent):
-        print('main window close', evt)
+        print("main window close", evt)
         # evt.setAccepted(False) # <- would prevent closing window
 
         settings = QSettings()
-        storeSetting(settings, 'main_window/size', self.size)
-        storeSetting(settings, 'main_window/position', self.pos)
-        storeSetting(settings, 'main_window/windowState', self.windowState, checkWindowState)
+        storeSetting(settings, "main_window/size", self.size)
+        storeSetting(settings, "main_window/position", self.pos)
+        storeSetting(
+            settings, "main_window/windowState", self.windowState, checkWindowState
+        )
 
         self._shutdown()
 
@@ -368,27 +400,27 @@ class MainWindow(QMainWindow):
         def print_proc(label: str, proc: multiprocessing.Process):
             print(label % (proc.name, proc.pid), flush=True)
 
-        print_proc('MAIN ----> %s (pid %s)', multiprocessing.current_process())
+        print_proc("MAIN ----> %s (pid %s)", multiprocessing.current_process())
 
         # if self._logListener:
         #     print_proc('  LOGGING ## %s (pid %s)', self._logListener)
 
         streamer = self._audioVideoStreamer
         if not streamer:
-            print('   AUDIO VIDEO STREAMER not started!')
+            print("   AUDIO VIDEO STREAMER not started!")
             return
 
-        if hasattr(streamer, 'audio_handler'):
+        if hasattr(streamer, "audio_handler"):
             for key, p in streamer.audio_handler.procs.items():
-                print_proc('  AUDIO ~~ {: <7} ~~  %s (pid %s)'.format(key), p)
+                print_proc("  AUDIO ~~ {: <7} ~~  %s (pid %s)".format(key), p)
         else:
-            print('  AUDIO: <disabled>')
+            print("  AUDIO: <disabled>")
 
-        if hasattr(streamer, 'video_handler'):
+        if hasattr(streamer, "video_handler"):
             for key, p in streamer.video_handler.procs.items():
-                print_proc('  VIDEO ** {: <7} **  %s (pid %s)'.format(key), p)
+                print_proc("  VIDEO ** {: <7} **  %s (pid %s)".format(key), p)
         else:
-            print('  VIDEO: <disabled>')
+            print("  VIDEO: <disabled>")
 
 
 def start_streaming(config: dict) -> tuple[AudioVideoStreamer, LogWorker, QThread]:
