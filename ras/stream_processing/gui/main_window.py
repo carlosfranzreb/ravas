@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, config_path: str):
         super().__init__(parent=None)
-        self.setWindowTitle("VERANDA Audio Video Streamer")
+        self.setWindowTitle("RAVAS")
 
         self._audioVideoStreamer: Optional[AudioVideoStreamer] = None
         self._config_path: str = config_path

@@ -18,13 +18,11 @@ def main():
 
     # configure default values (will also be used when creating QSettings)
     # IMPORTANT: do this before starting the windows/dialogs, so that they can access the correct QSettings objects
-    app.setOrganizationName(
-        "Deutsches Forschungszentrum für Künstliche Intelligenz GmbH (DFKI)"
-    )
+    app.setOrganizationName("DFKI")
     app.setOrganizationDomain("dfki.de")
     app.setApplicationVersion("0.5.0")  # TODO read from setup.py
     app.setApplicationName(
-        "VERANDA Audio Video Streamer"
+        "RAVAS"
     )  # TODO name/description: should this be the same as in setup.py?
     app.setApplicationDisplayName(f"RAVAS - {app.applicationVersion()}")
 
@@ -32,7 +30,7 @@ def main():
     config_path = get_config_path(args.config)
     window = MainWindow(config_path=config_path)
 
-    print("staring application (pid %s)" % (app.applicationPid()))
+    print("starting application (pid %s)" % (app.applicationPid()))
 
     try:
         window.show()

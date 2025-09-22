@@ -161,6 +161,9 @@ class ConfigDialog(RestorableDialog):
 
         convertAudioForm = QFormLayout()
 
+        cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["anonymizers"])
+        convertAudioForm.addRow("Voice anonymizer:", cbbAudioVoice)
+
         cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
 

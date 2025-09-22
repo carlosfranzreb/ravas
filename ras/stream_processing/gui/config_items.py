@@ -277,6 +277,14 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         None,
         is_valid_value=wrap_simple_validate(is_positive_number),
     ),
+    "anonymizers": ConfigurationItem(
+        ["audio", "converter", "cls"],
+        {
+            "kNN-VC": "knnvc",
+            "Private kNN-VC": "private_knnvc",
+            "Mimi-VC": "mimi_vc",
+        },
+    ),
     "audio_voices": ConfigurationItem(
         ["audio", "converter", "target_feats_path"],
         partial(

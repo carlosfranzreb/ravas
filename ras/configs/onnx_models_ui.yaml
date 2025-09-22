@@ -32,6 +32,7 @@ video:
     avatar_uri: ./default_avatar.glb
 
 audio:
+  cls: stream_processing.models.mimivc
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
   use_audio: true
