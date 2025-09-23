@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file null
+define: &video_file J:/Datasets/LibriSpeech/dev-clean/8842/304647/8842-304647-0004.flac
 define: &video_width 1280
 define: &video_height 720
 
@@ -35,9 +35,9 @@ audio:
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
   use_audio: true
-  output_buffersize: 200
-  processing_size: 1600
-  record_buffersize: 200
+  output_buffersize: 1200
+  processing_size: 9600
+  record_buffersize: 1200
   sampling_rate: 16000
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
@@ -48,9 +48,9 @@ audio:
     device: cpu
     n_neighbors: 4
     prev_audio_queue:
-      max_samples: 1600
+      max_samples: 9600
     prev_ctx:
-      use_previous_ctx: true
+      use_previous_ctx: false
       max_samples: 0
     lookahead_ctx:
     interpolator:

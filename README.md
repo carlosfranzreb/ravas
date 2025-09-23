@@ -307,6 +307,26 @@ If you want to change or add avatars:
    ```
 5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
 
+### Adding previous context
+Since the input and output are constrained by ONNX, the additional context must be included in the total processing size.
+The currently available total processing sizes are __3200, 4800, and 9600__.
+There are two ways to enable this option and adjust the previous context size:
+
+1. inside the GUI under the __Advanced Settings__
+
+2. in the config files manually
+    ```yml
+    audio:
+        # ...
+        converter:
+            # ...
+            prev_ctx:
+                use_previous_ctx: false
+                max_samples: 0
+    ```
+
+In the pre-release v0.6, the checkpoints include an additional 320-sample input, which is only required for the default computation to compensate for feature loss during WavLM. If you are already using a larger previous context, you can ignore the WavLM loss.
+
 -------------------
 
 ## Development
