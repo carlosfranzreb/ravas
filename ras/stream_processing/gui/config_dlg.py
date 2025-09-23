@@ -236,6 +236,38 @@ class ConfigDialog(RestorableDialog):
 
         enableAVGroup = self._makeGroupBox("Advanced Settings", advancedSettingsForm)
         advancedSettingsLayout.addWidget(enableAVGroup)
+                # ############ Context Settings ################
+        contextForm = QFormLayout()
+        #header = QLabel("")
+        #contextForm.addRow(header) 
+        cbbPreviousMaxSample = self._createComboBoxFor(CONFIG_ITEMS['previous_max_sample'])
+
+        chkPreviousContext = self._createCheckBoxFor(CONFIG_ITEMS['use_previous_context'])
+        contextForm.addRow("Use Previous Context:", chkPreviousContext)
+
+        def _set_previous_context_widgets_enabled(_value):
+            enable: bool = chkPreviousContext.checkState() == QtCore.Qt.CheckState.Checked
+            cbbPreviousMaxSample.setEnabled(enable)
+
+        _set_previous_context_widgets_enabled(chkPreviousContext)  # <- update for current config
+        chkPreviousContext.stateChanged.connect(_set_previous_context_widgets_enabled)  # <- update on config changes
+        contextForm.addRow("Previous Context Size:", cbbPreviousMaxSample)
+
+        #cbbLookaheadMaxSample = self._createComboBoxFor(CONFIG_ITEMS['lookahead_max_sample'])
+        #chkLookaheadContext = self._createCheckBoxFor(CONFIG_ITEMS['use_lookahead_context'])
+        #contextForm.addRow("Use Lookahead:", chkLookaheadContext)
+
+        #def _set_lookahead_context_widgets_enabled(_value):
+        #    enable: bool = chkLookaheadContext.checkState() == QtCore.Qt.CheckState.Checked
+        #    cbbLookaheadMaxSample.setEnabled(enable)
+
+        #_set_lookahead_context_widgets_enabled(chkLookaheadContext)  # <- update for current config
+        #chkLookaheadContext.stateChanged.connect(_set_lookahead_context_widgets_enabled)  # <- update on config changes
+
+        #contextForm.addRow("Lookahead Context Size:", cbbLookaheadMaxSample)
+
+        enableContext = self._makeGroupBox("Context Settings", contextForm)
+        advancedSettingsLayout.addWidget(enableContext)
 
         # ############ LOG SETTINGS ################
         loggingForm = QFormLayout()

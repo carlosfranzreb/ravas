@@ -185,6 +185,34 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         'Do Not Show Avatar Renderer Window': False,
     }),
 
+    
+    'use_previous_context': ConfigurationItem(['audio','converter','prev_ctx','use_previous_ctx'], {
+        'Use previous context':     True,
+        'Disable previous context': False,
+    }),
+
+    'previous_max_sample': ConfigurationItem(['audio','converter', 'prev_ctx','max_samples'], {
+        '<DEFAULT>': 0,
+        '320' :    320 ,
+        '1600':    1600,
+        '3200':    3200,
+        '4800':    4800,
+        '8000':    8000,
+
+    }),
+
+    'use_lookahead_context': ConfigurationItem(['audio','converter', 'lookahead_ctx','use_lookahead_ctx'], {
+        'Use lookahead context':     True,
+        'Disable lookahead context': False,
+    }),
+
+    'lookahead_max_sample': ConfigurationItem(['audio','converter', 'lookahead_ctx','max_samples'], {
+        '<DEFAULT>': 0,
+        '1600':    1600,
+        '3200':    3200,
+        '4800':    4800,
+    }),
+    
     # DISABLED selecting virtual-camera backend via combo-box (only enabled/disabled check-box for now):
     # 'output_virtual_cam': ConfigurationItem(['video', 'output_virtual_cam'], get_virtual_camera_backends),
 

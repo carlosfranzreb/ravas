@@ -56,10 +56,17 @@ class KnnVC(Converter):
         self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
         self.interpolator = Interpolator(config["interpolator"])
 
+        # initialize previous context
+        self.prev = config["prev_ctx"]["use_previous_ctx"] and config["prev_ctx"]["max_samples"] > 0
+        self.previous_samples = config["prev_ctx"]["max_samples"]
+        self.prev_context = PrevAudioQueue(config["prev_ctx"])
+
+        self.input_size = config["prev_audio_queue"]["max_samples"]
+        self.model_size = self.input_size + self.previous_samples if self.prev else self.input_size
+
         # initialize the WavLM and HiFiGAN models, compiling them if needed
-        input_size = config["prev_audio_queue"]["max_samples"]
-        self.wavlm = ort.InferenceSession(resolve_file_path(f"onnx/wavlm_{input_size}.onnx"))
-        self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{input_size}.onnx"))
+        self.wavlm = ort.InferenceSession(resolve_file_path(f"onnx/wavlm_{self.model_size}.onnx"))
+        self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{self.model_size}.onnx"))
 
         # load the target features
         self.target_feats = torch.load(self.target_feats_path)
@@ -107,8 +114,17 @@ class KnnVC(Converter):
         #    return torch.zeros_like(audio_in, dtype=torch.int16)
 
         # convert the audio
-        audio_concat = self.audio_queue.get().unsqueeze(0)
-        source_feats = self.wavlm.run(["output"], {"input": audio_concat.numpy()})[0]
+        audio_concat = self.audio_queue.get()
+        audio_chunk = audio_concat
+        # add context if previous context is enabled
+        if self.prev:
+            prev_ctx = self.prev_context.get()
+            audio_chunk = torch.cat([prev_ctx, audio_chunk],dim=-1)
+            self.prev_context.add(audio_concat)
+
+        audio_chunk = audio_chunk.unsqueeze(0)
+        
+        source_feats = self.wavlm.run(["output"], {"input": audio_chunk.numpy()})[0]
         source_feats = torch.tensor(source_feats, dtype=torch.float32)
         if source_feats.ndim == 3:
             source_feats = source_feats.squeeze(0)
