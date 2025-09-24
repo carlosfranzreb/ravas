@@ -13,14 +13,14 @@ from torch import Tensor
 from torch.multiprocessing import Queue, Event
 import onnxruntime as ort
 
-from ...processor import Converter
+from ...processor import AudioConverter
 from ...utils import clear_queue, resolve_file_path
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
 
 
-class KnnVC(Converter):
+class KnnVC(AudioConverter):
     def __init__(
         self,
         name: str,
@@ -70,33 +70,6 @@ class KnnVC(Converter):
         # load the target features
         self.target_feats = torch.load(self.target_feats_path)
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
-
-    def convert(self) -> None:
-        """
-        Read the input queue, convert the data and put the converted data into the
-        sync queue.
-        """
-        self.logger.info("Start converting audio")
-        if self.config["video_file"] is None:
-            clear_queue(self.input_queue)
-
-        self.ready_signal.set()
-        while True:
-            try:
-                ttime, data = self.input_queue.get(timeout=1)
-                if data is not None:
-                    self.logger.debug(f"Converting audio starting at {ttime[0]}")
-                    data = self.convert_audio(data)
-                else:
-                    self.logger.info("Data is null, stopping conversion")
-                    self.output_queue.put((None, None))
-                    break
-                self.output_queue.put((ttime, data))
-
-            except queue.Empty:
-                pass
-            except EOFError:
-                break
 
     @torch.inference_mode()
     def convert_audio(self, audio_in: Tensor) -> Tensor:

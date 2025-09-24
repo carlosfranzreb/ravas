@@ -11,10 +11,10 @@ video:
   width: *video_width
   height: *video_height
   input_device: 0
-  use_video: true
+  use_video: false
   processing_size: 1
   max_fps: 20
-  output_virtual_cam: true
+  output_virtual_cam: false
   output_window: false
   store: false
   store_format: "avi"
@@ -31,29 +31,45 @@ video:
     show_renderer_window: false
     avatar_uri: ./default_avatar.glb
 
+# audio:
+#   max_unsynced_time: *max_unsynced_time
+#   video_file: *video_file
+#   use_audio: true
+#   output_buffersize: 1200
+#   processing_size: 9600
+#   record_buffersize: 1200
+#   sampling_rate: 16000
+#   input_device: MacBook Pro-Mikrofon
+#   output_device: MacBook Pro-Lautsprecher
+#   store: false
+#   converter:
+#     cls: stream_processing.models.KnnVC
+#     target_feats_path: ./target_feats/knnvc/john.pt
+#     device: cpu
+#     n_neighbors: 4
+#     prev_audio_queue:
+#       max_samples: 9600
+#     interpolator:
+#       n_samples: 450
+#       weight: 0.75
+#     vad:
+#       frame_length: 2048
+#       hop_length: 512
+#       threshold: 0.010
+
 audio:
-  cls: stream_processing.models.mimivc
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
   use_audio: true
-  output_buffersize: 1200
-  processing_size: 9600
-  record_buffersize: 1200
-  sampling_rate: 16000
+  output_buffersize: 1920
+  processing_size: 1920
+  record_buffersize: 480
+  sampling_rate: 24000
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
   store: false
   converter:
-    cls: stream_processing.models.KnnVC
-    target_feats_path: ./target_feats/john.pt
+    cls: stream_processing.models.MimiVC
+    target_feats_path: ./target_feats/mimivc/1089.pt
     device: cpu
     n_neighbors: 4
-    prev_audio_queue:
-      max_samples: 9600
-    interpolator:
-      n_samples: 450
-      weight: 0.75
-    vad:
-      frame_length: 2048
-      hop_length: 512
-      threshold: 0.010

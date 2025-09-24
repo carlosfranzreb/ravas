@@ -6,6 +6,7 @@ from typing import Callable, Union, Optional, Literal
 from .config_utils import (
     get_audio_devices,
     get_camera_device_items,
+    get_voices_dir_for_anonymizer,
     get_voices_from,
     get_current_value_and_config_path_for,
     is_port_valid,
@@ -15,7 +16,6 @@ from .config_utils import (
     get_avatars_for_config,
 )
 from ..models.avatar.avatar import RenderAppType
-from ..utils import resolve_file_path
 
 
 _logger = logging.getLogger("gui.config_items")
@@ -52,7 +52,7 @@ class ConfigurationItem:
     Alternatively, a generator-function can be supplied that creates the configuration-values.
 
     The configuration-values should be accessed either by `ConfigurationItem.get()` or by
-    `ConfigurationItem.get_latest()`; the later one will update the values with the generator-function,
+    `ConfigurationItem.get_latest()`; the latter one updates values with the generator-function,
     if one was supplied.
     """
 
@@ -280,15 +280,15 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
     "anonymizers": ConfigurationItem(
         ["audio", "converter", "cls"],
         {
-            "kNN-VC": "knnvc",
-            "Private kNN-VC": "private_knnvc",
-            "Mimi-VC": "mimi_vc",
+            "kNN-VC": "stream_processing.models.KnnVC",
+            "Private kNN-VC": "stream_processing.models.PrivateKnnVC",
+            "Mimi-VC": "stream_processing.models.MimiVC",
         },
     ),
     "audio_voices": ConfigurationItem(
         ["audio", "converter", "target_feats_path"],
-        partial(
-            get_voices_from, dir_path=resolve_file_path("target_feats/"), logger=_logger
+        lambda config: get_voices_from(
+            dir_path=get_voices_dir_for_anonymizer(config), logger=_logger
         ),
     ),
     "log_levels": ConfigurationItem(

@@ -161,8 +161,8 @@ class ConfigDialog(RestorableDialog):
 
         convertAudioForm = QFormLayout()
 
-        cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["anonymizers"])
-        convertAudioForm.addRow("Voice anonymizer:", cbbAudioVoice)
+        cbbAudioAnonymizer = self._createComboBoxFor(CONFIG_ITEMS["anonymizers"])
+        convertAudioForm.addRow("Voice anonymizer:", cbbAudioAnonymizer)
 
         cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
@@ -259,6 +259,7 @@ class ConfigDialog(RestorableDialog):
             enable: bool = chkUseAudio.checkState() == QtCore.Qt.CheckState.Checked
             cbbAudioIn.setEnabled(enable)
             cbbAudioOut.setEnabled(enable)
+            cbbAudioAnonymizer.setEnabled(enable)
             cbbAudioVoice.setEnabled(enable)
 
         _set_audio_widgets_enabled(chkUseAudio)  # <- update for current config

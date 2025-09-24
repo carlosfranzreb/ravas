@@ -142,7 +142,7 @@ def is_port_free(port: int) -> bool:
 
 
 def wrap_simple_validate(
-    validate_func: Callable[[any], bool]
+    validate_func: Callable[[any], bool],
 ) -> Callable[[any, Optional[dict]], bool]:
     """
     HELPER create wrapper function, to allow single-parameter `ConfigurationItem.is_valid_value(val)`
@@ -181,6 +181,14 @@ def get_current_value_and_config_path_for(
         if isinstance(current_value, dict):
             sub_config = current_value
     return current_value, field_name, sub_config
+
+
+def get_voices_dir_for_anonymizer(config: dict) -> str:
+    anonymizer_path, _, _ = get_current_value_and_config_path_for(
+        config, ["audio", "converter", "cls"]
+    )
+    anonymizer = anonymizer_path.split(".")[-1].lower()
+    return resolve_file_path(os.path.join("target_feats", anonymizer))
 
 
 def get_voices_from(

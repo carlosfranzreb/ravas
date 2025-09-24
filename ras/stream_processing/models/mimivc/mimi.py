@@ -1,11 +1,3 @@
-"""
-Gather Mimi features (unquantized) from a speaker.
-"""
-
-import os
-import argparse as ap
-import torch
-from collections import deque
 from pathlib import Path
 
 import torch
@@ -139,5 +131,9 @@ def hf_get(
         return Path(filename)
 
 
-mimi_weights = hf_get(MIMI_NAME, DEFAULT_REPO)
-mimi = get_mimi(mimi_weights, num_codebooks=8, device=DEVICE)
+def init_mimi():
+    mimi_weights = hf_get(MIMI_NAME, DEFAULT_REPO)
+    mimi = get_mimi(mimi_weights, num_codebooks=8, device=DEVICE)
+    batch_size = 1
+    mimi.streaming(batch_size).__enter__()
+    return mimi
