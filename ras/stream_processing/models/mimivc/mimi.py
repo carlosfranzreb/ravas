@@ -5,8 +5,11 @@ from safetensors.torch import load_file
 from huggingface_hub import hf_hub_download
 
 from moshi.models.compression import MimiModel
-from moshi.modules import SEANetEncoder, SEANetDecoder, transformer
 from moshi.quantization import SplitResidualVectorQuantizer
+
+from .mimi_functional.transformer import ProjectedTransformer
+from .mimi_functional.seanet import SEANetEncoder as SEANetEncoderF
+from .mimi_functional.seanet import SEANetDecoder as SEANetDecoderF
 
 
 DEVICE = "cpu"
@@ -70,14 +73,10 @@ def get_mimi(
     filename: str = None, device: str = "cpu", num_codebooks: int = 8
 ) -> MimiModel:
     """Return a pretrained Mimi model, or unintialized if `filename` is None."""
-    encoder = SEANetEncoder(**_seanet_kwargs)
-    decoder = SEANetDecoder(**_seanet_kwargs)
-    encoder_transformer = transformer.ProjectedTransformer(
-        device=device, **_transformer_kwargs
-    )
-    decoder_transformer = transformer.ProjectedTransformer(
-        device=device, **_transformer_kwargs
-    )
+    encoder = SEANetEncoderF(**_seanet_kwargs)
+    decoder = SEANetDecoderF(**_seanet_kwargs)
+    encoder_transformer = ProjectedTransformer(device=device, **_transformer_kwargs)
+    decoder_transformer = ProjectedTransformer(device=device, **_transformer_kwargs)
     quantizer = SplitResidualVectorQuantizer(
         **_quantizer_kwargs,
     )

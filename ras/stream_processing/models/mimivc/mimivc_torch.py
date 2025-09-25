@@ -18,7 +18,6 @@ import logging
 import torch
 from torch import Tensor
 from torch.multiprocessing import Queue, Event
-import onnxruntime as ort
 
 from ...processor import AudioConverter
 from ...utils import resolve_file_path
@@ -26,7 +25,7 @@ from ..knnvc.knnvc import convert_vecs
 from .mimi import init_mimi
 
 
-class MimiVC(AudioConverter):
+class TorchMimiVC(AudioConverter):
     def __init__(
         self,
         name: str,
@@ -60,19 +59,17 @@ class MimiVC(AudioConverter):
         self.target_feats = torch.load(self.target_feats_path)
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
-        self.encoder = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_encoder.onnx")
-        )
-        self.decoder = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_decoder.onnx")
-        )
+        # load mimi and declare its states
         self.mimi = init_mimi()
+        self.conv_enc_state = None
+        self.conv_dec_state = None
+        self.tr_enc_states = [None, None, None, None]
+        self.tr_dec_states = [None, None, None, None]
 
     @torch.inference_mode()
     def convert_audio(self, audio_in: Tensor) -> Tensor:
         """
         Convert the audio to the target speaker.
-        # TODO: avoid back and forth casting between torch and numpy
         """
 
         audio_in = (audio_in / 32768).to(torch.float32)
@@ -82,17 +79,29 @@ class MimiVC(AudioConverter):
             )
 
         # gather source features
-        source_feats = self.encoder.run(["output"], {"input": audio_in.numpy()})[0]
-        source_feats = torch.tensor(source_feats, dtype=torch.float32)
+        audio_in.unsqueeze_(0).unsqueeze_(0)
+        source_feats, self.conv_enc_state = self.mimi.encoder(
+            audio_in, self.conv_enc_state
+        )
+        source_feats, *self.tr_enc_states = self.mimi.encoder_transformer(
+            source_feats, *self.tr_enc_states
+        )
+        source_feats = self.mimi.downsample(source_feats[0]).squeeze(0).T
 
         # convert the audio
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
-        codes = self.mimi.quantizer.encode(conv_feats.unsqueeze(2))
-        conv_feats = self.mimi.quantizer.decode(codes)
 
         # decode the audio
-        audio_out = self.decoder.run(["output"], {"input": conv_feats.numpy()})[0]
-        audio_out = torch.tensor(audio_out, dtype=torch.float32)
+        codes = self.mimi.quantizer.encode(conv_feats.unsqueeze(2))
+        conv_feats = self.mimi.quantizer.decode(codes)
+        conv_feats = self.mimi.upsample(conv_feats)
+        conv_feats, *self.tr_dec_states = self.mimi.decoder_transformer(
+            conv_feats, *self.tr_dec_states
+        )
+        audio_out, self.conv_dec_state = self.mimi.decoder(
+            conv_feats[0], self.conv_dec_state
+        )
+        audio_out.squeeze_()
 
         # transform and return the converted audio
         audio_out = torch.clamp(audio_out, -1.0, 1.0)
