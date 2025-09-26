@@ -60,11 +60,13 @@ class TorchMimiVC(AudioConverter):
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
         # load mimi and declare its states
-        self.mimi = init_mimi()
-        self.conv_enc_state = None
-        self.conv_dec_state = None
-        self.tr_enc_states = [None, None, None, None]
-        self.tr_dec_states = [None, None, None, None]
+        (
+            self.mimi,
+            self.enc_state,
+            self.tr_enc_states,
+            self.tr_dec_states,
+            self.dec_state,
+        ) = init_mimi()
 
     @torch.inference_mode()
     def convert_audio(self, audio_in: Tensor) -> Tensor:
@@ -80,9 +82,7 @@ class TorchMimiVC(AudioConverter):
 
         # gather source features
         audio_in.unsqueeze_(0).unsqueeze_(0)
-        source_feats, self.conv_enc_state = self.mimi.encoder(
-            audio_in, self.conv_enc_state
-        )
+        source_feats, self.enc_state = self.mimi.encoder(audio_in, self.enc_state)
         source_feats, *self.tr_enc_states = self.mimi.encoder_transformer(
             source_feats, *self.tr_enc_states
         )
@@ -98,9 +98,7 @@ class TorchMimiVC(AudioConverter):
         conv_feats, *self.tr_dec_states = self.mimi.decoder_transformer(
             conv_feats, *self.tr_dec_states
         )
-        audio_out, self.conv_dec_state = self.mimi.decoder(
-            conv_feats[0], self.conv_dec_state
-        )
+        audio_out, self.dec_state = self.mimi.decoder(conv_feats[0], self.dec_state)
         audio_out.squeeze_()
 
         # transform and return the converted audio

@@ -143,3 +143,11 @@ def init_mimi():
         batch_size
     )
     return mimi, enc_state, tr_enc_state, tr_dec_state, dec_state
+
+
+def init_mimi_og():
+    mimi_weights = hf_get(MIMI_NAME, DEFAULT_REPO)
+    mimi = get_mimi(mimi_weights, num_codebooks=8, device=DEVICE, og=True)
+    batch_size = 1
+    mimi.streaming(batch_size).__enter__()
+    return mimi

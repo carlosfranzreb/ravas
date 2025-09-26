@@ -21,7 +21,7 @@ class SEANetResnetBlock(nn.Module):
         causal: bool = False,
         pad_mode: str = "reflect",
         compress: int = 2,
-        # true_skip: bool = True,
+        true_skip: bool = True,
     ):
         super().__init__()
         assert len(kernel_sizes) == len(dilations)
@@ -59,7 +59,6 @@ class SEANetResnetBlock(nn.Module):
     def forward(self, x, states: tp.List[tp.Any]):
         new_states = list()
         y = x
-        s_idx = 0
         for layer_idx, layer in enumerate(self.block):
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
                 y, new_state = layer(y, states[layer_idx])
@@ -68,10 +67,46 @@ class SEANetResnetBlock(nn.Module):
                 y = layer(y)
                 new_states.append(None)
 
+        y += x
         return y, new_states
 
 
-class SEANetEncoder(nn.Module):
+class SEANetModel(nn.Module):
+    """SEANet encoder with explicit state passing."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
+        states = list()
+        for layer in self.model:
+            if isinstance(
+                layer, (SEANetResnetBlock, StreamingConv1d, StreamingConvTranspose1d)
+            ):
+                states.append(layer._init_streaming_state(batch_size))
+            else:
+                states.append(None)
+
+        return states
+
+    def forward(self, x, states: tp.List[tp.Any]):
+        new_states = list()
+        y = x
+        for layer, st in zip(self.model, states):
+            if isinstance(layer, SEANetResnetBlock):
+                y, sub_states = layer(y, st)
+                new_states.append(sub_states)
+            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
+                y, new_st = layer(y, st)
+                new_states.append(new_st)
+            else:
+                y = layer(y)
+                new_states.append(None)
+
+        return y, new_states
+
+
+class SEANetEncoder(SEANetModel):
     """SEANet encoder with explicit state passing."""
 
     def __init__(
@@ -91,7 +126,7 @@ class SEANetEncoder(nn.Module):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        # true_skip: bool = True,
+        true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         mask_fn: tp.Optional[nn.Module] = None,
@@ -137,7 +172,7 @@ class SEANetEncoder(nn.Module):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        # true_skip=true_skip,
+                        true_skip=true_skip,
                     )
                 )
             modules += [
@@ -156,6 +191,7 @@ class SEANetEncoder(nn.Module):
             mult *= 2
             if mask_fn is not None and mask_position == i + 1:
                 modules.append(mask_fn)
+
         modules += [
             act(**activation_params),
             StreamingConv1d(
@@ -172,36 +208,11 @@ class SEANetEncoder(nn.Module):
                 pad_mode=pad_mode,
             ),
         ]
+
         self.model = nn.ModuleList(modules)
 
-    def _init_streaming_state(self, batch_size: int):
-        states = []
-        for layer in self.model:
-            if isinstance(layer, SEANetResnetBlock):
-                states.append(layer._init_streaming_state(batch_size))
-            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                states.append(layer._init_streaming_state(batch_size))
-            else:
-                states.append(None)
-        return states
 
-    def forward(self, x, states: tp.List[tp.Any]):
-        new_states = []
-        y = x
-        for layer, st in zip(self.model, states):
-            if isinstance(layer, SEANetResnetBlock):
-                y, sub_states = layer(y, st)
-                new_states.append(sub_states)
-            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                y, new_st = layer(y, st)
-                new_states.append(new_st)
-            else:
-                y = layer(y)
-                new_states.append(None)
-        return y, new_states
-
-
-class SEANetDecoder(nn.Module):
+class SEANetDecoder(SEANetModel):
     """SEANet decoder with explicit state passing."""
 
     def __init__(
@@ -223,7 +234,7 @@ class SEANetDecoder(nn.Module):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        # true_skip: bool = True,
+        true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         trim_right_ratio: float = 1.0,
@@ -283,10 +294,11 @@ class SEANetDecoder(nn.Module):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        # true_skip=true_skip,
+                        true_skip=true_skip,
                     )
                 )
             mult //= 2
+
         modules += [
             act(**activation_params),
             StreamingConv1d(
@@ -299,33 +311,9 @@ class SEANetDecoder(nn.Module):
                 pad_mode=pad_mode,
             ),
         ]
+
         if final_activation is not None:
             final_act = getattr(nn, final_activation)
             modules.append(final_act(**(final_activation_params or {})))
+
         self.model = nn.ModuleList(modules)
-
-    def _init_streaming_state(self, batch_size: int):
-        states = []
-        for layer in self.model:
-            if isinstance(layer, SEANetResnetBlock):
-                states.append(layer._init_streaming_state(batch_size))
-            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                states.append(layer._init_streaming_state(batch_size))
-            else:
-                states.append(None)
-        return states
-
-    def forward(self, z, states: tp.List[tp.Any]):
-        new_states = []
-        y = z
-        for layer, st in zip(self.model, states):
-            if isinstance(layer, SEANetResnetBlock):
-                y, sub_states = layer(y, st)
-                new_states.append(sub_states)
-            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                y, new_st = layer(y, st)
-                new_states.append(new_st)
-            else:
-                y = layer(y)
-                new_states.append(None)
-        return y, new_states

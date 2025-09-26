@@ -2,120 +2,13 @@
 # Copyright (c) Kyutai, all rights reserved.
 # Licensed under the license in the root directory of this source tree.
 
-from dataclasses import dataclass
-import math
 import typing as tp
 import warnings
 
 import torch
 from torch import nn, Tensor
-from torch.nn import functional as F
-from torch.nn.utils import weight_norm
 
-from moshi.modules.streaming import State
-
-
-CONV_NORMALIZATIONS = frozenset(["none", "weight_norm"])
-M = tp.TypeVar("M", bound=nn.Module)
-
-
-class TransposedLayerNorm(nn.Module):
-    """LayerNorm for [B, C, T] inputs."""
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.layer_norm = nn.LayerNorm(**kwargs)
-
-    def forward(self, x):
-        x = x.transpose(1, 2)
-        x = self.layer_norm(x)
-        return x.transpose(1, 2)
-
-
-def apply_parametrization_norm(module: M, norm: str = "none") -> M:
-    assert norm in CONV_NORMALIZATIONS
-    if norm == "weight_norm":
-        return weight_norm(module)
-    else:
-        return module
-
-
-def get_extra_padding_for_conv1d(
-    x: Tensor, kernel_size: int, stride: int, padding_total: int = 0
-) -> int:
-    length = x.shape[-1]
-    n_frames = (length - kernel_size + padding_total) / stride + 1
-    ideal_length = (math.ceil(n_frames) - 1) * stride + (kernel_size - padding_total)
-    return ideal_length - length
-
-
-def pad_for_conv1d(x: Tensor, kernel_size: int, stride: int, padding_total: int = 0):
-    extra_padding = get_extra_padding_for_conv1d(x, kernel_size, stride, padding_total)
-    return F.pad(x, (0, extra_padding))
-
-
-def pad1d(
-    x: Tensor,
-    paddings: tp.Tuple[int, int],
-    mode: str = "constant",
-    value: float = 0.0,
-):
-    length = x.shape[-1]
-    padding_left, padding_right = paddings
-    assert padding_left >= 0 and padding_right >= 0
-    if mode == "reflect":
-        max_pad = max(padding_left, padding_right)
-        extra_pad = 0
-        if length <= max_pad:
-            extra_pad = max_pad - length + 1
-            x = F.pad(x, (0, extra_pad))
-        padded = F.pad(x, paddings, mode, value)
-        end = padded.shape[-1] - extra_pad
-        return padded[..., :end]
-    else:
-        return F.pad(x, paddings, mode, value)
-
-
-def unpad1d(x: Tensor, paddings: tp.Tuple[int, int]):
-    padding_left, padding_right = paddings
-    end = x.shape[-1] - padding_right
-    return x[..., padding_left:end]
-
-
-class NormConv1d(nn.Module):
-    def __init__(
-        self,
-        *args,
-        causal: bool = False,
-        norm: str = "none",
-        norm_kwargs: tp.Dict[str, tp.Any] = {},
-        **kwargs,
-    ):
-        super().__init__()
-        self.conv = apply_parametrization_norm(nn.Conv1d(*args, **kwargs), norm)
-        self.norm_type = norm
-
-    def forward(self, x):
-        return self.conv(x)
-
-
-class NormConvTranspose1d(nn.Module):
-    def __init__(
-        self,
-        *args,
-        causal: bool = False,
-        norm: str = "none",
-        norm_kwargs: tp.Dict[str, tp.Any] = {},
-        **kwargs,
-    ):
-        super().__init__()
-        self.convtr = apply_parametrization_norm(
-            nn.ConvTranspose1d(*args, **kwargs), norm
-        )
-        self.norm_type = norm
-
-    def forward(self, x):
-        return self.convtr(x)
+from .conv_utils import NormConv1d, NormConvTranspose1d
 
 
 class StreamingConv1d(nn.Module):
@@ -185,19 +78,18 @@ class StreamingConv1d(nn.Module):
         return prev
 
     def forward(self, x: Tensor, prev: Tensor) -> tuple[Tensor, Tensor]:
-        B, C, T = x.shape
-        S = self._stride
-        assert T % S == 0, "Input length must be multiple of stride"
+        """Input length must be multiple of stride."""
 
-        TP = prev.shape[-1]
-        if TP > 0:
+        n_feats_prev = prev.shape[-1]
+        if n_feats_prev > 0:
             x = torch.cat([prev, x], dim=-1)
             y = self.conv(x)
-            prev[:] = x[..., -TP:]
+            new_prev = x[..., -n_feats_prev:]
         else:
             y = self.conv(x)
+            new_prev = prev
 
-        return y, prev
+        return y, new_prev
 
 
 class StreamingConvTranspose1d(nn.Module):
@@ -252,18 +144,23 @@ class StreamingConvTranspose1d(nn.Module):
         return partial
 
     def forward(self, x: Tensor, partial: Tensor) -> tuple[Tensor, Tensor]:
-        B, C, T = x.shape
-        K, S = self._kernel_size, self._stride
+        """
+        Compute the convolution, overlap-add the state, and update the state.
+        """
         y = self.convtr(x)
 
-        PT = partial.shape[-1]
-        y[..., :PT] += partial
-        bias = self.convtr.convtr.bias
-        for_partial = y[..., -PT:]
-        if bias is not None:
-            for_partial -= bias[:, None]
+        n_feats_partial = partial.shape[-1]
+        if n_feats_partial > 0:
+            y[..., :n_feats_partial] += partial
+            for_partial = y[..., -n_feats_partial:]
 
-        partial[:] = for_partial
-        y = y[..., :-PT]
+            bias = self.convtr.convtr.bias
+            if bias is not None:
+                for_partial -= bias[:, None]
 
-        return y, partial
+            new_partial = for_partial
+            y = y[..., :-n_feats_partial]
+        else:
+            new_partial = partial
+
+        return y, new_partial
