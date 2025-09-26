@@ -8,7 +8,7 @@ import typing as tp
 import warnings
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 from torch.nn import functional as F
 from torch.nn.utils import weight_norm
 
@@ -41,7 +41,7 @@ def apply_parametrization_norm(module: M, norm: str = "none") -> M:
 
 
 def get_extra_padding_for_conv1d(
-    x: torch.Tensor, kernel_size: int, stride: int, padding_total: int = 0
+    x: Tensor, kernel_size: int, stride: int, padding_total: int = 0
 ) -> int:
     length = x.shape[-1]
     n_frames = (length - kernel_size + padding_total) / stride + 1
@@ -49,15 +49,13 @@ def get_extra_padding_for_conv1d(
     return ideal_length - length
 
 
-def pad_for_conv1d(
-    x: torch.Tensor, kernel_size: int, stride: int, padding_total: int = 0
-):
+def pad_for_conv1d(x: Tensor, kernel_size: int, stride: int, padding_total: int = 0):
     extra_padding = get_extra_padding_for_conv1d(x, kernel_size, stride, padding_total)
     return F.pad(x, (0, extra_padding))
 
 
 def pad1d(
-    x: torch.Tensor,
+    x: Tensor,
     paddings: tp.Tuple[int, int],
     mode: str = "constant",
     value: float = 0.0,
@@ -78,7 +76,7 @@ def pad1d(
         return F.pad(x, paddings, mode, value)
 
 
-def unpad1d(x: torch.Tensor, paddings: tp.Tuple[int, int]):
+def unpad1d(x: Tensor, paddings: tp.Tuple[int, int]):
     padding_left, padding_right = paddings
     end = x.shape[-1] - padding_right
     return x[..., padding_left:end]
@@ -118,19 +116,6 @@ class NormConvTranspose1d(nn.Module):
 
     def forward(self, x):
         return self.convtr(x)
-
-
-@dataclass
-class _StreamingConv1dState(State):
-    previous: torch.Tensor
-    first: torch.Tensor
-
-    def reset(self, reset_mask: torch.Tensor):
-        super().reset(reset_mask)
-        self.previous[:] = torch.where(
-            reset_mask.view(-1, 1, 1), torch.zeros_like(self.previous), self.previous
-        )
-        self.first[:] = torch.where(reset_mask, torch.ones_like(self.first), self.first)
 
 
 class StreamingConv1d(nn.Module):
@@ -188,59 +173,31 @@ class StreamingConv1d(nn.Module):
     def _padding_total(self):
         return self._effective_kernel_size - self._stride
 
-    def _init_streaming_state(self, batch_size: int) -> _StreamingConv1dState:
-        kernel = self._effective_kernel_size
-        stride = self._stride
+    def _init_streaming_state(self, batch_size: int) -> Tensor:
         param = next(iter(self.parameters()))
         prev = torch.zeros(
             batch_size,
             self.conv.conv.in_channels,
-            kernel - stride,
+            self._effective_kernel_size - self._stride,
             device=param.device,
             dtype=param.dtype,
         )
-        first = torch.ones(batch_size, device=param.device, dtype=torch.bool)
-        return _StreamingConv1dState(batch_size, param.device, prev, first)
+        return prev
 
-    def forward(
-        self, x: torch.Tensor, state: _StreamingConv1dState | None = None
-    ) -> tuple[torch.Tensor, _StreamingConv1dState]:
+    def forward(self, x: Tensor, prev: Tensor) -> tuple[Tensor, Tensor]:
         B, C, T = x.shape
         S = self._stride
         assert T % S == 0, "Input length must be multiple of stride"
-        if state is None:
-            state = self._init_streaming_state(B)
-        TP = state.previous.shape[-1]
-        if TP and self.pad_mode == "replicate":
-            init = x[..., :1]
-            state.previous[:] = torch.where(
-                state.first.view(-1, 1, 1) & state.exec_mask.view(-1, 1, 1),
-                init,
-                state.previous,
-            )
-        if TP:
-            x = torch.cat([state.previous, x], dim=-1)
-        y = self.conv(x)
-        if TP:
-            state.previous[:] = torch.where(
-                state.exec_mask.view(-1, 1, 1), x[..., -TP:], state.previous
-            )
-            if self.pad_mode == "replicate":
-                state.first = torch.where(
-                    state.exec_mask, torch.zeros_like(state.first), state.first
-                )
-        return y, state
 
+        TP = prev.shape[-1]
+        if TP > 0:
+            x = torch.cat([prev, x], dim=-1)
+            y = self.conv(x)
+            prev[:] = x[..., -TP:]
+        else:
+            y = self.conv(x)
 
-@dataclass
-class _StreamingConvTr1dState(State):
-    partial: torch.Tensor
-
-    def reset(self, reset_mask: torch.Tensor):
-        super().reset(reset_mask)
-        self.partial[:] = torch.where(
-            reset_mask.view(-1, 1, 1), torch.zeros_like(self.partial), self.partial
-        )
+        return y, prev
 
 
 class StreamingConvTranspose1d(nn.Module):
@@ -282,7 +239,7 @@ class StreamingConvTranspose1d(nn.Module):
     def _kernel_size(self):
         return self.convtr.convtr.kernel_size[0]
 
-    def _init_streaming_state(self, batch_size: int) -> _StreamingConvTr1dState:
+    def _init_streaming_state(self, batch_size: int) -> Tensor:
         param = next(iter(self.parameters()))
         K, S = self._kernel_size, self._stride
         partial = torch.zeros(
@@ -292,27 +249,21 @@ class StreamingConvTranspose1d(nn.Module):
             device=param.device,
             dtype=param.dtype,
         )
-        return _StreamingConvTr1dState(batch_size, param.device, partial)
+        return partial
 
-    def forward(
-        self, x: torch.Tensor, state: _StreamingConvTr1dState | None = None
-    ) -> tuple[torch.Tensor, _StreamingConvTr1dState]:
+    def forward(self, x: Tensor, partial: Tensor) -> tuple[Tensor, Tensor]:
         B, C, T = x.shape
         K, S = self._kernel_size, self._stride
         y = self.convtr(x)
-        if state is None:
-            y = unpad1d(y, (0, K - S))
-            state = self._init_streaming_state(B)
-        else:
-            PT = state.partial.shape[-1]
-            if PT > 0:
-                y[..., :PT] += state.partial
-                bias = self.convtr.convtr.bias
-                for_partial = y[..., -PT:]
-                if bias is not None:
-                    for_partial -= bias[:, None]
-                state.partial[:] = torch.where(
-                    state.exec_mask.view(-1, 1, 1), for_partial, state.partial
-                )
-                y = y[..., :-PT]
-        return y, state
+
+        PT = partial.shape[-1]
+        y[..., :PT] += partial
+        bias = self.convtr.convtr.bias
+        for_partial = y[..., -PT:]
+        if bias is not None:
+            for_partial -= bias[:, None]
+
+        partial[:] = for_partial
+        y = y[..., :-PT]
+
+        return y, partial

@@ -1,14 +1,9 @@
 # seanet.py (stateless streaming rewrite)
 import typing as tp
 import numpy as np
-import torch.nn as nn
+from torch import nn, Tensor
 
-from .conv import (
-    StreamingConv1d,
-    StreamingConvTranspose1d,
-    _StreamingConv1dState,
-    _StreamingConvTr1dState,
-)
+from .conv import StreamingConv1d, StreamingConvTranspose1d
 
 
 class SEANetResnetBlock(nn.Module):
@@ -26,7 +21,7 @@ class SEANetResnetBlock(nn.Module):
         causal: bool = False,
         pad_mode: str = "reflect",
         compress: int = 2,
-        true_skip: bool = True,
+        # true_skip: bool = True,
     ):
         super().__init__()
         assert len(kernel_sizes) == len(dilations)
@@ -50,54 +45,30 @@ class SEANetResnetBlock(nn.Module):
                 ),
             ]
         self.block = nn.ModuleList(layers)
-        if true_skip:
-            self.shortcut = nn.Identity()
-        else:
-            self.shortcut = StreamingConv1d(
-                dim,
-                dim,
-                kernel_size=1,
-                norm=norm,
-                norm_kwargs=norm_params,
-                causal=causal,
-                pad_mode=pad_mode,
-            )
 
-    def _init_streaming_state(self, batch_size: int):
-        states = []
+    def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
+        states = list()
         for layer in self.block:
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
                 states.append(layer._init_streaming_state(batch_size))
             else:
                 states.append(None)
-        if isinstance(self.shortcut, (StreamingConv1d, StreamingConvTranspose1d)):
-            states.append(self.shortcut._init_streaming_state(batch_size))
-        else:
-            states.append(None)
+
         return states
 
-    def forward(self, x, states: tp.List[tp.Any] | None = None):
-        if states is None:
-            raise RuntimeError("SEANetResnetBlock requires explicit states")
-        new_states = []
+    def forward(self, x, states: tp.List[tp.Any]):
+        new_states = list()
         y = x
         s_idx = 0
-        for layer in self.block:
+        for layer_idx, layer in enumerate(self.block):
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                y, st = layer(y, states[s_idx])
-                new_states.append(st)
+                y, new_state = layer(y, states[layer_idx])
+                new_states.append(new_state)
             else:
                 y = layer(y)
                 new_states.append(None)
-            s_idx += 1
-        if isinstance(self.shortcut, (StreamingConv1d, StreamingConvTranspose1d)):
-            u, st = self.shortcut(x, states[s_idx])
-            new_states.append(st)
-        else:
-            u = self.shortcut(x)
-            new_states.append(None)
-        out = u + y
-        return out, new_states
+
+        return y, new_states
 
 
 class SEANetEncoder(nn.Module):
@@ -120,7 +91,7 @@ class SEANetEncoder(nn.Module):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        true_skip: bool = True,
+        # true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         mask_fn: tp.Optional[nn.Module] = None,
@@ -166,7 +137,7 @@ class SEANetEncoder(nn.Module):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        true_skip=true_skip,
+                        # true_skip=true_skip,
                     )
                 )
             modules += [
@@ -214,9 +185,7 @@ class SEANetEncoder(nn.Module):
                 states.append(None)
         return states
 
-    def forward(self, x, states: tp.List[tp.Any] | None = None):
-        if states is None:
-            states = self._init_streaming_state(x.shape[0])
+    def forward(self, x, states: tp.List[tp.Any]):
         new_states = []
         y = x
         for layer, st in zip(self.model, states):
@@ -254,7 +223,7 @@ class SEANetDecoder(nn.Module):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        true_skip: bool = True,
+        # true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         trim_right_ratio: float = 1.0,
@@ -314,7 +283,7 @@ class SEANetDecoder(nn.Module):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        true_skip=true_skip,
+                        # true_skip=true_skip,
                     )
                 )
             mult //= 2
@@ -346,9 +315,7 @@ class SEANetDecoder(nn.Module):
                 states.append(None)
         return states
 
-    def forward(self, z, states: tp.List[tp.Any] | None = None):
-        if states is None:
-            states = self._init_streaming_state(z.shape[0])
+    def forward(self, z, states: tp.List[tp.Any]):
         new_states = []
         y = z
         for layer, st in zip(self.model, states):
