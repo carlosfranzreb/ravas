@@ -22,9 +22,18 @@ def compile_onnx():
     batch_size = 1
 
     x = torch.randn((1, 1, 1920), dtype=torch.float32)
-    for method in ["encoder", "encoder_transformer", "downsample"]:
+    for method in [
+        "encoder",
+        "encoder_transformer",
+        "downsample",
+        "upsample",
+        "decoder_transformer",
+        "decoder",
+    ]:
         dump_file = resolve_file_path(f"onnx/mimi_{method}.onnx")
-        state = getattr(mimi, method)._init_streaming_state(batch_size)
+
+        if "sample" not in method:
+            state = getattr(mimi, method)._init_streaming_state(batch_size)
 
         if "transformer" in method:
             input_names = ["input", "offsets", "layer_states"]
@@ -32,9 +41,17 @@ def compile_onnx():
             input_tuple = (x, *state)
 
             # Prepare inputs for ONNX model, used for testing after compilation
-            input_onnx = {"input": x.numpy(), "offsets": state[0]}
+            input_onnx = {"input": x.numpy(), "offsets": state[0].numpy()}
             state_flat = flatten_state(state[1], key_prefix="layer_states_")
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
+
+        elif "sample" in method:
+            input_names = ["input"]
+            output_names = ["output"]
+            input_tuple = (x,)
+
+            # Prepare inputs for ONNX model, used for testing after compilation
+            input_onnx = {"input": x.numpy()}
 
         else:  # seanet models
             input_names = ["input", "state"]
@@ -45,6 +62,9 @@ def compile_onnx():
             input_onnx = {"input": x.numpy()}
             state_flat = flatten_state(state)
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
+
+        if method == "decoder":
+            print(input_names)
 
         torch.onnx.export(
             getattr(mimi, method),
@@ -68,6 +88,11 @@ def compile_onnx():
 
         # update input for next module
         x = torch_out
+        if method == "downsample":
+            x = mimi.quantizer.encode(x.unsqueeze(0))
+            x = mimi.quantizer.decode(x)
+        elif method == "upsample":
+            x = x.unsqueeze(0)
 
 
 def flatten_state(

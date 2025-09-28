@@ -515,7 +515,10 @@ class StreamingTransformer(nn.Module):
 
 
 class ProjectedTransformer(nn.Module):
-    """Transformer with optional projections, stateless-style."""
+    """
+    Transformer with optional projections, stateless-style.
+    TODO: can this be merged above? I think both transformers are the same.
+    """
 
     def __init__(
         self,
