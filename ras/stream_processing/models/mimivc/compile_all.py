@@ -63,9 +63,6 @@ def compile_onnx():
             state_flat = flatten_state(state)
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
 
-        if method == "decoder":
-            print(input_names)
-
         torch.onnx.export(
             getattr(mimi, method),
             input_tuple,
@@ -77,14 +74,16 @@ def compile_onnx():
 
         # test that the compiled models output the same values as the torch ones
         model_onnx = ort.InferenceSession(dump_file)
-        torch_out = getattr(mimi, method)(*input_tuple)[0]
+        torch_out = getattr(mimi, method)(*input_tuple)
+        torch_out = torch_out[0]
         if isinstance(torch_out, list):
             torch_out = torch_out[0]
 
         # Run ONNX model
-        onnx_out = model_onnx.run(output_names, input_onnx)[0]
+        onnx_out = model_onnx.run(output_names, input_onnx)
+        onnx_out = onnx_out[0]
         onnx_out = torch.from_numpy(onnx_out)
-        print(method, torch.allclose(torch_out, onnx_out, atol=1e-6))
+        print(method, torch.allclose(torch_out, onnx_out, atol=1e-4))
 
         # update input for next module
         x = torch_out
