@@ -15,6 +15,7 @@ pip install moshi
 
 import logging
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.multiprocessing import Queue, Event
@@ -63,10 +64,46 @@ class MimiVC(AudioConverter):
         self.encoder = ort.InferenceSession(
             resolve_file_path(f"onnx/mimi_encoder.onnx")
         )
+        self.encoder_transformer = ort.InferenceSession(
+            resolve_file_path(f"onnx/mimi_encoder_transformer.onnx")
+        )
+        self.downsample = ort.InferenceSession(
+            resolve_file_path(f"onnx/mimi_downsample.onnx")
+        )
+        self.upsample = ort.InferenceSession(
+            resolve_file_path(f"onnx/mimi_upsample.onnx")
+        )
         self.decoder = ort.InferenceSession(
             resolve_file_path(f"onnx/mimi_decoder.onnx")
         )
-        self.mimi = init_mimi()
+        self.decoder_transformer = ort.InferenceSession(
+            resolve_file_path(f"onnx/mimi_decoder_transformer.onnx")
+        )
+
+        # load mimi and declare its states
+        mimi = init_mimi()[0]
+        self.quantizer = mimi.quantizer
+
+        self.encoder_input = np.load(
+            resolve_file_path(f"onnx/mimi_encoder_args.npy"), allow_pickle=True
+        ).item()
+        self.encoder_transformer_input = np.load(
+            resolve_file_path(f"onnx/mimi_encoder_transformer_args.npy"),
+            allow_pickle=True,
+        ).item()
+        self.downsample_input = np.load(
+            resolve_file_path(f"onnx/mimi_downsample_args.npy"), allow_pickle=True
+        ).item()
+        self.upsample_input = np.load(
+            resolve_file_path(f"onnx/mimi_upsample_args.npy"), allow_pickle=True
+        ).item()
+        self.decoder_input = np.load(
+            resolve_file_path(f"onnx/mimi_decoder_args.npy"), allow_pickle=True
+        ).item()
+        self.decoder_transformer_input = np.load(
+            resolve_file_path(f"onnx/mimi_decoder_transformer_args.npy"),
+            allow_pickle=True,
+        ).item()
 
     @torch.inference_mode()
     def convert_audio(self, audio_in: Tensor) -> Tensor:
@@ -82,19 +119,50 @@ class MimiVC(AudioConverter):
             )
 
         # gather source features
-        source_feats = self.encoder.run(["output"], {"input": audio_in.numpy()})[0]
-        source_feats = torch.tensor(source_feats, dtype=torch.float32)
+        x = audio_in.unsqueeze(0).unsqueeze(0).numpy()
+        x, self.encoder_input = run_onxx_model(self.encoder, self.encoder_input, x)
+
+        x, self.encoder_transformer_input = run_onxx_model(
+            self.encoder_transformer, self.encoder_transformer_input, x
+        )
+
+        x, self.downsample_input = run_onxx_model(
+            self.downsample, self.downsample_input, x
+        )
+
+        source_feats = torch.from_numpy(x).squeeze(0).T
 
         # convert the audio
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
-        codes = self.mimi.quantizer.encode(conv_feats.unsqueeze(2))
-        conv_feats = self.mimi.quantizer.decode(codes)
+        codes = self.quantizer.encode(conv_feats.unsqueeze(2))
+        conv_feats = self.quantizer.decode(codes)
 
         # decode the audio
-        audio_out = self.decoder.run(["output"], {"input": conv_feats.numpy()})[0]
-        audio_out = torch.tensor(audio_out, dtype=torch.float32)
+        x = conv_feats.numpy()
+        x, self.upsample_input = run_onxx_model(self.upsample, self.upsample_input, x)
+
+        x, self.decoder_transformer_input = run_onxx_model(
+            self.decoder_transformer, self.decoder_transformer_input, x
+        )
+
+        x, self.decoder_input = run_onxx_model(self.decoder, self.decoder_input, x)
+        audio_out = torch.from_numpy(x)
 
         # transform and return the converted audio
         audio_out = torch.clamp(audio_out, -1.0, 1.0)
         audio_out = (audio_out * 32768).to(torch.int16)
         return audio_out
+
+
+def run_onxx_model(model, model_input, new_input) -> tuple:
+    """Run the model, update its state and return it along with the output."""
+    model_input["input"] = new_input
+    model_out = model.run(None, model_input)
+    for idx, key in enumerate(model_input):
+        if key == "input":
+            out = model_out[idx]
+            continue
+
+        model_input[key] = model_out[idx]
+
+    return out, model_input

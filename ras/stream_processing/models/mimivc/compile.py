@@ -9,6 +9,7 @@ import os
 import torch
 from torch import Tensor
 import onnxruntime as ort
+import numpy as np
 
 from .mimi import init_mimi
 from ...utils import resolve_file_path
@@ -31,6 +32,7 @@ def compile_onnx():
         "decoder",
     ]:
         dump_file = resolve_file_path(f"onnx/mimi_{method}.onnx")
+        dump_file_args = resolve_file_path(f"onnx/mimi_{method}_args.npy")
 
         if "sample" not in method:
             state = getattr(mimi, method)._init_streaming_state(batch_size)
@@ -63,6 +65,8 @@ def compile_onnx():
             state_flat = flatten_state(state)
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
 
+        np.save(dump_file_args, input_onnx)
+
         torch.onnx.export(
             getattr(mimi, method),
             input_tuple,
@@ -73,13 +77,13 @@ def compile_onnx():
         )
 
         # test that the compiled models output the same values as the torch ones
-        model_onnx = ort.InferenceSession(dump_file)
         torch_out = getattr(mimi, method)(*input_tuple)
         torch_out = torch_out[0]
         if isinstance(torch_out, list):
             torch_out = torch_out[0]
 
         # Run ONNX model
+        model_onnx = ort.InferenceSession(dump_file)
         onnx_out = model_onnx.run(output_names, input_onnx)
         onnx_out = onnx_out[0]
         onnx_out = torch.from_numpy(onnx_out)

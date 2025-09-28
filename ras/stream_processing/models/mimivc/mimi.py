@@ -12,7 +12,6 @@ from .mimi_functional.seanet import SEANetEncoder as SEANetEncoderF
 from .mimi_functional.seanet import SEANetDecoder as SEANetDecoderF
 from .mimi_functional.mimi import MimiModel
 
-
 DEVICE = "cpu"
 SAMPLE_RATE = 24000
 FRAME_RATE = 12.5
