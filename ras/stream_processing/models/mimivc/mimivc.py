@@ -120,13 +120,13 @@ class MimiVC(AudioConverter):
 
         # gather source features
         x = audio_in.unsqueeze(0).unsqueeze(0).numpy()
-        x, self.encoder_input = run_onxx_model(self.encoder, self.encoder_input, x)
+        x, self.encoder_input = run_onnx_model(self.encoder, self.encoder_input, x)
 
-        x, self.encoder_transformer_input = run_onxx_model(
+        x, self.encoder_transformer_input = run_onnx_model(
             self.encoder_transformer, self.encoder_transformer_input, x
         )
 
-        x, self.downsample_input = run_onxx_model(
+        x, self.downsample_input = run_onnx_model(
             self.downsample, self.downsample_input, x
         )
 
@@ -139,13 +139,13 @@ class MimiVC(AudioConverter):
 
         # decode the audio
         x = conv_feats.numpy()
-        x, self.upsample_input = run_onxx_model(self.upsample, self.upsample_input, x)
+        x, self.upsample_input = run_onnx_model(self.upsample, self.upsample_input, x)
 
-        x, self.decoder_transformer_input = run_onxx_model(
+        x, self.decoder_transformer_input = run_onnx_model(
             self.decoder_transformer, self.decoder_transformer_input, x
         )
 
-        x, self.decoder_input = run_onxx_model(self.decoder, self.decoder_input, x)
+        x, self.decoder_input = run_onnx_model(self.decoder, self.decoder_input, x)
         audio_out = torch.from_numpy(x)
 
         # transform and return the converted audio
@@ -154,15 +154,22 @@ class MimiVC(AudioConverter):
         return audio_out
 
 
-def run_onxx_model(model, model_input, new_input) -> tuple:
-    """Run the model, update its state and return it along with the output."""
+def run_onnx_model(model, model_input, new_input) -> tuple:
+    """
+    Run the model, update its state and return it along with the output.
+    Uses the model's output names to correctly map outputs to inputs.
+    """
     model_input["input"] = new_input
-    model_out = model.run(None, model_input)
-    for idx, key in enumerate(model_input):
-        if key == "input":
-            out = model_out[idx]
-            continue
+    output_names = [output.name for output in model.get_outputs()]
+    model_out = model.run(output_names, model_input)
+    out_dict = dict(zip(output_names, model_out))
 
-        model_input[key] = model_out[idx]
+    # Get the main output (usually the first one)
+    out = out_dict[output_names[0]]
+
+    # Update states using the output names
+    for key in model_input:
+        if key != "input" and key in out_dict:
+            model_input[key] = out_dict[key]
 
     return out, model_input
