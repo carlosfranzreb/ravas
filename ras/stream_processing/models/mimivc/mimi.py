@@ -39,7 +39,6 @@ _seanet_kwargs = {
     "norm": "none",
     "pad_mode": "constant",
     "ratios": [8, 6, 5, 4],
-    # "true_skip": True,
 }
 _quantizer_kwargs = {
     "dimension": 256,

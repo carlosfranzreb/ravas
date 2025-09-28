@@ -1,6 +1,7 @@
 # seanet.py (stateless streaming rewrite)
 import typing as tp
 import numpy as np
+import torch
 from torch import nn, Tensor
 
 from .conv import StreamingConv1d, StreamingConvTranspose1d
@@ -52,7 +53,7 @@ class SEANetResnetBlock(nn.Module):
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
                 states.append(layer._init_streaming_state(batch_size))
             else:
-                states.append(None)
+                states.append(torch.tensor([]))
 
         return states
 
@@ -65,7 +66,7 @@ class SEANetResnetBlock(nn.Module):
                 new_states.append(new_state)
             else:
                 y = layer(y)
-                new_states.append(None)
+                new_states.append(torch.tensor([]))
 
         y += x
         return y, new_states
@@ -85,23 +86,22 @@ class SEANetModel(nn.Module):
             ):
                 states.append(layer._init_streaming_state(batch_size))
             else:
-                states.append(None)
+                states.append(torch.tensor([]))
 
         return states
 
     def forward(self, x, states: tp.List[tp.Any]):
         new_states = list()
         y = x
-        for layer, st in zip(self.model, states):
-            if isinstance(layer, SEANetResnetBlock):
-                y, sub_states = layer(y, st)
-                new_states.append(sub_states)
-            elif isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                y, new_st = layer(y, st)
-                new_states.append(new_st)
+        for layer, state in zip(self.model, states):
+            if isinstance(
+                layer, (SEANetResnetBlock, StreamingConv1d, StreamingConvTranspose1d)
+            ):
+                y, new_state = layer(y, state)
+                new_states.append(new_state)
             else:
                 y = layer(y)
-                new_states.append(None)
+                new_states.append(torch.tensor([]))
 
         return y, new_states
 

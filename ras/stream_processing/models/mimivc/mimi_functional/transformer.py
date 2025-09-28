@@ -150,8 +150,8 @@ class StreamingMultiheadAttention(nn.Module):
         # create other states
         offset = torch.zeros(batch_size, device=device, dtype=torch.long)
         offset_cpu = torch.tensor(0)
-        k_cross = None
-        v_cross = None
+        k_cross = torch.tensor([])  # TODO: are k_cross and v_cross not used?
+        v_cross = torch.tensor([])
 
         return [
             kv_cache_cache,
@@ -169,7 +169,7 @@ class StreamingMultiheadAttention(nn.Module):
         kv_cache_cache: Tensor = None,
         kv_cache_end_offset: Tensor = None,
     ) -> list[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        if kv_cache_cache is None:
+        if kv_cache_cache is None:  # TODO: this shouldn't be needed
             B, H, T, D = keys.shape
             assert tuple(values.shape[:-1]) == (B, H, T)
             positions = torch.arange(T, device=keys.device, dtype=torch.long)
@@ -549,7 +549,7 @@ class ProjectedTransformer(nn.Module):
         return self.transformer._init_streaming_state(batch_size)
 
     def forward(
-        self, x, offsets: Tensor, layer_states: list[int]
+        self, x: Tensor, offsets: Tensor, layer_states: list[Tensor]
     ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
         """
         Returns:
