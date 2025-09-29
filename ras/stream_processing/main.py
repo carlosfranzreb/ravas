@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 import time
-from argparse import ArgumentParser
 from datetime import datetime
 
 import yaml
@@ -113,12 +112,3 @@ def merge_audio_video(log_dir: str) -> None:
             stdout=f,
             stderr=f,
         )
-
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/onnx_models.yaml")
-    args = parser.parse_args()
-    with open(args.config, "r") as f:
-        config = yaml.safe_load(f)
-    main(config, runtime=100)
