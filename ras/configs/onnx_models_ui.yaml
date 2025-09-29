@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file null
+define: &video_file J:/Datasets/LibriSpeech/dev-clean/8842/304647/8842-304647-0004.flac
 define: &video_width 1280
 define: &video_height 720
 
@@ -73,3 +73,16 @@ audio:
     target_feats_path: ./target_feats/mimivc/1089.pt
     device: cpu
     n_neighbors: 4
+    prev_audio_queue:
+      max_samples: 9600
+    prev_ctx:
+      use_previous_ctx: false
+      max_samples: 0
+    lookahead_ctx:
+    interpolator:
+      n_samples: 450
+      weight: 0.75
+    vad:
+      frame_length: 2048
+      hop_length: 512
+      threshold: 0.010

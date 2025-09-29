@@ -199,66 +199,76 @@ config_item_video_output_width.is_valid_value = partial(
 
 
 CONFIG_ITEMS: dict[str, ConfigurationItem] = {
-    "use_audio": ConfigurationItem(
-        ["audio", "use_audio"],
-        {
-            "Use Audio": True,
-            "Disable Audio": False,
-        },
-    ),
-    "use_video": ConfigurationItem(
-        ["video", "use_video"],
-        {
-            "Use Video": True,
-            "Disable Video": False,
-        },
-    ),
-    "audio_input_devices": ConfigurationItem(
-        ["audio", "input_device"],
-        partial(get_audio_devices, is_input=True, logger=_logger),
-    ),
-    "audio_output_devices": ConfigurationItem(
-        ["audio", "output_device"],
-        partial(get_audio_devices, is_input=False, logger=_logger),
-    ),
-    "video_converters": ConfigurationItem(
-        ["video", "converter", "cls"],
-        {
-            "Avatar": AVATAR_CONVERTER,
-            "FaceMask": "stream_processing.models.FaceMask",
-            "Echo (No Anonymization)": "stream_processing.models.Echo",
-        },
-    ),
-    "video_avatars": ConfigurationItem(
-        ["video", "converter", "avatar_uri"],
-        partial(get_avatars_for_config, logger=_logger),
-    ),
-    "avatar_renderer": ConfigurationItem(
-        ["video", "converter", "avatar_renderer"],
-        {
-            "OpenGL App (Default)": RenderAppType.OPENGL_APP.value,
-            "Browser (Chrome)": RenderAppType.BROWSER.value,
-        },
-    ),
-    "avatar_ws_port": ConfigurationItem(
-        ["video", "converter", "ws_port"],
-        None,
-        is_valid_value=wrap_simple_validate(is_port_valid),
-    ),
-    "output_window": ConfigurationItem(
-        ["video", "output_window"],
-        {
-            "Show Video Output Window": True,
-            "Do Not Show Output Video": False,
-        },
-    ),
-    "avatar_render_window": ConfigurationItem(
-        ["video", "converter", "show_renderer_window"],
-        {
-            "Show Avatar Renderer Window": True,
-            "Do Not Show Avatar Renderer Window": False,
-        },
-    ),
+    'use_audio': ConfigurationItem(['audio', 'use_audio'], {
+        'Use Audio':        True,
+        'Disable Audio':    False,
+    }),
+
+    'use_video': ConfigurationItem(['video', 'use_video'], {
+        'Use Video':        True,
+        'Disable Video':    False,
+    }),
+
+    'audio_input_devices': ConfigurationItem(['audio', 'input_device'],
+                                             partial(get_audio_devices, is_input=True, logger=_logger)),
+
+    'audio_output_devices': ConfigurationItem(['audio', 'output_device'],
+                                              partial(get_audio_devices, is_input=False, logger=_logger)),
+
+    'video_converters': ConfigurationItem(['video', 'converter', 'cls'], {
+        'Avatar':                   AVATAR_CONVERTER,
+        'FaceMask':                 'stream_processing.models.FaceMask',
+        'Echo (No Anonymization)':  'stream_processing.models.Echo',
+    }),
+    'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'],
+                                       partial(get_avatars_for_config, logger=_logger)),
+
+    'avatar_renderer': ConfigurationItem(['video', 'converter', 'avatar_renderer'], {
+        'OpenGL App (Default)': RenderAppType.OPENGL_APP.value,
+        'Browser (Chrome)':     RenderAppType.BROWSER.value,
+    }),
+
+    'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
+                                        is_valid_value=wrap_simple_validate(is_port_valid)),
+
+    'output_window': ConfigurationItem(['video', 'output_window'], {
+        'Show Video Output Window': True,
+        'Do Not Show Output Video': False,
+    }),
+
+    'avatar_render_window': ConfigurationItem(['video', 'converter', 'show_renderer_window'], {
+        'Show Avatar Renderer Window':        True,
+        'Do Not Show Avatar Renderer Window': False,
+    }),
+
+    
+    'use_previous_context': ConfigurationItem(['audio','converter','prev_ctx','use_previous_ctx'], {
+        'Use previous context':     True,
+        'Disable previous context': False,
+    }),
+
+    'previous_max_sample': ConfigurationItem(['audio','converter', 'prev_ctx','max_samples'], {
+        '<DEFAULT>': 0,
+        '320' :    320 ,
+        '1600':    1600,
+        '3200':    3200,
+        '4800':    4800,
+        '8000':    8000,
+
+    }),
+
+    'use_lookahead_context': ConfigurationItem(['audio','converter', 'lookahead_ctx','use_lookahead_ctx'], {
+        'Use lookahead context':     True,
+        'Disable lookahead context': False,
+    }),
+
+    'lookahead_max_sample': ConfigurationItem(['audio','converter', 'lookahead_ctx','max_samples'], {
+        '<DEFAULT>': 0,
+        '1600':    1600,
+        '3200':    3200,
+        '4800':    4800,
+    }),
+    
     # DISABLED selecting virtual-camera backend via combo-box (only enabled/disabled check-box for now):
     # 'output_virtual_cam': ConfigurationItem(['video', 'output_virtual_cam'], get_virtual_camera_backends),
     "output_virtual_cam": ConfigurationItem(
