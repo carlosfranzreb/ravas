@@ -22,6 +22,7 @@ class LogWorker(QObject):
 
     in addition, will start logging to console & file in another process, so that logging may not block main thread
     """
+
     finished = pyqtSignal()
     emitLogLine = pyqtSignal(str)
 
@@ -45,7 +46,10 @@ class LogWorker(QObject):
         if QThread.currentThread().isInterruptionRequested():
             return
 
-        log_dir = os.path.join(resolve_file_path(config["log_dir"]), datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        log_dir = os.path.join(
+            resolve_file_path(config["log_dir"]),
+            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+        )
         os.makedirs(log_dir, exist_ok=True)
         yaml.dump(config, open(os.path.join(log_dir, "config.yaml"), "w"))
         config["log_dir"] = log_dir
@@ -67,17 +71,20 @@ class LogWorker(QObject):
             return
 
         # start logging process for logging to console & file
-        log_listener = multiprocessing.Process(target=gui_listener_process, kwargs={
-            'log_dir': log_dir,
-            'queue': log_queue,
-            'gui_queue': gui_log_queue,
-            'log_level': config["log_level"],
-            'gui_log_level': gui_log_level,
-            'disable_console': disable_console_logging,
-        })
+        log_listener = multiprocessing.Process(
+            target=gui_listener_process,
+            kwargs={
+                "log_dir": log_dir,
+                "queue": log_queue,
+                "gui_queue": gui_log_queue,
+                "log_level": config["log_level"],
+                "gui_log_level": gui_log_level,
+                "disable_console": disable_console_logging,
+            },
+        )
         log_listener.start()
         worker_configurer(log_queue, config["log_level"])
-        logging.getLogger().info('Started logging process (pid %s)', log_listener.pid)
+        logging.getLogger().info("Started logging process (pid %s)", log_listener.pid)
 
         while not QThread.currentThread().isInterruptionRequested():
             try:
@@ -86,21 +93,26 @@ class LogWorker(QObject):
             except Empty:
                 pass
 
-        print("Worker.startProcessingLog(): stopped!, terminating logger process now", flush=True)  # FIXME DEBUG
+        print(
+            "Worker.startProcessingLog(): stopped!, terminating logger process now",
+            flush=True,
+        )  # FIXME DEBUG
         log_listener.terminate()
 
         # send finish signal (if connected to thread.quit, will cause wrapper-thread to end)
         self.finished.emit()
-        print("Worker.startProcessingLog(): emitted finish signal", flush=True)  # FIXME DEBUG
+        print(
+            "Worker.startProcessingLog(): emitted finish signal", flush=True
+        )  # FIXME DEBUG
 
 
 def gui_listener_process(
-        log_dir: str,
-        queue: multiprocessing.Queue,
-        gui_queue: multiprocessing.Queue,
-        log_level: str = "INFO",
-        gui_log_level: str = "INFO",
-        disable_console: bool = True,
+    log_dir: str,
+    queue: multiprocessing.Queue,
+    gui_queue: multiprocessing.Queue,
+    log_level: str = "INFO",
+    gui_log_level: str = "INFO",
+    disable_console: bool = True,
 ):
     """
     Configure and start the listener process.
@@ -126,15 +138,21 @@ def gui_listener_process(
         if hasattr(logging, gui_log_level):
             gui_log_level = getattr(logging, gui_log_level)
         if isinstance(gui_log_level, str):
-            print('ERROR setting up logger: failed to detect log-level (int) for GUI logging for value "%s", using INFO instead' % gui_log_level, flush=True)
+            print(
+                'ERROR setting up logger: failed to detect log-level (int) for GUI logging for value "%s", using INFO instead'
+                % gui_log_level,
+                flush=True,
+            )
             gui_log_level = logging.INFO
 
     # handler for creating the log-line for gui-logging here
     # (and send the formatted log-string via `emitLogLine` signal)
     handler = logging.Handler()
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
-    ))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
+        )
+    )
 
     while True:
         while not queue.empty():
@@ -156,7 +174,12 @@ def init_gui_logging(config: dict) -> tuple[LogWorker, QThread]:
 
     # start thread & invoke worker's processing function
     thread.start()
-    QMetaObject.invokeMethod(log_worker, 'startProcessingLog', Qt.ConnectionType.QueuedConnection, Q_ARG(dict, config))
+    QMetaObject.invokeMethod(
+        log_worker,
+        "startProcessingLog",
+        Qt.ConnectionType.QueuedConnection,
+        Q_ARG(dict, config),
+    )
 
     # NOTE must return the QThread and attach it to app (i.e. keep a reference) otherwise it will be garbage-collected,
     #      which would prematurely stop the thread!

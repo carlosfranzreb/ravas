@@ -27,7 +27,9 @@ class AudioVideoStreamer:
                 log_queue=log_queue,
                 log_level=log_level,
             )
-            if self.use_video and not (config["audio"]["store"] or config["video"]["store"]):
+            if self.use_video and not (
+                config["audio"]["store"] or config["video"]["store"]
+            ):
                 # only need synced ready-signal with video, if video is enabled, and if both audio & video are NOT
                 # set to be stored in a file
                 # (NOTE audio is either written to file or to output-stream; not both)
@@ -45,7 +47,9 @@ class AudioVideoStreamer:
                 log_queue=log_queue,
                 log_level=log_level,
             )
-            if self.use_audio and not (config["video"]["store"] or config["audio"]["store"]):
+            if self.use_audio and not (
+                config["video"]["store"] or config["audio"]["store"]
+            ):
                 # only need synced ready-signal with audio, if audio is enabled, and if both video & audio are NOT
                 # set to be stored in a file
                 video_sync_state.ready = video_processor.queues.ready

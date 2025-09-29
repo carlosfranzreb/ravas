@@ -1,4 +1,3 @@
-
 # ##############################################################
 # [russa] MODIFIED source file from
 # https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/node.py
@@ -159,8 +158,12 @@ class Node:
             assert (
                 projection_matrix is not None
             ), "Can not draw bbox, the projection matrix is empty"
-            assert self._matrix_global is not None, "Can not draw bbox, the global matrix is empty"
-            assert camera_matrix is not None, "Can not draw bbox, the camera matrix is empty"
+            assert (
+                self._matrix_global is not None
+            ), "Can not draw bbox, the global matrix is empty"
+            assert (
+                camera_matrix is not None
+            ), "Can not draw bbox, the camera matrix is empty"
             self._mesh.draw_bbox(
                 projection_matrix, self._matrix_global, camera_matrix, program, vao
             )
@@ -185,14 +188,19 @@ class Node:
             assert (
                 projection_matrix is not None
             ), "Can not draw bbox, the projection matrix is empty"
-            assert self._matrix_global is not None, "Can not draw bbox, the global matrix is empty"
+            assert (
+                self._matrix_global is not None
+            ), "Can not draw bbox, the global matrix is empty"
             self._mesh.draw_wireframe(projection_matrix, self._matrix_global, program)
 
         for child in self.children:
             child.draw_wireframe(projection_matrix, self._matrix_global, program)
 
     def calc_global_bbox(
-        self, view_matrix: glm.mat4, bbox_min: glm.vec3 | None, bbox_max: glm.vec3 | None
+        self,
+        view_matrix: glm.mat4,
+        bbox_min: glm.vec3 | None,
+        bbox_max: glm.vec3 | None,
     ) -> tuple[glm.vec3, glm.vec3]:
         """Recursive calculation of scene bbox.
 
@@ -205,7 +213,9 @@ class Node:
             view_matrix = self._matrix * view_matrix
 
         if self._mesh:
-            bbox_min, bbox_max = self._mesh.calc_global_bbox(view_matrix, bbox_min, bbox_max)
+            bbox_min, bbox_max = self._mesh.calc_global_bbox(
+                view_matrix, bbox_min, bbox_max
+            )
 
         for child in self._children:
             bbox_min, bbox_max = child.calc_global_bbox(view_matrix, bbox_min, bbox_max)

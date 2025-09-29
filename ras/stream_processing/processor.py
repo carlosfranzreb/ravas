@@ -196,7 +196,9 @@ class Processor:
 
         # NOTE: only read `self.external_sync_state.disabled` once, before sync-loop starts
         #       WANING: later changes to shared Value `external_sync_state.disabled.value` will be ignored (for now)!
-        ignore_external_sync = self.converting_file or self.external_sync_state.disabled.value
+        ignore_external_sync = (
+            self.converting_file or self.external_sync_state.disabled.value
+        )
 
         def get_left_time() -> float:
             """Return the timestamp where the output should be at the current time."""

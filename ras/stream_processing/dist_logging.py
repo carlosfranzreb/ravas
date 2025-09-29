@@ -5,7 +5,9 @@ from time import sleep
 from torch.multiprocessing import Queue
 
 
-def listener_configurer(log_dir: str, log_level: str = "INFO", disable_console: bool = False):
+def listener_configurer(
+    log_dir: str, log_level: str = "INFO", disable_console: bool = False
+):
     """Configure the root listener process to log to a file and the console."""
     log_file = os.path.join(log_dir, "progress.log")
     root = logging.getLogger()

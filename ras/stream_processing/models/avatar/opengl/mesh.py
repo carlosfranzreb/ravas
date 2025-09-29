@@ -1,4 +1,3 @@
-
 # ##############################################################
 # [russa] MODIFIED source file from
 # https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/mesh.py
@@ -67,9 +66,13 @@ class Mesh:
         self.mesh_program: Optional["MeshProgram"] = None
 
         self.morph_texture: Optional[TextureArray] = morph_texture
-        self.morph_texture_size: Optional[glm.vec2] = morph_texture_size  # tuple (<num vertices>, 1)
+        self.morph_texture_size: Optional[glm.vec2] = (
+            morph_texture_size  # tuple (<num vertices>, 1)
+        )
         self.morph_target_dictionary: Dict[str, int] = morph_target_dictionary
-        self.morph_target_influences: Collection[float] = numpy.zeros(len(morph_target_dictionary))
+        self.morph_target_influences: Collection[float] = numpy.zeros(
+            len(morph_target_dictionary)
+        )
 
         self.skeleton: Optional[Skeleton] = None
         self.bind_matrix = glm.mat4()
@@ -148,7 +151,10 @@ class Mesh:
         self.attributes[attr_type] = {"name": name, "components": components}
 
     def calc_global_bbox(
-        self, view_matrix: glm.mat4, bbox_min: glm.vec3 | None, bbox_max: glm.vec3 | None
+        self,
+        view_matrix: glm.mat4,
+        bbox_min: glm.vec3 | None,
+        bbox_max: glm.vec3 | None,
     ) -> tuple[glm.vec3, glm.vec3]:
         """Calculates the global bounding.
 

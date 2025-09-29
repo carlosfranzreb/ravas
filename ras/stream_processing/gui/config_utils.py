@@ -15,24 +15,26 @@ from ..models.avatar.avatar_resources import get_web_extension_file
 from ..utils import resolve_file_path
 
 
-VOICE_FILE_EXTENSION = re.compile(r'.pt$', re.RegexFlag.IGNORECASE)
+VOICE_FILE_EXTENSION = re.compile(r".pt$", re.RegexFlag.IGNORECASE)
 
-FEMALE_VOICES = {'tanja', 'wendy'}
-MALE_VOICES = {'herbert', 'john'}
+FEMALE_VOICES = {"tanja", "wendy"}
+MALE_VOICES = {"herbert", "john"}
 
 DEFAULT_AVATARS = {
-    'Default Avatar (Female)':   'avatar_1_f.glb',
-    'Default Avatar (Male)':     'avatar_2_m.glb',
-    'Default Avatar 2 (Female)': 'avatar_3_f.glb',
-    'Default Avatar 2 (Male)':   'avatar_4_m.glb',
+    "Default Avatar (Female)": "avatar_1_f.glb",
+    "Default Avatar (Male)": "avatar_2_m.glb",
+    "Default Avatar 2 (Female)": "avatar_3_f.glb",
+    "Default Avatar 2 (Male)": "avatar_4_m.glb",
 }
 
 
-def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -> dict[str, int]:
+def get_audio_devices(
+    is_input: bool, logger: Optional[logging.Logger] = None
+) -> dict[str, int]:
     """Retrieve the device names for audio-input or -output index"""
     devices = sd.query_devices()
     if logger:
-        logger.debug('audio devices: %s', devices)
+        logger.debug("audio devices: %s", devices)
     result = {}
     # NOTE: use counter instead of idx, to show "nice" increasing numbering without gaps in config-labels
     count = 1
@@ -47,7 +49,7 @@ def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -
 
         if is_match:
             # NOTE: need to include number in dict-key, since on Windows the same device name may occur multiple times
-            result['{: >2}. {} [ID {}]'.format(count, device["name"], idx)] = idx
+            result["{: >2}. {} [ID {}]".format(count, device["name"], idx)] = idx
             count += 1
 
     return result
@@ -55,18 +57,18 @@ def get_audio_devices(is_input: bool, logger: Optional[logging.Logger] = None) -
 
 def get_virtual_camera_backends() -> dict[str, Union[str, bool]]:
     result = {
-        'DISABLED': False,
-        'ENABLED <DEFAULT>': True,
+        "DISABLED": False,
+        "ENABLED <DEFAULT>": True,
     }
     # adapted from pyvirtualcam/camera.py:
     p = platform.system()
-    if p == 'Windows':
-        result['OBS Virtual Camera'] = 'obs'
-        result['Unity Video Capture'] = 'unitycapture'
-    elif p == 'Darwin':
-        result['OBS Virtual Camera'] = 'obs'
-    elif p == 'Linux':
-        result['Loopback /dev/video<n>'] = 'v4l2loopback'
+    if p == "Windows":
+        result["OBS Virtual Camera"] = "obs"
+        result["Unity Video Capture"] = "unitycapture"
+    elif p == "Darwin":
+        result["OBS Virtual Camera"] = "obs"
+    elif p == "Linux":
+        result["Loopback /dev/video<n>"] = "v4l2loopback"
     return result
 
 
@@ -92,7 +94,9 @@ def is_positive_number(val: any) -> bool:
     return False
 
 
-def is_positive_number_and_equal_to_config_path(val: any, config: Optional[dict], config_path: list[str]) -> bool:
+def is_positive_number_and_equal_to_config_path(
+    val: any, config: Optional[dict], config_path: list[str]
+) -> bool:
     """
     HELPER test if value is a positive number AND (if `config` is not `None`) if it
            is equal to a value of another configuration-path
@@ -137,17 +141,23 @@ def is_port_free(port: int) -> bool:
         return result
 
 
-def wrap_simple_validate(validate_func: Callable[[any], bool]) -> Callable[[any, Optional[dict]], bool]:
+def wrap_simple_validate(
+    validate_func: Callable[[any], bool],
+) -> Callable[[any, Optional[dict]], bool]:
     """
     HELPER create wrapper function, to allow single-parameter `ConfigurationItem.is_valid_value(val)`
            (i.e. will always ignore `config`-parameter for `ConfigurationItem.is_valid_value(val, config)`)
     """
+
     def _func(val: any, _config: Optional[dict]):
         return validate_func(val)
+
     return _func
 
 
-def get_current_value_and_config_path_for(config: dict, config_path: list[str]) -> tuple[any, str, dict]:
+def get_current_value_and_config_path_for(
+    config: dict, config_path: list[str]
+) -> tuple[any, str, dict]:
     """
     HELPER for a path in the config return:
      * the `current_value` at that path
@@ -173,7 +183,17 @@ def get_current_value_and_config_path_for(config: dict, config_path: list[str]) 
     return current_value, field_name, sub_config
 
 
-def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
+def get_voices_dir_for_anonymizer(config: dict) -> str:
+    anonymizer_path, _, _ = get_current_value_and_config_path_for(
+        config, ["audio", "converter", "cls"]
+    )
+    anonymizer = anonymizer_path.split(".")[-1].lower()
+    return resolve_file_path(os.path.join("target_feats", anonymizer))
+
+
+def get_voices_from(
+    dir_path: str, logger: Optional[logging.Logger] = None
+) -> dict[str, str]:
     items: dict[str, str] = {}
     if os.path.exists(dir_path):
         for p in os.listdir(dir_path):
@@ -181,17 +201,21 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
             if os.path.isfile(file_path) and VOICE_FILE_EXTENSION.search(string=p):
                 name = p[:-3].lower()
                 if name in FEMALE_VOICES:
-                    name = f'Female ({name.capitalize()})'
+                    name = f"Female ({name.capitalize()})"
                 elif name in MALE_VOICES:
-                    name = f'Male ({name.capitalize()})'
+                    name = f"Male ({name.capitalize()})"
                 else:
                     name = name.capitalize()
-                items[name] = file_path.replace('\\', '/')
+                items[name] = file_path.replace("\\", "/")
     if not items:
-        info_exists = ' (directory does not exist)' if not os.path.exists(dir_path) else (
-            ' (path is not a directory)' if os.path.isdir(dir_path) else ''
+        info_exists = (
+            " (directory does not exist)"
+            if not os.path.exists(dir_path)
+            else (" (path is not a directory)" if os.path.isdir(dir_path) else "")
         )
-        msg = 'Failed to find any voices (*.pt files) at{}: {}'.format(info_exists, os.path.realpath(dir_path))
+        msg = "Failed to find any voices (*.pt files) at{}: {}".format(
+            info_exists, os.path.realpath(dir_path)
+        )
         # TODO raise exception that can be show to users in alert-box?
         if logger:
             logger.error(msg)
@@ -200,7 +224,9 @@ def get_voices_from(dir_path: str, logger: Optional[logging.Logger] = None) -> d
     return items
 
 
-def get_avatars_for_config(config: Optional[dict], logger: Optional[logging.Logger] = None) -> dict[str, str]:
+def get_avatars_for_config(
+    config: Optional[dict], logger: Optional[logging.Logger] = None
+) -> dict[str, str]:
     """
     HELPER inspect configuration and try to determine which avatar files are available.
 
@@ -213,8 +239,10 @@ def get_avatars_for_config(config: Optional[dict], logger: Optional[logging.Logg
     """
     avatars: Optional[dict] = None
     if config:
-        config_path = ['video', 'converter', 'use_chrome_extension']
-        web_extension_config, _, _ = get_current_value_and_config_path_for(config, config_path)
+        config_path = ["video", "converter", "use_chrome_extension"]
+        web_extension_config, _, _ = get_current_value_and_config_path_for(
+            config, config_path
+        )
         file_path = None
         if isinstance(web_extension_config, bool) and web_extension_config:
             file_path = get_web_extension_file()
@@ -223,25 +251,39 @@ def get_avatars_for_config(config: Optional[dict], logger: Optional[logging.Logg
             if not os.path.exists(file_path):
                 file_path = resolve_file_path(file_path)
         elif logger:
-            logger.error('Unknown configuration value for %s: expected bool or string, but got %s (%s)', '.'.join(config_path), type(web_extension_config), web_extension_config)
+            logger.error(
+                "Unknown configuration value for %s: expected bool or string, but got %s (%s)",
+                ".".join(config_path),
+                type(web_extension_config),
+                web_extension_config,
+            )
 
         if file_path:
             if os.path.exists(file_path):
                 avatars = get_avatars_from(file_path, logger=logger)
             elif logger:
-                logger.error('invalid configuration value for %s: file or directory does not exist at %s', '.'.join(config_path), file_path)
+                logger.error(
+                    "invalid configuration value for %s: file or directory does not exist at %s",
+                    ".".join(config_path),
+                    file_path,
+                )
     else:
         # DEFAULT if config is omitted: try to use packed web-extension file
         file_path = get_web_extension_file()
 
     if not avatars:
         if logger:
-            logger.warning('Could not detect any avatar models (*.glb), using default values instead. Did not find any at %s', file_path)
+            logger.warning(
+                "Could not detect any avatar models (*.glb), using default values instead. Did not find any at %s",
+                file_path,
+            )
         avatars = deepcopy(DEFAULT_AVATARS)
     return avatars
 
 
-def get_avatars_from(dir_or_zip_path: str, logger: Optional[logging.Logger] = None) -> dict[str, str]:
+def get_avatars_from(
+    dir_or_zip_path: str, logger: Optional[logging.Logger] = None
+) -> dict[str, str]:
     """
     HELPER read available avatar files (3d models for avatars in `*.glb` format) from
            either packed web-extension file (ZIP) or unpacked web-extension directory
@@ -263,12 +305,12 @@ def get_avatars_from(dir_or_zip_path: str, logger: Optional[logging.Logger] = No
         for p in os.listdir(dir_or_zip_path):
             if os.path.isdir(os.path.join(dir_or_zip_path, p)):
                 continue
-            if p.lower().endswith('.glb'):
+            if p.lower().endswith(".glb"):
                 avatars_list.append(p)
     else:
         with ZipFile(dir_or_zip_path) as zip_file:
             for n in zip_file.namelist():
-                if n.lower().endswith('.glb'):
+                if n.lower().endswith(".glb"):
                     avatars_list.append(n)
     avatars_list.sort()
 
@@ -278,34 +320,38 @@ def get_avatars_from(dir_or_zip_path: str, logger: Optional[logging.Logger] = No
     result = {}
 
     # name pattern: "avatar_<number>_<gender>.glb"
-    re_avatar = re.compile(r'avatar_(\d+)_(\w+)')
+    re_avatar = re.compile(r"avatar_(\d+)_(\w+)")
 
     for a in avatars_list:
-        num = ''
-        gender = ''
+        num = ""
+        gender = ""
         match = re_avatar.search(a.lower())
         if match:
             # num = '' if match.group(1) == '1' else f'{match.group(1)} '
             # gender = 'Female' if match.group(2) == 'f' else 'Male'
             gender = match.group(2)
-            if gender == 'm':
+            if gender == "m":
                 male_count += 1
-                gender = 'Male'
-                num = '' if male_count == 1 else f'{male_count} '
+                gender = "Male"
+                num = "" if male_count == 1 else f"{male_count} "
             else:
-                if gender == 'f':
+                if gender == "f":
                     female_count += 1
-                    gender = 'Female'
-                    num = '' if female_count == 1 else f'{female_count} '
+                    gender = "Female"
+                    num = "" if female_count == 1 else f"{female_count} "
                 elif logger:
-                    logger.warning('Unknown naming pattern for avatar files: expected "f" or "m" for gender, but got "%s" for file %s', gender, a)
+                    logger.warning(
+                        'Unknown naming pattern for avatar files: expected "f" or "m" for gender, but got "%s" for file %s',
+                        gender,
+                        a,
+                    )
 
         if not gender:
             unknown_count += 1
-            gender = 'Unknown'
-            num = '' if unknown_count == 1 else f'{unknown_count} '
+            gender = "Unknown"
+            num = "" if unknown_count == 1 else f"{unknown_count} "
 
-        result[f'Avatar {num}({gender})'] = a
+        result[f"Avatar {num}({gender})"] = a
     return result
 
 
@@ -317,21 +363,33 @@ def validate_config_values(config: dict) -> list[str]:
     for key, item in CONFIG_ITEMS.items():
         if key in IGNORE_CONFIG_ITEM_KEYS or item.can_ignore_validation(config):
             continue
-        curr_val, field, sub_config = get_current_value_and_config_path_for(config, item.config_path)
+        curr_val, field, sub_config = get_current_value_and_config_path_for(
+            config, item.config_path
+        )
         if item.is_valid_value:
             if not item.is_valid_value(curr_val, config):
-                problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
+                problems.append(
+                    "{}: {}".format(".".join(item.config_path), json.dumps(curr_val))
+                )
         else:
             config_value_items = item.get(config)
-            config_values = config_value_items if isinstance(config_value_items, list) else config_value_items.values()
+            config_values = (
+                config_value_items
+                if isinstance(config_value_items, list)
+                else config_value_items.values()
+            )
             if curr_val not in config_values:
-                problems.append('{}: {}'.format('.'.join(item.config_path), json.dumps(curr_val)))
+                problems.append(
+                    "{}: {}".format(".".join(item.config_path), json.dumps(curr_val))
+                )
     return problems
 
 
 # adapted from
 # https://stackoverflow.com/a/61768256/4278324
-def return_camera_infos(logger: Optional[logging.Logger] = None, max_look_ahead: int = 2) -> list[dict]:
+def return_camera_infos(
+    logger: Optional[logging.Logger] = None, max_look_ahead: int = 2
+) -> list[dict]:
     """
     Get list of available cameras.
 
@@ -373,20 +431,26 @@ def return_camera_infos(logger: Optional[logging.Logger] = None, max_look_ahead:
         cap = cv.VideoCapture(index)
 
         if logger and logger.isEnabledFor(logging.DEBUG):
-            camera_info = (' | backend: "%s" | exception mode: %s' % (cap.getBackendName(), cap.getExceptionMode()) if cap.isOpened() else '')
-            logger.debug('check camera %s -> opened: %s%s', index, cap.isOpened(), camera_info)
+            camera_info = (
+                ' | backend: "%s" | exception mode: %s'
+                % (cap.getBackendName(), cap.getExceptionMode())
+                if cap.isOpened()
+                else ""
+            )
+            logger.debug(
+                "check camera %s -> opened: %s%s", index, cap.isOpened(), camera_info
+            )
 
         if cap.isOpened() and cap.read()[0]:
             cap_info = {
-                'index':    index,
-                'backend':  cap.getBackendName(),
-
+                "index": index,
+                "backend": cap.getBackendName(),
                 # NOTE: these are the current default settings, when opening camera without specifying anything
                 #         i.e. they do NOT necessarily reflect the camera's capabilities
                 #         w.r.t. to min./max. resolution or FPS
-                'width':    cap.get(cv.CAP_PROP_FRAME_WIDTH),
-                'height':   cap.get(cv.CAP_PROP_FRAME_HEIGHT),
-                'fps':      cap.get(cv.CAP_PROP_FPS),
+                "width": cap.get(cv.CAP_PROP_FRAME_WIDTH),
+                "height": cap.get(cv.CAP_PROP_FRAME_HEIGHT),
+                "fps": cap.get(cv.CAP_PROP_FPS),
             }
             arr.append(cap_info)
             cap.release()
@@ -413,6 +477,10 @@ def get_camera_device_items(logger: Optional[logging.Logger] = None) -> dict[str
     camera_infos = return_camera_infos(logger)
     items: dict[str, int] = {}
     for info in camera_infos:
-        label = 'Camera {index} (width {width:.0f}, height {height:.0f}, FPS {fps})'.format(**info)
-        items[label] = info['index']
+        label = (
+            "Camera {index} (width {width:.0f}, height {height:.0f}, FPS {fps})".format(
+                **info
+            )
+        )
+        items[label] = info["index"]
     return items

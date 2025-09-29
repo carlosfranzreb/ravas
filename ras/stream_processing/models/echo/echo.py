@@ -20,7 +20,9 @@ class Echo(Converter):
         """
         Initialize the Echo Model.
         """
-        super().__init__(name, config, input_queue, output_queue, log_queue, log_level, ready_signal)
+        super().__init__(
+            name, config, input_queue, output_queue, log_queue, log_level, ready_signal
+        )
 
     def convert(self) -> None:
         """

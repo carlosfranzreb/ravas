@@ -39,17 +39,21 @@ class QTextEditLogger(logging.Handler):
 class LogDialog(RestorableDialog):
     def __init__(self, parent):
         super().__init__(parent=parent)
-        self.setWindowTitle('Logging')
+        self.setWindowTitle("Logging")
 
         logTextBox = QTextEditLogger(self)
-        logTextBox.setFormatter(logging.Formatter(
-            "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
-        ))
+        logTextBox.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(processName)-10s %(process)-8d %(name)s %(levelname)-8s %(message)s"
+            )
+        )
         logging.getLogger().addHandler(logTextBox)
         self.logWidget = logTextBox
 
         actClose = QAction("C&lose", self)
-        actClose.setShortcut("Ctrl+L")  # NOTE use CTRL-L, same as for toggling log-window in MainWindow
+        actClose.setShortcut(
+            "Ctrl+L"
+        )  # NOTE use CTRL-L, same as for toggling log-window in MainWindow
         actClose.setToolTip("Close Logging Window")
         actClose.triggered.connect(self.close)
         self.addAction(actClose)
@@ -78,4 +82,4 @@ class LogDialog(RestorableDialog):
 
     # override RestorableDialog.getSettings():
     def getSettingsPath(self) -> str:
-        return 'log_dlg'
+        return "log_dlg"

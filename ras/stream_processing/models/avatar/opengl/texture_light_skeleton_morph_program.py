@@ -1,4 +1,3 @@
-
 # ##############################################################
 # [russa] MODIFIED source: implementation based on class TextureLightProgram in
 # https://github.com/mmig/moderngl-window/blob/16746555a299e3df9ec00dfa597be33b59143050/moderngl_window/scene/programs.py
@@ -29,7 +28,9 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
     based on moderngl_window's TextureLightProgram with adapted handling for skeleton & morph targets from three.js
     """
 
-    def __init__(self, program: Optional[moderngl.Program] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, program: Optional[moderngl.Program] = None, **kwargs: Any
+    ) -> None:
         super().__init__(program=None)
         self.program: Optional[moderngl.Program] = program
 
@@ -39,38 +40,41 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         #      depending on whether a skeleton & morph targets are defined in the mesh
         #      ... for now these are hardcoded in the shader, i.e. shader only works,
         #          if mesh has skeleton & morph targets
-        morph_targets_count = len(mesh.morph_target_dictionary) if mesh.morph_target_dictionary is not None else 1  # FIXME set to 0 if None, but for this USE_MORPHTARGETS needs to get #undefined!
-        self.program = programs.load(ProgramDescription(
-            path=str(prog_path),
-            defines={
-                # 'USE_SKINNING': True,
-                # 'USE_MORPHTARGETS': True,
-                'MORPHTARGETS_COUNT': morph_targets_count
-            }))
+        morph_targets_count = (
+            len(mesh.morph_target_dictionary)
+            if mesh.morph_target_dictionary is not None
+            else 1
+        )  # FIXME set to 0 if None, but for this USE_MORPHTARGETS needs to get #undefined!
+        self.program = programs.load(
+            ProgramDescription(
+                path=str(prog_path),
+                defines={
+                    # 'USE_SKINNING': True,
+                    # 'USE_MORPHTARGETS': True,
+                    "MORPHTARGETS_COUNT": morph_targets_count
+                },
+            )
+        )
 
     def draw(
-            self,
-            mesh: Mesh,
-            projection_matrix: glm.mat4,
-            model_matrix: glm.mat4,
-            camera_matrix: glm.mat4,
-            time: float = 0.0,
+        self,
+        mesh: Mesh,
+        projection_matrix: glm.mat4,
+        model_matrix: glm.mat4,
+        camera_matrix: glm.mat4,
+        time: float = 0.0,
     ) -> None:
         assert self.program is not None, "There is no program to draw"
         assert mesh.vao is not None, "There is no vao to render"
         assert mesh.material is not None, "There is no material to render"
         assert (
-                mesh.material.mat_texture is not None
+            mesh.material.mat_texture is not None
         ), "The material does not have a texture to render"
         assert (
-                mesh.material.mat_texture.texture is not None
+            mesh.material.mat_texture.texture is not None
         ), "The material texture is not linked to a texture, so it can not be rendered"
-        assert (
-                mesh.morph_texture is not None
-        ), "The are no morph targets"
-        assert (
-                mesh.skeleton is not None
-        ), "The is no skeleton"
+        assert mesh.morph_texture is not None, "The are no morph targets"
+        assert mesh.skeleton is not None, "The is no skeleton"
 
         # if mesh.material.double_sided:
         #     self.ctx.disable(moderngl.CULL_FACE)
@@ -99,7 +103,9 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         if not skeleton.boneTexture:
             skeleton.create_bone_texture(ctx)
         else:
-            skeleton.boneTexture.write(skeleton.boneMatrices)  # TODO only update if necessary
+            skeleton.boneTexture.write(
+                skeleton.boneMatrices
+            )  # TODO only update if necessary
 
         self.program["boneTexture"].value = 2
         skeleton.boneTexture.use(location=2)
@@ -107,7 +113,9 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
     def update_morph_texture(self, mesh: Mesh):
 
         if len(mesh.morph_target_influences) < 1:
-            mesh.morph_target_influences = numpy.zeros(len(mesh.morph_target_dictionary))
+            mesh.morph_target_influences = numpy.zeros(
+                len(mesh.morph_target_dictionary)
+            )
 
         object_influences = mesh.morph_target_influences
 
@@ -117,12 +125,16 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         # #     for infl in object_influences:
         # #         morph_influences_sum += infl
         #     morph_influences_sum = numpy.sum(object_influences)
-        morph_base_influence = 1  # mesh.morph_targets_relative ? 1: 1 - morph_influences_sum;
+        morph_base_influence = (
+            1  # mesh.morph_targets_relative ? 1: 1 - morph_influences_sum;
+        )
 
         self.program["morphTargetBaseInfluence"].value = morph_base_influence
         self.program["morphTargetInfluences"].value = object_influences.tolist()
         # self.program["morphTargetsTexture"].value = entry.texture, textures);
-        self.program["morphTargetsTextureSize"].write(mesh.morph_texture_size)  # entry.size
+        self.program["morphTargetsTextureSize"].write(
+            mesh.morph_texture_size
+        )  # entry.size
 
         self.program["morphTargetsTexture"].value = 1
         mesh.morph_texture.use(location=1)
@@ -140,7 +152,9 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         if not mesh.morph_texture:
             return None
 
-        if not mesh.morph_target_dictionary:  # FIXME alternatively, mesh would need a field with count of morph targets
+        if (
+            not mesh.morph_target_dictionary
+        ):  # FIXME alternatively, mesh would need a field with count of morph targets
             return None
 
         if not mesh.skeleton:

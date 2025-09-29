@@ -5,7 +5,7 @@ from typing import Callable, Optional
 import torch
 
 
-APPLICATION_DIR: str = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+APPLICATION_DIR: str = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 """ the path to the application directory (on directory up from this file): `dirname(__file__)/..` """
 
 
@@ -118,7 +118,9 @@ def clear_queue(q: queue.Queue):
         pass
 
 
-def kill_all_child_processes(pid: int | None = None, recursive: bool = True, verbose: bool = False):
+def kill_all_child_processes(
+    pid: int | None = None, recursive: bool = True, verbose: bool = False
+):
     """
     Kill all remaining child processes (for `pid` or of the processes from which this function is called).
 
@@ -139,18 +141,33 @@ def kill_all_child_processes(pid: int | None = None, recursive: bool = True, ver
 
     if pid is not None and not psutil.pid_exists(pid):
         if verbose:
-            print("NOTE found no process with PID {}, will not try to terminate any child processes.".format(pid), flush=True)
+            print(
+                "NOTE found no process with PID {}, will not try to terminate any child processes.".format(
+                    pid
+                ),
+                flush=True,
+            )
         return
 
     def on_terminate(proc):
         if verbose:
-            print("  process {} terminated with exit code {}".format(proc, proc.returncode), flush=True)
+            print(
+                "  process {} terminated with exit code {}".format(
+                    proc, proc.returncode
+                ),
+                flush=True,
+            )
 
     main_proc = psutil.Process(pid=pid)
     procs = main_proc.children()
 
     if verbose:
-        print('Found {} child processes (for current process with PID {})'.format(len(procs), main_proc.pid), flush=True)
+        print(
+            "Found {} child processes (for current process with PID {})".format(
+                len(procs), main_proc.pid
+            ),
+            flush=True,
+        )
 
     if len(procs) == 0:
         return
@@ -162,7 +179,9 @@ def kill_all_child_processes(pid: int | None = None, recursive: bool = True, ver
             kill_all_child_processes(p.pid, recursive=recursive, verbose=verbose)
         if p.is_running():
             if verbose:
-                print('  terminating child process with PID {}'.format(p.pid), flush=True)
+                print(
+                    "  terminating child process with PID {}".format(p.pid), flush=True
+                )
             count_terminate += 1
             p.terminate()
 
@@ -171,15 +190,25 @@ def kill_all_child_processes(pid: int | None = None, recursive: bool = True, ver
     count_kill = 0
     for p in alive:
         if verbose:
-            print('  KILL remaining child process with PID {} (forced termination)'.format(p.pid), flush=True)
+            print(
+                "  KILL remaining child process with PID {} (forced termination)".format(
+                    p.pid
+                ),
+                flush=True,
+            )
         count_kill += 1
         p.kill()
 
     if verbose:
-        print('Terminated {} child processes (forced termination for {} child processes)'.format(count_terminate, count_kill), flush=True)
+        print(
+            "Terminated {} child processes (forced termination for {} child processes)".format(
+                count_terminate, count_kill
+            ),
+            flush=True,
+        )
         procs = main_proc.children()
         if len(procs) > 0:
-            print('  remaining child processes: {}\n'.format(len(procs)), flush=True)
+            print("  remaining child processes: {}\n".format(len(procs)), flush=True)
 
 
 def resolve_file_path(file_path: str) -> str:
@@ -210,8 +239,10 @@ def get_config_path(config_name: Optional[str]) -> str:
     """
     if not config_name:
         return config_name
-    config_file = config_name if config_name.lower().endswith('.yaml') else config_name + '.yaml'
-    config_dir = resolve_file_path('configs/')
+    config_file = (
+        config_name if config_name.lower().endswith(".yaml") else config_name + ".yaml"
+    )
+    config_dir = resolve_file_path("configs/")
     if os.path.exists(config_dir) and os.path.isdir(config_dir):
 
         config_file_dir = os.path.dirname(config_file)

@@ -25,6 +25,7 @@ class TaskSignals(QObject):
         object data returned from processing, anything
 
     """
+
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)

@@ -4,6 +4,7 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
+
     {
       "name": "Python Debugger: Current File",
       "type": "debugpy",
@@ -12,12 +13,18 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Run",
+      "name": "Run GUI",
       "type": "debugpy",
       "request": "launch",
-      "program": "stream_processing/main.py",
+      "program": "ras/run_gui.py",
       "console": "integratedTerminal",
-      "args": "--config=configs/onnx_models.yaml"
+    },
+    {
+      "name": "Run Main",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "ras/run_main.py",
+      "console": "integratedTerminal",
     }
   ]
 }

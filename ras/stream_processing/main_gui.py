@@ -1,4 +1,3 @@
-
 import sys
 from argparse import ArgumentParser, Namespace
 
@@ -19,31 +18,33 @@ def main():
 
     # configure default values (will also be used when creating QSettings)
     # IMPORTANT: do this before starting the windows/dialogs, so that they can access the correct QSettings objects
-    app.setOrganizationName('Deutsches Forschungszentrum für Künstliche Intelligenz GmbH (DFKI)')
+    app.setOrganizationName("DFKI")
     app.setOrganizationDomain("dfki.de")
-    app.setApplicationVersion('0.5.0')  # TODO read from setup.py
-    app.setApplicationName("VERANDA Audio Video Streamer")  # TODO name/description: should this be the same as in setup.py?
+    app.setApplicationVersion("0.5.0")  # TODO read from setup.py
+    app.setApplicationName(
+        "RAVAS"
+    )  # TODO name/description: should this be the same as in setup.py?
     app.setApplicationDisplayName(f"RAVAS - {app.applicationVersion()}")
 
     args = parse_args()
     config_path = get_config_path(args.config)
     window = MainWindow(config_path=config_path)
 
-    print('staring application (pid %s)' % (app.applicationPid()))
+    print("starting application (pid %s)" % (app.applicationPid()))
 
     try:
         window.show()
         exit_code = app.exec()
-        print('exited normally with code ', exit_code, flush=True)
+        print("exited normally with code ", exit_code, flush=True)
     except KeyboardInterrupt:
-        print('exited due to KeyboardInterrupt!', flush=True)
+        print("exited due to KeyboardInterrupt!", flush=True)
         exit_code = 0
         try:
             window.close()
         except:
             pass
     finally:
-        print('stop streaming (if running)...', flush=True)
+        print("stop streaming (if running)...", flush=True)
         window.stopStreaming()
 
     # without this, there may occur weird QThread messages in the shell on exit
@@ -54,7 +55,7 @@ def main():
 
     kill_all_child_processes(verbose=True)
 
-    print('exit program now!', flush=True)
+    print("exit program now!", flush=True)
     sys.exit(exit_code)
 
 

@@ -88,11 +88,13 @@ class VideoProcessor(Processor):
 
         self.queues.ready.wait()
         if self.external_sync_state.ready:
-            logger.info('video converter is ready, waiting for audio converter to be ready...')
+            logger.info(
+                "video converter is ready, waiting for audio converter to be ready..."
+            )
             self.external_sync_state.ready.wait()
-            logger.info('audio and video converter are ready, start reading video')
+            logger.info("audio and video converter are ready, start reading video")
         else:
-            logger.info('video converter is ready, starting to process input...')
+            logger.info("video converter is ready, starting to process input...")
 
         while True:
             (processing_time, processing_data), (
@@ -131,8 +133,12 @@ class VideoProcessor(Processor):
         if self.config["output_virtual_cam"]:
             virt_cam = self.config["output_virtual_cam"]
             if isinstance(virt_cam, str):
-                virt_cam_device = virt_cam if virt_cam.startswith("/dev/video") else None
-                virt_cam_backend = virt_cam if not virt_cam.startswith("/dev/video") else None
+                virt_cam_device = (
+                    virt_cam if virt_cam.startswith("/dev/video") else None
+                )
+                virt_cam_backend = (
+                    virt_cam if not virt_cam.startswith("/dev/video") else None
+                )
             else:
                 virt_cam_device = None
                 virt_cam_backend = None
