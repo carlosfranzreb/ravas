@@ -84,23 +84,23 @@ class MimiVC(AudioConverter):
         mimi = init_mimi()[0]
         self.quantizer = mimi.quantizer
 
-        self.encoder_input = np.load(
+        self.encoder_args = np.load(
             resolve_file_path(f"onnx/mimi_encoder_args.npy"), allow_pickle=True
         ).item()
-        self.encoder_transformer_input = np.load(
+        self.encoder_transformer_args = np.load(
             resolve_file_path(f"onnx/mimi_encoder_transformer_args.npy"),
             allow_pickle=True,
         ).item()
-        self.downsample_input = np.load(
+        self.downsample_args = np.load(
             resolve_file_path(f"onnx/mimi_downsample_args.npy"), allow_pickle=True
         ).item()
-        self.upsample_input = np.load(
+        self.upsample_args = np.load(
             resolve_file_path(f"onnx/mimi_upsample_args.npy"), allow_pickle=True
         ).item()
-        self.decoder_input = np.load(
+        self.decoder_args = np.load(
             resolve_file_path(f"onnx/mimi_decoder_args.npy"), allow_pickle=True
         ).item()
-        self.decoder_transformer_input = np.load(
+        self.decoder_transformer_args = np.load(
             resolve_file_path(f"onnx/mimi_decoder_transformer_args.npy"),
             allow_pickle=True,
         ).item()
@@ -120,14 +120,14 @@ class MimiVC(AudioConverter):
 
         # gather source features
         x = audio_in.unsqueeze(0).unsqueeze(0).numpy()
-        x, self.encoder_input = run_onnx_model(self.encoder, self.encoder_input, x)
+        x, self.encoder_args = run_onnx_model(self.encoder, self.encoder_args, x)
 
-        x, self.encoder_transformer_input = run_onnx_model(
-            self.encoder_transformer, self.encoder_transformer_input, x
+        x, self.encoder_transformer_args = run_onnx_model(
+            self.encoder_transformer, self.encoder_transformer_args, x
         )
 
-        x, self.downsample_input = run_onnx_model(
-            self.downsample, self.downsample_input, x
+        x, self.downsample_args = run_onnx_model(
+            self.downsample, self.downsample_args, x
         )
 
         source_feats = torch.from_numpy(x).squeeze(0).T
@@ -139,13 +139,13 @@ class MimiVC(AudioConverter):
 
         # decode the audio
         x = conv_feats.numpy()
-        x, self.upsample_input = run_onnx_model(self.upsample, self.upsample_input, x)
+        x, self.upsample_args = run_onnx_model(self.upsample, self.upsample_args, x)
 
-        x, self.decoder_transformer_input = run_onnx_model(
-            self.decoder_transformer, self.decoder_transformer_input, x
+        x, self.decoder_transformer_args = run_onnx_model(
+            self.decoder_transformer, self.decoder_transformer_args, x
         )
 
-        x, self.decoder_input = run_onnx_model(self.decoder, self.decoder_input, x)
+        x, self.decoder_args = run_onnx_model(self.decoder, self.decoder_args, x)
         audio_out = torch.from_numpy(x)
 
         # transform and return the converted audio
@@ -154,22 +154,20 @@ class MimiVC(AudioConverter):
         return audio_out
 
 
-def run_onnx_model(model, model_input, new_input) -> tuple:
+def run_onnx_model(model, model_args, new_input) -> tuple:
     """
     Run the model, update its state and return it along with the output.
     Uses the model's output names to correctly map outputs to inputs.
     """
-    model_input["input"] = new_input
-    output_names = [output.name for output in model.get_outputs()]
-    model_out = model.run(output_names, model_input)
-    out_dict = dict(zip(output_names, model_out))
-
-    # Get the main output (usually the first one)
-    out = out_dict[output_names[0]]
+    model_args["x"] = new_input
+    model_out = model.run(None, model_args)
 
     # Update states using the output names
-    for key in model_input:
-        if key != "input" and key in out_dict:
-            model_input[key] = out_dict[key]
+    # ! The names are not the same; this doesn't work
+    for idx, key in enumerate(model_args):
+        if idx == 0:
+            out = model_out[idx]
+        else:
+            model_args[key] = model_out[idx]
 
-    return out, model_input
+    return out, model_args

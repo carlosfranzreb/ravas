@@ -1,7 +1,11 @@
 """
 Run this script to compile the Mimi encoder and decoder.
 
-TODO: skip the quantizer, but quantize the models.
+TODO: the two decoders are not accurately compiled. Their error tolerances are not
+below 1e-4, whereas the encoders have tolerances of 1e-6. There must be something
+wrong there. Also, the current compiled implementation is slower than the pytorch
+one. Maybe the encoders and decoders have to be grouped together for better
+performance.
 """
 
 import os
@@ -34,45 +38,31 @@ def compile_onnx():
         dump_file = resolve_file_path(f"onnx/mimi_{method}.onnx")
         dump_file_args = resolve_file_path(f"onnx/mimi_{method}_args.npy")
 
+        # get the streaming state
         if "sample" not in method:
             state = getattr(mimi, method)._init_streaming_state(batch_size)
 
+        # prepare inputs for torch and ONNX models
         if "transformer" in method:
-            input_names = ["input", "offsets", "layer_states"]
-            output_names = ["output", "new_offsets", "new_layer_states"]
             input_tuple = (x, *state)
-
-            # Prepare inputs for ONNX model, used for testing after compilation
-            input_onnx = {"input": x.numpy(), "offsets": state[0].numpy()}
+            input_onnx = {"x": x.numpy(), "offsets": state[0].numpy()}
             state_flat = flatten_state(state[1], key_prefix="layer_states_")
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
 
         elif "sample" in method:
-            input_names = ["input"]
-            output_names = ["output"]
             input_tuple = (x,)
-
-            # Prepare inputs for ONNX model, used for testing after compilation
-            input_onnx = {"input": x.numpy()}
+            input_onnx = {"x": x.numpy()}
 
         else:  # seanet models
-            input_names = ["input", "state"]
-            output_names = ["output", "new_state"]
             input_tuple = (x, state)
-
-            # Prepare inputs for ONNX model, used for testing after compilation
-            input_onnx = {"input": x.numpy()}
+            input_onnx = {"x": x.numpy()}
             state_flat = flatten_state(state)
             input_onnx.update({key: value.numpy() for key, value in state_flat.items()})
-
-        np.save(dump_file_args, input_onnx)
 
         torch.onnx.export(
             getattr(mimi, method),
             input_tuple,
             dump_file,
-            input_names=input_names,
-            output_names=output_names,
             dynamo=True,
         )
 
@@ -84,10 +74,25 @@ def compile_onnx():
 
         # Run ONNX model
         model_onnx = ort.InferenceSession(dump_file)
-        onnx_out = model_onnx.run(output_names, input_onnx)
+        onnx_out = model_onnx.run(None, input_onnx)
+
+        # ensure that the inputs and outputs have the same shape and different sizes
+        for idx, value_in in enumerate(input_onnx.values()):
+            if idx == 0:
+                continue
+
+            value_out = onnx_out[idx]
+            assert [value_out.shape, value_in.shape]
+            if value_in.size > 0:
+                assert not np.allclose(value_out, value_in, atol=1e-2)
+
+        # compare the outputs
         onnx_out = onnx_out[0]
         onnx_out = torch.from_numpy(onnx_out)
         print(method, torch.allclose(torch_out, onnx_out, atol=1e-4))
+
+        # dump the onnx inputs
+        np.save(dump_file_args, input_onnx)
 
         # update input for next module
         x = torch_out
@@ -122,20 +127,6 @@ def flatten_state(
             )
         else:
             raise ValueError("Invalid element type")
-
-    # fix first key naming
-    if master:
-        for key in out:
-            if key.endswith("_0") and not any(c in "123456789" for c in key):
-                first_value = out[key]
-                break
-
-        del out[key]
-
-        if key.startswith("layer_states"):
-            out["layer_states"] = first_value
-        else:  # seanet
-            out["state"] = first_value
 
     return out
 
