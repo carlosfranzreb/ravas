@@ -479,14 +479,6 @@ class StreamingTransformer(nn.Module):
         B, T, C = x.shape
         dtype_input = x.dtype
 
-        if self.positional_embedding in {"sin", "sin_rope"}:
-            positions = torch.arange(T, device=x.device).view(1, -1, 1)
-            positions = positions + offsets.view(-1, 1, 1)
-            pos_emb = create_sin_embedding(
-                positions, C, max_period=self.max_period, dtype=x.dtype
-            )
-            x = x + self.positional_scale * pos_emb
-
         new_layer_states = list()
         for layer_idx, layer in enumerate(self.layers):
             x, new_layer_state = layer(x, layer_states[layer_idx])
