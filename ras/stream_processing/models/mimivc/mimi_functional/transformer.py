@@ -150,16 +150,12 @@ class StreamingMultiheadAttention(nn.Module):
         # create other states
         offset = torch.zeros(batch_size, device=device, dtype=torch.long)
         offset_cpu = torch.tensor(0)
-        k_cross = torch.tensor([])  # TODO: are k_cross and v_cross not used?
-        v_cross = torch.tensor([])
 
         return [
             kv_cache_cache,
             kv_cache_end_offset,
             offset,
             offset_cpu,
-            k_cross,
-            v_cross,
         ]
 
     def _complete_kv(
@@ -239,9 +235,7 @@ class StreamingMultiheadAttention(nn.Module):
             (out: [B, T, C], new_state)
         """
         B, T = query.shape[:2]
-        [kv_cache_cache, kv_cache_end_offset, offset, offset_cpu, k_cross, v_cross] = (
-            state
-        )
+        [kv_cache_cache, kv_cache_end_offset, offset, offset_cpu] = state
 
         projected = apply_weights_per_step(
             self.in_projs, self.weights_per_step_schedule, query, offset_cpu
@@ -287,8 +281,6 @@ class StreamingMultiheadAttention(nn.Module):
             kv_cache_end_offset,
             new_offset,
             new_offset_cpu,
-            k_cross,
-            v_cross,
         ]
 
 
