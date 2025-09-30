@@ -107,6 +107,39 @@ class Converter:
         raise NotImplementedError
 
 
+class AudioConverter(Converter):
+    """
+    Contains the common functionality of all audio converters.
+    """
+
+    def convert(self) -> None:
+        """
+        Read the input queue, convert the data and put the converted data into the
+        sync queue.
+        """
+        self.logger.info("Start converting audio")
+        if self.config["video_file"] is None:
+            clear_queue(self.input_queue)
+
+        self.ready_signal.set()
+        while True:
+            try:
+                ttime, data = self.input_queue.get(timeout=1)
+                if data is not None:
+                    self.logger.debug(f"Converting audio starting at {ttime[0]}")
+                    data = self.convert_audio(data)
+                else:
+                    self.logger.info("Data is null, stopping conversion")
+                    self.output_queue.put((None, None))
+                    break
+                self.output_queue.put((ttime, data))
+
+            except queue.Empty:
+                pass
+            except EOFError:
+                break
+
+
 class Processor:
     def __init__(
         self,
