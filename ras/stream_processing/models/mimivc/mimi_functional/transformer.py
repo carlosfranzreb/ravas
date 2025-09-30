@@ -436,12 +436,7 @@ class StreamingTransformer(nn.Module):
         self.max_period = max_period
         self.positional_scale = positional_scale
         self.betas = betas
-
-        assert positional_embedding in {"sin", "rope", "sin_rope", "none"}
-        self.rope: tp.Optional[RotaryEmbedding] = None
-        if self.positional_embedding in {"rope", "sin_rope"}:
-            self.rope = RotaryEmbedding(max_period=max_period)
-
+        self.rope = RotaryEmbedding(max_period=max_period)
         self.checkpointing = checkpointing
 
         self.layers = nn.ModuleList()
@@ -459,9 +454,6 @@ class StreamingTransformer(nn.Module):
                     **kwargs,
                 )
             )
-            if quantize:
-                self.layers[-1].to(device=device, dtype=dtype)
-                replace_linear_with_qlinear(self.layers[-1])
 
     def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
         """Returns the transformer's offsets and the layer states."""
@@ -525,19 +517,6 @@ class ProjectedTransformer(nn.Module):
         self.transformer = StreamingTransformer(d_model=d_model, **kwargs)
         self.input_dimension = input_dimension
         self.output_dimensions = output_dimensions
-        self.conv_layout = conv_layout
-        self.input_proj = None
-        if d_model != input_dimension:
-            self.input_proj = nn.Linear(input_dimension, d_model, bias=False)
-
-        self.output_projs = nn.ModuleList()
-        for output_dimension in output_dimensions:
-            if d_model == output_dimension:
-                self.output_projs.append(nn.Identity())
-            else:
-                self.output_projs.append(
-                    nn.Linear(d_model, output_dimension, bias=False)
-                )
 
     def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
         """Returns the transformer's offsets and the layer states."""
@@ -550,18 +529,8 @@ class ProjectedTransformer(nn.Module):
         Returns:
             ys (list of outputs), new_offsets, new_layer_states
         """
-        if self.conv_layout:
-            x = x.transpose(1, 2)
-        if self.input_proj is not None:
-            x = self.input_proj(x)
-
+        x = x.transpose(1, 2)
         z, new_offsets, new_layer_states = self.transformer(x, offsets, layer_states)
-
-        ys = []
-        for output_proj in self.output_projs:
-            y = output_proj(z)
-            if self.conv_layout:
-                y = y.transpose(1, 2)
-            ys.append(y)
+        ys = [z.transpose(1, 2)]
 
         return ys, new_offsets, new_layer_states
