@@ -293,43 +293,35 @@ class StreamingTransformerLayer(nn.Module):
         self,
         d_model: int,
         num_heads: int,
-        dim_feedforward: int | list[int] = 2048,
-        causal: bool = False,
-        context: tp.Optional[int] = None,
-        rope: tp.Optional[RotaryEmbedding] = None,
-        norm: str = "layer_norm",
-        layer_scale: tp.Optional[float] = None,
-        weights_per_step: int = 0,
-        activation=F.gelu,
-        skip_self_attn: bool = False,
+        dim_feedforward: int,
+        causal: bool,
+        context: int,
+        rope: RotaryEmbedding,
+        norm: str,
+        layer_scale: float,
         device=None,
         dtype=None,
     ):
         super().__init__()
         factory_kwargs = {"device": device, "dtype": dtype}
-        attn_kwargs: tp.Dict[str, tp.Any] = {
+        attn_kwargs = {
             "embed_dim": d_model,
             "num_heads": num_heads,
         }
-        self.skip_self_attn = skip_self_attn
-        if not skip_self_attn:
-            self.self_attn: StreamingMultiheadAttention = StreamingMultiheadAttention(
-                causal=causal,
-                context=context,
-                rope=rope,
-                weights_per_step=weights_per_step,
-                weights_per_step_schedule=None,
-                **attn_kwargs,
-                **factory_kwargs,
-            )
-            self.norm1 = create_norm_fn(norm, d_model, **factory_kwargs)
+
+        self.self_attn = StreamingMultiheadAttention(
+            causal=causal,
+            context=context,
+            rope=rope,
+            weights_per_step=0,
+            weights_per_step_schedule=None,
+            **attn_kwargs,
+            **factory_kwargs,
+        )
+        self.norm1 = create_norm_fn(norm, d_model, **factory_kwargs)
         self.norm2 = create_norm_fn(norm, d_model, **factory_kwargs)
 
-        self.weights_per_step = weights_per_step
-        self.linear1: tp.Optional[nn.Module] = None
-        self.linear2: tp.Optional[nn.Module] = None
-        self.activation = activation
-
+        self.activation = F.gelu
         self.linear1 = nn.Linear(d_model, dim_feedforward, bias=False, **factory_kwargs)
         self.linear2 = nn.Linear(dim_feedforward, d_model, bias=False, **factory_kwargs)
 
@@ -350,11 +342,7 @@ class StreamingTransformerLayer(nn.Module):
     def _ff_block(self, x: Tensor, offset: Tensor) -> tuple[Tensor, Tensor]:
         x_orig = x
         x = self.norm2(x)
-
-        assert self.linear1 is not None
-        assert self.linear2 is not None
         update = self.linear2(self.activation(self.linear1(x)))
-
         out = x_orig.to(update) + self.layer_scale_2(update)
 
         return out, offset + out.shape[1]
@@ -362,8 +350,6 @@ class StreamingTransformerLayer(nn.Module):
     def _sa_block(
         self, x: Tensor, mha_state: list[Tensor]
     ) -> tuple[Tensor, list[Tensor]]:
-        if self.skip_self_attn:
-            return x, mha_state
         x_orig = x
         x = self.norm1(x)
         out, new_mha_state = self.self_attn(x, x, x, mha_state)
