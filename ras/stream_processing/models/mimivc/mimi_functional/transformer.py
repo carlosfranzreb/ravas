@@ -409,7 +409,9 @@ class StreamingTransformerLayer(nn.Module):
 
 
 class StreamingTransformer(nn.Module):
-    """Top-level stateless transformer."""
+    """Top-level stateless transformer.
+    TODO: consume `transformer` prefix in state_dict to replace ProjectedTransformer with this one.
+    """
 
     def __init__(
         self,
@@ -479,6 +481,7 @@ class StreamingTransformer(nn.Module):
         B, T, C = x.shape
         dtype_input = x.dtype
 
+        x = x.transpose(1, 2)
         new_layer_states = list()
         for layer_idx, layer in enumerate(self.layers):
             x, new_layer_state = layer(x, layer_states[layer_idx])
@@ -487,42 +490,6 @@ class StreamingTransformer(nn.Module):
         # update transformer offsets
         new_offsets = offsets + T
 
-        return (x.to(dtype_input), new_offsets, new_layer_states)
+        x = [x.transpose(1, 2).to(dtype_input)]
 
-
-class ProjectedTransformer(nn.Module):
-    """
-    Transformer with optional projections, stateless-style.
-    TODO: can this be merged above? I think both transformers are the same.
-    """
-
-    def __init__(
-        self,
-        input_dimension: int,
-        output_dimensions: tp.Tuple[int, ...],
-        d_model: int,
-        *,
-        conv_layout: bool = False,
-        **kwargs,
-    ):
-        super().__init__()
-        self.transformer = StreamingTransformer(d_model=d_model, **kwargs)
-        self.input_dimension = input_dimension
-        self.output_dimensions = output_dimensions
-
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
-        """Returns the transformer's offsets and the layer states."""
-        return self.transformer._init_streaming_state(batch_size)
-
-    def forward(
-        self, x: Tensor, offsets: Tensor, layer_states: list[Tensor]
-    ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
-        """
-        Returns:
-            ys (list of outputs), new_offsets, new_layer_states
-        """
-        x = x.transpose(1, 2)
-        z, new_offsets, new_layer_states = self.transformer(x, offsets, layer_states)
-        ys = [z.transpose(1, 2)]
-
-        return ys, new_offsets, new_layer_states
+        return (x, new_offsets, new_layer_states)

@@ -1,9 +1,11 @@
 """
 Run this script to compile the Mimi encoder and decoder.
 
-TODO: the two decoders are not accurately compiled. Their error tolerances are not
-below 1e-4, whereas the encoders have tolerances of 1e-6. There must be something
-wrong there. Also, the current compiled implementation is slower than the pytorch
+TODO: the models are not accurately compiled. Their error tolerances are not
+below 1e-4, whereas the encoders have tolerances of 1e-7. There must be something
+wrong there.
+
+On another note, the current compiled implementation is slower than the pytorch
 one. Maybe the encoders and decoders have to be grouped together for better
 performance.
 """
@@ -89,7 +91,7 @@ def compile_onnx():
         # compare the outputs
         onnx_out = onnx_out[0]
         onnx_out = torch.from_numpy(onnx_out)
-        print(method, torch.allclose(torch_out, onnx_out, atol=1e-4))
+        print(method, torch.allclose(torch_out, onnx_out, atol=1e-7))
 
         # dump the onnx inputs
         np.save(dump_file_args, input_onnx)

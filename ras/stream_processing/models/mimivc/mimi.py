@@ -1,13 +1,14 @@
 from pathlib import Path
 
 import torch
+from torch import Tensor
 from safetensors.torch import load_file
 from huggingface_hub import hf_hub_download
 
 from moshi.models.compression import MimiModel as MimiModelOg
 from moshi.quantization import SplitResidualVectorQuantizer
 
-from .mimi_functional.transformer import ProjectedTransformer
+from .mimi_functional.transformer import StreamingTransformer
 from .mimi_functional.seanet import SEANetEncoder as SEANetEncoderF
 from .mimi_functional.seanet import SEANetDecoder as SEANetDecoderF
 from .mimi_functional.mimi import MimiModel
@@ -53,14 +54,11 @@ _transformer_kwargs = {
     "causal": True,
     "layer_scale": 0.01,
     "context": 250,
-    "conv_layout": True,
     "max_period": 10000,
     "gating": "none",
     "norm": "layer_norm",
     "positional_embedding": "rope",
     "dim_feedforward": 2048,
-    "input_dimension": _seanet_kwargs["dimension"],
-    "output_dimensions": [_seanet_kwargs["dimension"]],
 }
 
 
@@ -77,8 +75,8 @@ def get_mimi(
     """Return a pretrained Mimi model, or unintialized if `filename` is None."""
     encoder = SEANetEncoderF(**_seanet_kwargs)
     decoder = SEANetDecoderF(**_seanet_kwargs)
-    encoder_transformer = ProjectedTransformer(device=device, **_transformer_kwargs)
-    decoder_transformer = ProjectedTransformer(device=device, **_transformer_kwargs)
+    encoder_transformer = StreamingTransformer(device=device, **_transformer_kwargs)
+    decoder_transformer = StreamingTransformer(device=device, **_transformer_kwargs)
     quantizer = SplitResidualVectorQuantizer(
         **_quantizer_kwargs,
     )
@@ -100,12 +98,30 @@ def get_mimi(
     if filename is not None:
         if _is_safetensors(filename):
             state = load_file(filename, device=str(device))
+            consume_prefix(state, "transformer")
             model.load_state_dict(state)
         else:
             pkg = torch.load(filename, "cpu")
             model.load_state_dict(pkg["model"])
     model.set_num_codebooks(num_codebooks)
     return model
+
+
+def consume_prefix(state_dict: dict[str, Tensor], prefix: str) -> None:
+    """
+    Strip the prefix in state_dict in place, if any.
+
+    Args:
+        state_dict (OrderedDict): a state-dict to be loaded to the model.
+        prefix (str): prefix.
+    """
+    keys = list(state_dict.keys())
+    for key in keys:
+        key_arr = key.split(".")
+        if prefix in key_arr:
+            key_arr.remove(prefix)
+            new_key = ".".join(key_arr)
+            state_dict[new_key] = state_dict.pop(key)
 
 
 def hf_get(
