@@ -55,7 +55,6 @@ _transformer_kwargs = {
     "layer_scale": 0.01,
     "context": 250,
     "max_period": 10000,
-    "gating": "none",
     "norm": "layer_norm",
     "positional_embedding": "rope",
     "dim_feedforward": 2048,

@@ -299,9 +299,7 @@ class StreamingTransformerLayer(nn.Module):
         rope: tp.Optional[RotaryEmbedding] = None,
         norm: str = "layer_norm",
         layer_scale: tp.Optional[float] = None,
-        gating: str = "none",  # ignored
         weights_per_step: int = 0,
-        weights_per_step_schedule: list[int] | None = None,
         activation=F.gelu,
         skip_self_attn: bool = False,
         device=None,
@@ -320,7 +318,7 @@ class StreamingTransformerLayer(nn.Module):
                 context=context,
                 rope=rope,
                 weights_per_step=weights_per_step,
-                weights_per_step_schedule=weights_per_step_schedule,
+                weights_per_step_schedule=None,
                 **attn_kwargs,
                 **factory_kwargs,
             )
@@ -328,34 +326,15 @@ class StreamingTransformerLayer(nn.Module):
         self.norm2 = create_norm_fn(norm, d_model, **factory_kwargs)
 
         self.weights_per_step = weights_per_step
-        self.weights_per_step_schedule = weights_per_step_schedule
         self.linear1: tp.Optional[nn.Module] = None
         self.linear2: tp.Optional[nn.Module] = None
         self.activation = activation
 
-        num_weights = 1
-        if weights_per_step is not None:
-            num_weights = weights_per_step
-            if weights_per_step_schedule is not None:
-                assert len(weights_per_step_schedule) == weights_per_step
-                num_weights = max(weights_per_step_schedule) + 1
-
-        assert (
-            not weights_per_step
-        ), "weights_per_step without gating not supported for now."
-        assert not isinstance(
-            dim_feedforward, list
-        ), "List dim_feedforward without gating not supported for now."
         self.linear1 = nn.Linear(d_model, dim_feedforward, bias=False, **factory_kwargs)
         self.linear2 = nn.Linear(dim_feedforward, d_model, bias=False, **factory_kwargs)
 
-        if layer_scale is None:
-            self.layer_scale_1 = nn.Identity()
-            self.layer_scale_2 = nn.Identity()
-
-        else:
-            self.layer_scale_1 = LayerScale(d_model, layer_scale, **factory_kwargs)
-            self.layer_scale_2 = LayerScale(d_model, layer_scale, **factory_kwargs)
+        self.layer_scale_1 = LayerScale(d_model, layer_scale, **factory_kwargs)
+        self.layer_scale_2 = LayerScale(d_model, layer_scale, **factory_kwargs)
 
     def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
         """
@@ -424,9 +403,6 @@ class StreamingTransformer(nn.Module):
         positional_embedding: str = "sin",
         max_period: float = 10_000,
         positional_scale: float = 1.0,
-        betas: tp.Optional[tp.Tuple[float, float]] = None,
-        quantize: bool = False,
-        checkpointing: bool = False,
         device=None,
         dtype=None,
         **kwargs,
@@ -437,9 +413,7 @@ class StreamingTransformer(nn.Module):
         self.positional_embedding = positional_embedding
         self.max_period = max_period
         self.positional_scale = positional_scale
-        self.betas = betas
         self.rope = RotaryEmbedding(max_period=max_period)
-        self.checkpointing = checkpointing
 
         self.layers = nn.ModuleList()
         for _ in range(num_layers):
