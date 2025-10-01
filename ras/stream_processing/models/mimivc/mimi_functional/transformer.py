@@ -478,18 +478,13 @@ class StreamingTransformer(nn.Module):
         Returns:
             x_out, new_offsets, new_layer_states,
         """
-        B, T, C = x.shape
-        dtype_input = x.dtype
-
         x = x.transpose(1, 2)
         new_layer_states = list()
         for layer_idx, layer in enumerate(self.layers):
             x, new_layer_state = layer(x, layer_states[layer_idx])
             new_layer_states.append(new_layer_state)
 
-        # update transformer offsets
-        new_offsets = offsets + T
-
-        x = [x.transpose(1, 2).to(dtype_input)]
+        new_offsets = offsets + x.shape[1]
+        x = x.transpose(1, 2).to(x.dtype)
 
         return (x, new_offsets, new_layer_states)
