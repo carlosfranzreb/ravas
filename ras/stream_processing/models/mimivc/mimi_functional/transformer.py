@@ -40,7 +40,6 @@ class StreamingMultiheadAttention(nn.Module):
         causal: bool,
         context: tp.Optional[int],
         rope: tp.Optional[RotaryEmbedding],
-        weights_per_step: int,
         device=None,
         dtype=None,
     ):
@@ -52,24 +51,20 @@ class StreamingMultiheadAttention(nn.Module):
         self.context = context
         self.rope = rope
         self.num_heads = num_heads
-        self.weights_per_step = weights_per_step
 
         out_dim = 3 * embed_dim
-        mult = 1
-        if weights_per_step:
-            mult = weights_per_step
-        self.mult = mult
+        self.mult = 1
 
         self.out_projs = nn.ModuleList(
             [
                 nn.Linear(embed_dim, embed_dim, bias=False, **factory_kwargs)
-                for _ in range(mult)
+                for _ in range(self.mult)
             ]
         )
         self.in_projs = nn.ModuleList(
             [
                 nn.Linear(embed_dim, out_dim, bias=False, **factory_kwargs)
-                for _ in range(mult)
+                for _ in range(self.mult)
             ]
         )
 
@@ -116,30 +111,15 @@ class StreamingMultiheadAttention(nn.Module):
         else:
             raise RuntimeError(f"Unknown type {type(in_proj)} for linear.")
 
-        # estimate capacity for Ring KV Cache
+        # create ring KV cache and offset
         dim_per_head = self.embed_dim // self.num_heads
-        if self.context is None:
-            if self.weights_per_step:
-                kv_cache_capacity = self.weights_per_step
-            else:
-                raise RuntimeError(
-                    "Cannot create a streaming KVCache without a context to estimate capacity."
-                )
-        else:
-            kv_cache_capacity = self.context
-
-        # create ring KV cache states
+        kv_cache_capacity = self.context
         kv_cache_cache = torch.zeros(
             (2, batch_size, self.num_heads, kv_cache_capacity, dim_per_head),
             device=device,
             dtype=dtype,
         )
-        if not self.weights_per_step:  # respect_exec_mask in the OG implementation
-            kv_cache_end_offset = torch.zeros(
-                batch_size, device=device, dtype=torch.long
-            )
-        else:
-            kv_cache_end_offset = torch.zeros(1, device=device, dtype=torch.long)
+        kv_cache_end_offset = torch.zeros(1, device=device, dtype=torch.long)
 
         # create other states
         offset = torch.zeros(batch_size, device=device, dtype=torch.long)
@@ -169,14 +149,10 @@ class StreamingMultiheadAttention(nn.Module):
         indexes = indexes + kv_cache_end_offset.view(-1, 1)
         indexes = indexes % kv_cache_capacity
 
-        if not self.weights_per_step:
-            this_indexes = indexes.view(B, 1, T, 1)
-            this_indexes = this_indexes.expand(-1, H, T, D)
-            kv_cache_cache[0].scatter_(2, this_indexes, keys)
-            kv_cache_cache[1].scatter_(2, this_indexes, values)
-        else:
-            kv_cache_cache[0].index_copy_(2, indexes[0], keys)
-            kv_cache_cache[1].index_copy_(2, indexes[0], values)
+        this_indexes = indexes.view(B, 1, T, 1)
+        this_indexes = this_indexes.expand(-1, H, T, D)
+        kv_cache_cache[0].scatter_(2, this_indexes, keys)
+        kv_cache_cache[1].scatter_(2, this_indexes, values)
 
         keys = kv_cache_cache[0]
         values = kv_cache_cache[1]
@@ -194,12 +170,9 @@ class StreamingMultiheadAttention(nn.Module):
             last_offset + delta,
             last_offset + delta - kv_cache_capacity,
         )
-        if not self.weights_per_step:
-            kv_cache_end_offset[:] = torch.where(
-                exec_mask, kv_cache_end_offset + T, kv_cache_end_offset
-            )
-        else:
-            kv_cache_end_offset.add_(T)
+        kv_cache_end_offset[:] = torch.where(
+            exec_mask, kv_cache_end_offset + T, kv_cache_end_offset
+        )
 
         invalid = indexes >= kv_cache_end_offset.view(-1, 1)
         positions = torch.where(invalid, torch.full_like(positions, -1), positions)
@@ -295,7 +268,6 @@ class StreamingTransformerLayer(nn.Module):
             causal=causal,
             context=context,
             rope=rope,
-            weights_per_step=0,
             **attn_kwargs,
             **factory_kwargs,
         )
