@@ -99,17 +99,8 @@ class StreamingMultiheadAttention(nn.Module):
 
     def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
         in_proj = self.in_projs[0]
-        if isinstance(in_proj, LoRALinear):
-            device = in_proj.lora_A.weight.device
-            dtype = in_proj.lora_A.weight.dtype
-        elif isinstance(in_proj, nn.Linear):
-            device = in_proj.weight.device
-            dtype = in_proj.weight.dtype
-        elif isinstance(in_proj, quantize.QLinear):
-            device = in_proj.weight.device
-            dtype = torch.float16
-        else:
-            raise RuntimeError(f"Unknown type {type(in_proj)} for linear.")
+        device = in_proj.weight.device
+        dtype = in_proj.weight.dtype
 
         # create ring KV cache and offset
         dim_per_head = self.embed_dim // self.num_heads
@@ -180,11 +171,7 @@ class StreamingMultiheadAttention(nn.Module):
         return keys, values, positions, kv_cache_cache, kv_cache_end_offset
 
     def forward(
-        self,
-        query: Tensor,
-        key: Tensor,
-        value: Tensor,
-        state: list[Tensor],
+        self, query: Tensor, state: list[Tensor]
     ) -> tuple[Tensor, list[Tensor]]:
         """
         Stateless-style forward. Inputs:
@@ -305,7 +292,7 @@ class StreamingTransformerLayer(nn.Module):
     ) -> tuple[Tensor, list[Tensor]]:
         x_orig = x
         x = self.norm1(x)
-        out, new_mha_state = self.self_attn(x, x, x, mha_state)
+        out, new_mha_state = self.self_attn(x, mha_state)
         return x_orig.to(out) + self.layer_scale_1(out), new_mha_state
 
     def forward(self, x: Tensor, state: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
