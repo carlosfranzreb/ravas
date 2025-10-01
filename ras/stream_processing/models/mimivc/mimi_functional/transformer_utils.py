@@ -104,7 +104,6 @@ def create_sin_embedding(
 
 def apply_weights_per_step(
     modules: nn.ModuleList,
-    schedule: list[int] | None,
     x: Tensor,
     offset: int | None,
 ) -> Tensor:
@@ -117,8 +116,6 @@ def apply_weights_per_step(
     B, T, C = x.shape
     for t in range(T):
         module_index = t + offset
-        if schedule is not None:
-            module_index = schedule[module_index]
         y = modules[module_index](x[:, t : t + 1])
         ys.append(y)
     out = torch.cat(ys, 1)

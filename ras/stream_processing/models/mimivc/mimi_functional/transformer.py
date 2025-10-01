@@ -37,11 +37,10 @@ class StreamingMultiheadAttention(nn.Module):
         self,
         embed_dim: int,
         num_heads: int,
-        causal: bool = False,
-        context: tp.Optional[int] = None,
-        rope: tp.Optional[RotaryEmbedding] = None,
-        weights_per_step: int = 0,
-        weights_per_step_schedule: list[int] | None = None,
+        causal: bool,
+        context: tp.Optional[int],
+        rope: tp.Optional[RotaryEmbedding],
+        weights_per_step: int,
         device=None,
         dtype=None,
     ):
@@ -54,16 +53,11 @@ class StreamingMultiheadAttention(nn.Module):
         self.rope = rope
         self.num_heads = num_heads
         self.weights_per_step = weights_per_step
-        self.weights_per_step_schedule = weights_per_step_schedule
 
         out_dim = 3 * embed_dim
         mult = 1
         if weights_per_step:
-            if weights_per_step_schedule:
-                assert len(weights_per_step_schedule) == weights_per_step
-                mult = max(weights_per_step_schedule) + 1
-            else:
-                mult = weights_per_step
+            mult = weights_per_step
         self.mult = mult
 
         self.out_projs = nn.ModuleList(
@@ -162,19 +156,11 @@ class StreamingMultiheadAttention(nn.Module):
         self,
         keys: Tensor,
         values: Tensor,
-        kv_cache_cache: Tensor = None,
-        kv_cache_end_offset: Tensor = None,
+        kv_cache_cache: Tensor,
+        kv_cache_end_offset: Tensor,
     ) -> list[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        if kv_cache_cache is None:  # TODO: this shouldn't be needed
-            B, H, T, D = keys.shape
-            assert tuple(values.shape[:-1]) == (B, H, T)
-            positions = torch.arange(T, device=keys.device, dtype=torch.long)
-            return keys, values, positions.expand(B, -1)
 
         B, H, T, D = keys.shape
-        assert keys.shape[:-1] == values.shape[:-1], (keys.shape, values.shape)
-        assert T > 0
-
         kv_cache_capacity = kv_cache_cache.shape[3]
         exec_mask = torch.ones(B, dtype=torch.bool, device=keys.device)
         indexes = torch.arange(
@@ -237,9 +223,7 @@ class StreamingMultiheadAttention(nn.Module):
         B, T = query.shape[:2]
         [kv_cache_cache, kv_cache_end_offset, offset, offset_cpu] = state
 
-        projected = apply_weights_per_step(
-            self.in_projs, self.weights_per_step_schedule, query, offset_cpu
-        )
+        projected = apply_weights_per_step(self.in_projs, query, offset_cpu)
 
         q, k, v = rearrange(
             projected, "b t (p h d) -> p b h t d", p=3, h=self.num_heads
@@ -268,9 +252,7 @@ class StreamingMultiheadAttention(nn.Module):
         x = F.scaled_dot_product_attention(q, k, v, attn_bias, dropout_p=0.0)
 
         x = rearrange(x, "b h t d -> b t (h d)")
-        x = apply_weights_per_step(
-            self.out_projs, self.weights_per_step_schedule, x, offset_cpu
-        )
+        x = apply_weights_per_step(self.out_projs, x, offset_cpu)
 
         # update offsets
         new_offset = offset + T
@@ -314,7 +296,6 @@ class StreamingTransformerLayer(nn.Module):
             context=context,
             rope=rope,
             weights_per_step=0,
-            weights_per_step_schedule=None,
             **attn_kwargs,
             **factory_kwargs,
         )
