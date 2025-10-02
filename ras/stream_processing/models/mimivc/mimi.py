@@ -150,8 +150,5 @@ def hf_get(
 def init_mimi():
     mimi_weights = hf_get(MIMI_NAME, DEFAULT_REPO)
     mimi = get_mimi(mimi_weights, num_codebooks=8, device=DEVICE)
-    batch_size = 1
-    enc_state, tr_enc_state, tr_dec_state, dec_state = mimi._init_streaming_state(
-        batch_size
-    )
+    enc_state, tr_enc_state, tr_dec_state, dec_state = mimi._init_streaming_state()
     return mimi, enc_state, tr_enc_state, tr_dec_state, dec_state

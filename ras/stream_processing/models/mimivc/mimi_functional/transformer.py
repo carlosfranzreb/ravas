@@ -97,7 +97,7 @@ class StreamingMultiheadAttention(nn.Module):
                         state_dict[this_target] = weight[i]
                     state_dict.pop(this_source)
 
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+    def _init_streaming_state(self) -> tuple[Tensor]:
         batch_size = 1
         in_proj = self.in_projs[0]
         device = in_proj.weight.device
@@ -245,9 +245,9 @@ class StreamingTransformerLayer(nn.Module):
         self.layer_scale_1 = LayerScale(d_model, layer_scale, **factory_kwargs)
         self.layer_scale_2 = LayerScale(d_model, layer_scale, **factory_kwargs)
 
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+    def _init_streaming_state(self) -> tuple[Tensor]:
         """Returns the states of the multi-head self-attention."""
-        return self.self_attn._init_streaming_state(batch_size)
+        return self.self_attn._init_streaming_state()
 
     # _ff_block expects to return (tensor, new_layer_state)
     def _ff_block(self, x: Tensor) -> Tensor:
@@ -319,11 +319,11 @@ class StreamingTransformer(nn.Module):
                 )
             )
 
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+    def _init_streaming_state(self) -> tuple[Tensor]:
         """Returns the transformer's layer states."""
         layer_states = list()
         for layer in self.layers:
-            layer_states += layer._init_streaming_state(batch_size)
+            layer_states += layer._init_streaming_state()
 
         return tuple(layer_states)
 

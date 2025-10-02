@@ -202,11 +202,11 @@ class MimiModel(CompressionModel):
                     channel_wise=upsample_channel_wise_bug,
                 )
 
-    def _init_streaming_state(self, batch_size: int) -> tuple:
-        enc_state = self.encoder._init_streaming_state(batch_size)
-        tr_enc_state = self.encoder_transformer._init_streaming_state(batch_size)
-        tr_dec_state = self.decoder_transformer._init_streaming_state(batch_size)
-        dec_state = self.decoder._init_streaming_state(batch_size)
+    def _init_streaming_state(self) -> tuple:
+        enc_state = self.encoder._init_streaming_state()
+        tr_enc_state = self.encoder_transformer._init_streaming_state()
+        tr_dec_state = self.decoder_transformer._init_streaming_state()
+        dec_state = self.decoder._init_streaming_state()
 
         return enc_state, tr_enc_state, tr_dec_state, dec_state
 

@@ -47,11 +47,13 @@ class SEANetResnetBlock(nn.Module):
             ]
         self.block = nn.ModuleList(layers)
 
-    def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
+    def _init_streaming_state(
+        self,
+    ) -> list[Tensor]:
         states = list()
         for layer in self.block:
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                states.append(layer._init_streaming_state(batch_size))
+                states.append(layer._init_streaming_state())
             else:
                 states.append(torch.tensor([]))
 
@@ -78,13 +80,13 @@ class SEANetModel(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__()
 
-    def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
+    def _init_streaming_state(self) -> list[Tensor]:
         states = list()
         for layer in self.model:
             if isinstance(
                 layer, (SEANetResnetBlock, StreamingConv1d, StreamingConvTranspose1d)
             ):
-                states.append(layer._init_streaming_state(batch_size))
+                states.append(layer._init_streaming_state())
             else:
                 states.append(torch.tensor([]))
 
