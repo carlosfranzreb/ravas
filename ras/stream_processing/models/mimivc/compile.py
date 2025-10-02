@@ -68,12 +68,6 @@ def compile_onnx():
             dynamo=True,
         )
 
-        # test that the compiled models output the same values as the torch ones
-        torch_out = getattr(mimi, method)(*input_tuple)
-        torch_out = torch_out[0]
-        if isinstance(torch_out, list):
-            torch_out = torch_out[0]
-
         # Run ONNX model
         model_onnx = ort.InferenceSession(dump_file)
         onnx_out = model_onnx.run(None, input_onnx)
@@ -88,10 +82,10 @@ def compile_onnx():
             if value_in.size > 0:
                 assert not np.allclose(value_out, value_in, atol=1e-2)
 
-        # compare the outputs
-        onnx_out = onnx_out[0]
-        onnx_out = torch.from_numpy(onnx_out)
-        print(method, torch.allclose(torch_out, onnx_out, atol=1e-7))
+        # compare the outputs of the torch and onnx models
+        print(f"\tComparing outputs {method}")
+        torch_out = getattr(mimi, method)(*input_tuple)
+        compare_outputs(torch_out, onnx_out)
 
         # dump the onnx inputs
         np.save(dump_file_args, input_onnx)
@@ -103,6 +97,15 @@ def compile_onnx():
             x = mimi.quantizer.decode(x)
         elif method == "upsample":
             x = x.unsqueeze(0)
+
+
+def compare_outputs(torch_out: list, onnx_out: list):
+    for out_idx in range(len(torch_out)):
+        if isinstance(torch_out[out_idx], Tensor):
+            onnx_out = torch.from_numpy(onnx_out[out_idx])
+            for atol in torch.arange(1e-1, 1e-9, 1e-1):
+                if torch.allclose(torch_out, onnx_out, atol=atol):
+                    print(atol)
 
 
 def flatten_state(

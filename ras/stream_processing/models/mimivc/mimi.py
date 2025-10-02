@@ -56,7 +56,6 @@ _transformer_kwargs = {
     "context": 250,
     "max_period": 10000,
     "norm": "layer_norm",
-    "positional_embedding": "rope",
     "dim_feedforward": 2048,
 }
 

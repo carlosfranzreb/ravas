@@ -97,7 +97,7 @@ class StreamingMultiheadAttention(nn.Module):
                         state_dict[this_target] = weight[i]
                     state_dict.pop(this_source)
 
-    def _init_streaming_state(self, batch_size: int) -> list[Tensor]:
+    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
         in_proj = self.in_projs[0]
         device = in_proj.weight.device
         dtype = in_proj.weight.dtype
@@ -116,12 +116,12 @@ class StreamingMultiheadAttention(nn.Module):
         offset = torch.zeros(batch_size, device=device, dtype=torch.long)
         offset_cpu = torch.tensor(0)
 
-        return [
-            kv_cache_cache,
-            kv_cache_end_offset,
-            offset,
-            offset_cpu,
-        ]
+        # TODO: aren't all the offsets the same for batch_size 1?
+        return kv_cache_cache, kv_cache_end_offset, offset, offset_cpu
+
+    @property
+    def n_states(self) -> int:
+        return 4
 
     def _complete_kv(
         self,
@@ -170,9 +170,7 @@ class StreamingMultiheadAttention(nn.Module):
 
         return keys, values, positions, kv_cache_cache, kv_cache_end_offset
 
-    def forward(
-        self, query: Tensor, state: list[Tensor]
-    ) -> tuple[Tensor, list[Tensor]]:
+    def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
         """
         Stateless-style forward. Inputs:
             query, key, value: [B, T, C] (or for q/k/v after projection)
@@ -180,8 +178,8 @@ class StreamingMultiheadAttention(nn.Module):
         Returns:
             (out: [B, T, C], new_state)
         """
+        query, kv_cache_cache, kv_cache_end_offset, offset, offset_cpu = args
         B, T = query.shape[:2]
-        [kv_cache_cache, kv_cache_end_offset, offset, offset_cpu] = state
 
         projected = apply_weights_per_step(self.in_projs, query, offset_cpu)
 
@@ -218,12 +216,7 @@ class StreamingMultiheadAttention(nn.Module):
         new_offset = offset + T
         new_offset_cpu = offset_cpu + T
 
-        return x, [
-            kv_cache_cache,
-            kv_cache_end_offset,
-            new_offset,
-            new_offset_cpu,
-        ]
+        return x, kv_cache_cache, kv_cache_end_offset, new_offset, new_offset_cpu
 
 
 class StreamingTransformerLayer(nn.Module):
@@ -268,77 +261,61 @@ class StreamingTransformerLayer(nn.Module):
         self.layer_scale_1 = LayerScale(d_model, layer_scale, **factory_kwargs)
         self.layer_scale_2 = LayerScale(d_model, layer_scale, **factory_kwargs)
 
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
-        """
-        Returns a list of Tensors, comprising all the states required by the
-        transformer layer (the layer's offset_cpu followed by the states of the
-        multi-head self-attention.)
-        """
-        states = [torch.tensor(0)]  # offset_cpu
-        states += self.self_attn._init_streaming_state(batch_size)
-        return states
+    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+        """Returns the states of the multi-head self-attention."""
+        return self.self_attn._init_streaming_state(batch_size)
 
     # _ff_block expects to return (tensor, new_layer_state)
-    def _ff_block(self, x: Tensor, offset: Tensor) -> tuple[Tensor, Tensor]:
+    def _ff_block(self, x: Tensor) -> Tensor:
         x_orig = x
         x = self.norm2(x)
         update = self.linear2(self.activation(self.linear1(x)))
         out = x_orig.to(update) + self.layer_scale_2(update)
 
-        return out, offset + out.shape[1]
+        return out
 
-    def _sa_block(
-        self, x: Tensor, mha_state: list[Tensor]
-    ) -> tuple[Tensor, list[Tensor]]:
+    def _sa_block(self, *args: tuple[Tensor]) -> tuple[Tensor]:
+        x, mha_state = args[0], args[1:]
         x_orig = x
         x = self.norm1(x)
-        out, new_mha_state = self.self_attn(x, mha_state)
-        return x_orig.to(out) + self.layer_scale_1(out), new_mha_state
+        out = self.self_attn(x, *mha_state)
+        return x_orig.to(out[0]) + self.layer_scale_1(out[0]), *out[1:]
 
-    def forward(self, x: Tensor, state: list[Tensor]) -> tuple[Tensor, list[Tensor]]:
-        """
-        Returns:
-            x_out, new states (offset followed by MHA)
-        """
+    def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
         with ExitStack() as stack:
-            if x.device.type != "cuda":
-                stack.enter_context(no_compile())
+            stack.enter_context(no_compile())
 
-            offset = state[0]
-            mha_state = state[1:]
-            x, new_mha_state = self._sa_block(x, mha_state)
-            x, new_offset = self._ff_block(x, offset)
-            new_state = [new_offset, *new_mha_state]
+            out = self._sa_block(*args)
+            y = self._ff_block(out[0])
+            return y, *out[1:]
 
-            return x, new_state
+    @property
+    def n_states(self) -> int:
+        return self.self_attn.n_states
 
 
 class StreamingTransformer(nn.Module):
-    """Top-level stateless transformer.
-    TODO: consume `transformer` prefix in state_dict to replace ProjectedTransformer with this one.
-    """
+    """Top-level stateless transformer."""
 
     def __init__(
         self,
         d_model: int,
         num_heads: int,
         num_layers: int,
-        dim_feedforward: int | list[int] = 2048,
-        causal: bool = False,
-        context: tp.Optional[int] = None,
-        positional_embedding: str = "sin",
-        max_period: float = 10_000,
-        positional_scale: float = 1.0,
+        dim_feedforward: int,
+        causal: bool,
+        layer_scale: int,
+        context: int,
+        max_period: float,
+        norm: str,
         device=None,
         dtype=None,
-        **kwargs,
     ):
         super().__init__()
         assert d_model % num_heads == 0
 
-        self.positional_embedding = positional_embedding
         self.max_period = max_period
-        self.positional_scale = positional_scale
+        self.positional_scale = 1.0
         self.rope = RotaryEmbedding(max_period=max_period)
 
         self.layers = nn.ModuleList()
@@ -349,42 +326,36 @@ class StreamingTransformer(nn.Module):
                     num_heads=num_heads,
                     dim_feedforward=dim_feedforward,
                     causal=causal,
+                    layer_scale=layer_scale,
                     context=context,
                     rope=self.rope,
+                    norm=norm,
                     device=device,
                     dtype=dtype,
-                    **kwargs,
                 )
             )
 
-    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor, list[Tensor]]:
-        """Returns the transformer's offsets and the layer states."""
-        device = next(self.parameters()).device
-        offsets = torch.zeros(batch_size, device=device, dtype=torch.long)
+    def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+        """Returns the transformer's layer states."""
         layer_states = list()
         for layer in self.layers:
-            layer_states.append(layer._init_streaming_state(batch_size))
+            layer_states += layer._init_streaming_state(batch_size)
 
-        return offsets, layer_states
+        return tuple(layer_states)
 
-    def forward(
-        self, x: Tensor, offsets: Tensor, layer_states: list[list[Tensor]]
-    ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
-        """
-        Inputs:
-            x: [B, T, C]
-            offsets: optional offsets
-            layer_states: list of self-attention layer states (offset + MHA)
-        Returns:
-            x_out, new_offsets, new_layer_states,
-        """
+    def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
+        x = args[0]
         x = x.transpose(1, 2)
+        n_states_layer = self.layers[0].n_states
+        last_seen_state = 1
         new_layer_states = list()
-        for layer_idx, layer in enumerate(self.layers):
-            x, new_layer_state = layer(x, layer_states[layer_idx])
-            new_layer_states.append(new_layer_state)
+        for layer in self.layers:
+            layer_states = args[last_seen_state : last_seen_state + n_states_layer]
+            layer_out = layer(x, *layer_states)
+            x, new_layer_state = layer_out[0], layer_out[1:]
+            new_layer_states += new_layer_state
+            last_seen_state += n_states_layer
 
-        new_offsets = offsets + x.shape[1]
         x = x.transpose(1, 2).to(x.dtype)
 
-        return (x, new_offsets, new_layer_states)
+        return x, *new_layer_states
