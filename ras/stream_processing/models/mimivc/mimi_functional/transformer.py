@@ -98,77 +98,67 @@ class StreamingMultiheadAttention(nn.Module):
                     state_dict.pop(this_source)
 
     def _init_streaming_state(self, batch_size: int) -> tuple[Tensor]:
+        batch_size = 1
         in_proj = self.in_projs[0]
         device = in_proj.weight.device
         dtype = in_proj.weight.dtype
 
-        # create ring KV cache and offset
+        # create cache and offset
         dim_per_head = self.embed_dim // self.num_heads
         kv_cache_capacity = self.context
-        kv_cache_cache = torch.zeros(
+        cache = torch.zeros(
             (2, batch_size, self.num_heads, kv_cache_capacity, dim_per_head),
             device=device,
             dtype=dtype,
         )
-        kv_cache_end_offset = torch.zeros(1, device=device, dtype=torch.long)
+        end_offset = torch.zeros(1, device=device, dtype=torch.long)
 
-        # create other states
-        offset = torch.zeros(batch_size, device=device, dtype=torch.long)
-        offset_cpu = torch.tensor(0)
-
-        # TODO: aren't all the offsets the same for batch_size 1?
-        return kv_cache_cache, kv_cache_end_offset, offset, offset_cpu
+        return cache, end_offset
 
     @property
     def n_states(self) -> int:
-        return 4
+        return 2
 
     def _complete_kv(
         self,
         keys: Tensor,
         values: Tensor,
-        kv_cache_cache: Tensor,
-        kv_cache_end_offset: Tensor,
+        cache: Tensor,
+        end_offset: Tensor,
     ) -> list[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
         B, H, T, D = keys.shape
-        kv_cache_capacity = kv_cache_cache.shape[3]
+        capacity = cache.shape[3]
         exec_mask = torch.ones(B, dtype=torch.bool, device=keys.device)
-        indexes = torch.arange(
-            T, device=kv_cache_end_offset.device, dtype=kv_cache_end_offset.dtype
-        )
-        indexes = indexes + kv_cache_end_offset.view(-1, 1)
-        indexes = indexes % kv_cache_capacity
+        indexes = torch.arange(T, device=end_offset.device, dtype=end_offset.dtype)
+        indexes = indexes + end_offset.view(-1, 1)
+        indexes = indexes % capacity
 
         this_indexes = indexes.view(B, 1, T, 1)
         this_indexes = this_indexes.expand(-1, H, T, D)
-        kv_cache_cache[0].scatter_(2, this_indexes, keys)
-        kv_cache_cache[1].scatter_(2, this_indexes, values)
+        cache[0].scatter_(2, this_indexes, keys)
+        cache[1].scatter_(2, this_indexes, values)
 
-        keys = kv_cache_cache[0]
-        values = kv_cache_cache[1]
+        keys = cache[0]
+        values = cache[1]
 
-        indexes = torch.arange(
-            kv_cache_capacity, device=kv_cache_end_offset.device, dtype=torch.long
-        )
+        indexes = torch.arange(capacity, device=end_offset.device, dtype=torch.long)
 
-        last_offset = kv_cache_end_offset.view(-1, 1) + T - 1
-        end_index = last_offset % kv_cache_capacity
+        last_offset = end_offset.view(-1, 1) + T - 1
+        end_index = last_offset % capacity
         delta = indexes - end_index
 
         positions = torch.where(
             delta <= 0,
             last_offset + delta,
-            last_offset + delta - kv_cache_capacity,
+            last_offset + delta - capacity,
         )
-        kv_cache_end_offset[:] = torch.where(
-            exec_mask, kv_cache_end_offset + T, kv_cache_end_offset
-        )
+        end_offset[:] = torch.where(exec_mask, end_offset + T, end_offset)
 
-        invalid = indexes >= kv_cache_end_offset.view(-1, 1)
+        invalid = indexes >= end_offset.view(-1, 1)
         positions = torch.where(invalid, torch.full_like(positions, -1), positions)
 
-        return keys, values, positions, kv_cache_cache, kv_cache_end_offset
+        return keys, values, positions, cache, end_offset
 
     def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
         """
@@ -178,24 +168,22 @@ class StreamingMultiheadAttention(nn.Module):
         Returns:
             (out: [B, T, C], new_state)
         """
-        query, kv_cache_cache, kv_cache_end_offset, offset, offset_cpu = args
+        query, cache, end_offset = args
         B, T = query.shape[:2]
 
-        projected = apply_weights_per_step(self.in_projs, query, offset_cpu)
+        projected = apply_weights_per_step(self.in_projs, query, end_offset)
 
         q, k, v = rearrange(
             projected, "b t (p h d) -> p b h t d", p=3, h=self.num_heads
         )
 
         if self.rope:
-            q, k = self.rope(q, k, offset, time_before_heads=False)
+            q, k = self.rope(q, k, end_offset, time_before_heads=False)
 
-        k, v, pos_k, kv_cache_cache, kv_cache_end_offset = self._complete_kv(
-            k, v, kv_cache_cache, kv_cache_end_offset
-        )
+        k, v, pos_k, cache, end_offset = self._complete_kv(k, v, cache, end_offset)
         pos_k = pos_k[:, None]
         if self.causal:
-            pos_q = offset.view(-1, 1, 1) + torch.arange(
+            pos_q = end_offset.view(-1, 1, 1) + torch.arange(
                 T, device=q.device, dtype=torch.long
             ).view(-1, 1)
             delta = pos_q - pos_k
@@ -210,13 +198,9 @@ class StreamingMultiheadAttention(nn.Module):
         x = F.scaled_dot_product_attention(q, k, v, attn_bias, dropout_p=0.0)
 
         x = rearrange(x, "b h t d -> b t (h d)")
-        x = apply_weights_per_step(self.out_projs, x, offset_cpu)
+        x = apply_weights_per_step(self.out_projs, x, end_offset)
 
-        # update offsets
-        new_offset = offset + T
-        new_offset_cpu = offset_cpu + T
-
-        return x, kv_cache_cache, kv_cache_end_offset, new_offset, new_offset_cpu
+        return x, cache, end_offset
 
 
 class StreamingTransformerLayer(nn.Module):
