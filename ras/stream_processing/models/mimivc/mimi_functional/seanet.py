@@ -22,13 +22,12 @@ class SEANetResnetBlock(nn.Module):
         causal: bool = False,
         pad_mode: str = "reflect",
         compress: int = 2,
-        true_skip: bool = True,
     ):
         super().__init__()
         assert len(kernel_sizes) == len(dilations)
         act = getattr(nn, activation)
         hidden = dim // compress
-        layers: tp.List[nn.Module] = []
+        layers = list()
         for i, (k, d) in enumerate(zip(kernel_sizes, dilations)):
             in_chs = dim if i == 0 else hidden
             out_chs = dim if i == len(kernel_sizes) - 1 else hidden
@@ -49,28 +48,40 @@ class SEANetResnetBlock(nn.Module):
 
     def _init_streaming_state(
         self,
-    ) -> list[Tensor]:
+    ) -> tuple[Tensor]:
         states = list()
         for layer in self.block:
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                states.append(layer._init_streaming_state())
-            else:
-                states.append(torch.tensor([]))
+                states += layer._init_streaming_state()
 
-        return states
+        return tuple(states)
 
-    def forward(self, x, states: tp.List[tp.Any]):
-        new_states = list()
-        y = x
-        for layer_idx, layer in enumerate(self.block):
+    @property
+    def n_states(self) -> int:
+        n_states = 0
+        for layer in self.block:
             if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
-                y, new_state = layer(y, states[layer_idx])
+                n_states += layer.n_states
+
+        return n_states
+
+    def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
+        new_states = list()
+        last_seen_state = 1
+        y = args[0]
+        for layer in self.block:
+            if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
+                layer_states = args[last_seen_state : last_seen_state + layer.n_states]
+                y, new_state = layer(y, *layer_states)
                 new_states.append(new_state)
+                last_seen_state += layer.n_states
             else:
                 y = layer(y)
-                new_states.append(torch.tensor([]))
+        try:
+            y += args[0]
+        except RuntimeError:
+            print("here")
 
-        y += x
         return y, new_states
 
 
@@ -80,32 +91,35 @@ class SEANetModel(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__()
 
-    def _init_streaming_state(self) -> list[Tensor]:
+    def _init_streaming_state(self) -> tuple[Tensor]:
         states = list()
         for layer in self.model:
             if isinstance(
                 layer, (SEANetResnetBlock, StreamingConv1d, StreamingConvTranspose1d)
             ):
-                states.append(layer._init_streaming_state())
-            else:
-                states.append(torch.tensor([]))
+                states += layer._init_streaming_state()
 
-        return states
+        return tuple(states)
 
-    def forward(self, x, states: tp.List[tp.Any]):
+    def forward(self, *args: tuple[Tensor]) -> tuple[Tensor]:
         new_states = list()
-        y = x
-        for layer, state in zip(self.model, states):
+        last_seen_state = 1
+        y = args[0]
+        for layer in self.model:
             if isinstance(
                 layer, (SEANetResnetBlock, StreamingConv1d, StreamingConvTranspose1d)
             ):
-                y, new_state = layer(y, state)
-                new_states.append(new_state)
+                layer_states = args[last_seen_state : last_seen_state + layer.n_states]
+                y, new_state = layer(y, *layer_states)
+                if isinstance(layer, (StreamingConv1d, StreamingConvTranspose1d)):
+                    new_state = [new_state]
+
+                new_states += new_state
+                last_seen_state += layer.n_states
             else:
                 y = layer(y)
-                new_states.append(torch.tensor([]))
 
-        return y, new_states
+        return y, *new_states
 
 
 class SEANetEncoder(SEANetModel):
@@ -128,7 +142,6 @@ class SEANetEncoder(SEANetModel):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         mask_fn: tp.Optional[nn.Module] = None,
@@ -174,7 +187,6 @@ class SEANetEncoder(SEANetModel):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        true_skip=true_skip,
                     )
                 )
             modules += [
@@ -226,8 +238,6 @@ class SEANetDecoder(SEANetModel):
         ratios: tp.List[int] = [8, 5, 4, 2],
         activation: str = "ELU",
         activation_params: dict = {"alpha": 1.0},
-        final_activation: tp.Optional[str] = None,
-        final_activation_params: tp.Optional[dict] = None,
         norm: str = "none",
         norm_params: tp.Dict[str, tp.Any] = {},
         kernel_size: int = 7,
@@ -236,7 +246,6 @@ class SEANetDecoder(SEANetModel):
         dilation_base: int = 2,
         causal: bool = False,
         pad_mode: str = "reflect",
-        true_skip: bool = True,
         compress: int = 2,
         disable_norm_outer_blocks: int = 0,
         trim_right_ratio: float = 1.0,
@@ -296,7 +305,6 @@ class SEANetDecoder(SEANetModel):
                         causal=causal,
                         pad_mode=pad_mode,
                         compress=compress,
-                        true_skip=true_skip,
                     )
                 )
             mult //= 2
@@ -313,9 +321,5 @@ class SEANetDecoder(SEANetModel):
                 pad_mode=pad_mode,
             ),
         ]
-
-        if final_activation is not None:
-            final_act = getattr(nn, final_activation)
-            modules.append(final_act(**(final_activation_params or {})))
 
         self.model = nn.ModuleList(modules)

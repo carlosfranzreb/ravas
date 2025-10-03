@@ -66,7 +66,7 @@ class StreamingConv1d(nn.Module):
     def _padding_total(self):
         return self._effective_kernel_size - self._stride
 
-    def _init_streaming_state(self) -> Tensor:
+    def _init_streaming_state(self) -> list[Tensor]:
         param = next(iter(self.parameters()))
         batch_size = 1
         prev = torch.zeros(
@@ -76,7 +76,11 @@ class StreamingConv1d(nn.Module):
             device=param.device,
             dtype=param.dtype,
         )
-        return prev
+        return [prev]
+
+    @property
+    def n_states(self) -> int:
+        return 1
 
     def forward(self, x: Tensor, prev: Tensor) -> tuple[Tensor, Tensor]:
         """Input length must be multiple of stride."""
@@ -132,7 +136,7 @@ class StreamingConvTranspose1d(nn.Module):
     def _kernel_size(self):
         return self.convtr.convtr.kernel_size[0]
 
-    def _init_streaming_state(self) -> Tensor:
+    def _init_streaming_state(self) -> list[Tensor]:
         param = next(iter(self.parameters()))
         batch_size = 1
         K, S = self._kernel_size, self._stride
@@ -143,7 +147,11 @@ class StreamingConvTranspose1d(nn.Module):
             device=param.device,
             dtype=param.dtype,
         )
-        return partial
+        return [partial]
+
+    @property
+    def n_states(self) -> int:
+        return 1
 
     def forward(self, x: Tensor, partial: Tensor) -> tuple[Tensor, Tensor]:
         """

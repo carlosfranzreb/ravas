@@ -82,7 +82,7 @@ class TorchMimiVC(AudioConverter):
 
         # gather source features
         audio_in.unsqueeze_(0).unsqueeze_(0)
-        source_feats, self.enc_state = self.mimi.encoder(audio_in, self.enc_state)
+        source_feats, *self.enc_state = self.mimi.encoder(audio_in, *self.enc_state)
         source_feats, *self.tr_enc_states = self.mimi.encoder_transformer(
             source_feats, *self.tr_enc_states
         )
@@ -98,7 +98,7 @@ class TorchMimiVC(AudioConverter):
         conv_feats, *self.tr_dec_states = self.mimi.decoder_transformer(
             conv_feats, *self.tr_dec_states
         )
-        audio_out, self.dec_state = self.mimi.decoder(conv_feats, self.dec_state)
+        audio_out, *self.dec_state = self.mimi.decoder(conv_feats, *self.dec_state)
         audio_out.squeeze_()
 
         # transform and return the converted audio
