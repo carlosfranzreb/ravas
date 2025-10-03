@@ -21,6 +21,8 @@ from torch import Tensor
 from torch.multiprocessing import Queue, Event
 import onnxruntime as ort
 
+# from line_profiler import profile
+
 from ...processor import AudioConverter
 from ...utils import resolve_file_path
 from ..knnvc.knnvc import convert_vecs
@@ -106,6 +108,7 @@ class MimiVC(AudioConverter):
         ).item()
 
     @torch.inference_mode()
+    # @profile
     def convert_audio(self, audio_in: Tensor) -> Tensor:
         """
         Convert the audio to the target speaker.
