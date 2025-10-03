@@ -120,54 +120,60 @@ class MimiVC(AudioConverter):
 
         # gather source features
         x = audio_in.unsqueeze(0).unsqueeze(0).numpy()
-        x, self.encoder_args = run_onnx_model(self.encoder, self.encoder_args, x)
+        self.encoder_args = run_onnx_model(self.encoder, self.encoder_args, x)
 
-        x, self.encoder_transformer_args = run_onnx_model(
-            self.encoder_transformer, self.encoder_transformer_args, x
+        self.encoder_transformer_args = run_onnx_model(
+            self.encoder_transformer,
+            self.encoder_transformer_args,
+            self.encoder_args["args_0"],
         )
 
-        x, self.downsample_args = run_onnx_model(
-            self.downsample, self.downsample_args, x
+        self.downsample_args = run_onnx_model(
+            self.downsample,
+            self.downsample_args,
+            self.encoder_transformer_args["args_0"],
         )
-
-        source_feats = torch.from_numpy(x).squeeze(0).T
 
         # convert the audio
+        source_feats = torch.from_numpy(self.downsample_args["x"]).squeeze(0).T
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
         codes = self.quantizer.encode(conv_feats.unsqueeze(2))
         conv_feats = self.quantizer.decode(codes)
 
         # decode the audio
-        x = conv_feats.numpy()
-        x, self.upsample_args = run_onnx_model(self.upsample, self.upsample_args, x)
-
-        x, self.decoder_transformer_args = run_onnx_model(
-            self.decoder_transformer, self.decoder_transformer_args, x
+        self.upsample_args = run_onnx_model(
+            self.upsample, self.upsample_args, conv_feats.numpy()
         )
 
-        x, self.decoder_args = run_onnx_model(self.decoder, self.decoder_args, x)
-        audio_out = torch.from_numpy(x)
+        self.decoder_transformer_args = run_onnx_model(
+            self.decoder_transformer,
+            self.decoder_transformer_args,
+            self.upsample_args["x"],
+        )
+        self.decoder_args = run_onnx_model(
+            self.decoder, self.decoder_args, self.decoder_transformer_args["args_0"]
+        )
 
         # transform and return the converted audio
+        audio_out = torch.from_numpy(self.decoder_args["args_0"])
         audio_out = torch.clamp(audio_out, -1.0, 1.0)
         audio_out = (audio_out * 32768).to(torch.int16)
         return audio_out
 
 
-def run_onnx_model(model, model_args, new_input) -> tuple:
+def run_onnx_model(
+    model, model_args: dict[str, Tensor], new_input: Tensor
+) -> dict[str, Tensor]:
     """
     Run the model, update its state and return it along with the output.
     Uses the model's output names to correctly map outputs to inputs.
     """
-    model_args["x"] = new_input
+    input_key = "args_0" if len(model_args) > 1 else "x"
+    model_args[input_key] = new_input
     model_out = model.run(None, model_args)
 
     # Update states using the output names
-    # ! The names are not the same; this doesn't work
     for idx, key in enumerate(model_args):
-        if idx == 0:
-            out = model_out[idx]
-        else:
-            model_args[key] = model_out[idx]
+        model_args[key] = model_out[idx]
 
-    return out, model_args
+    return model_args
