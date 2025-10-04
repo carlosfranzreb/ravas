@@ -1,13 +1,5 @@
 """
 Run this script to compile the Mimi encoder and decoder.
-
-TODO: the models are not accurately compiled. Their error tolerances are not
-below 1e-4, whereas the encoders have tolerances of 1e-7. There must be something
-wrong there.
-
-On another note, the current compiled implementation is slower than the pytorch
-one. Maybe the encoders and decoders have to be grouped together for better
-performance.
 """
 
 import os
@@ -17,7 +9,7 @@ from torch import Tensor
 import onnxruntime as ort
 import numpy as np
 
-from .mimi import init_mimi, MimiModel, SplitResidualVectorQuantizer
+from .mimi import init_mimi, SplitResidualVectorQuantizer
 from ...utils import resolve_file_path
 
 

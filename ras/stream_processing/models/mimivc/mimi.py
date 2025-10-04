@@ -33,8 +33,6 @@ _seanet_kwargs = {
     "kernel_size": 7,
     "residual_kernel_size": 3,
     "last_kernel_size": 3,
-    # We train using weight_norm but then the weights are pre-processed for inference so
-    # that we can use a normal convolution.
     "norm": "none",
     "pad_mode": "constant",
     "ratios": [8, 6, 5, 4],

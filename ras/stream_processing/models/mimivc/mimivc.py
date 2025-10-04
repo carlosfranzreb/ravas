@@ -118,7 +118,6 @@ class MimiVC(AudioConverter):
     def convert_audio(self, audio_in: Tensor) -> Tensor:
         """
         Convert the audio to the target speaker.
-        # TODO: avoid back and forth casting between torch and numpy
         """
 
         audio_in = (audio_in / 32768).to(torch.float32)
