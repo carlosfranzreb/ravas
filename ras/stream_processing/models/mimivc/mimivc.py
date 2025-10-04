@@ -72,6 +72,9 @@ class MimiVC(AudioConverter):
         self.downsample = ort.InferenceSession(
             resolve_file_path(f"onnx/mimi_downsample.onnx")
         )
+        self.quantization = ort.InferenceSession(
+            resolve_file_path(f"onnx/mimi_quantization.onnx")
+        )
         self.upsample = ort.InferenceSession(
             resolve_file_path(f"onnx/mimi_upsample.onnx")
         )
@@ -95,6 +98,9 @@ class MimiVC(AudioConverter):
         ).item()
         self.downsample_args = np.load(
             resolve_file_path(f"onnx/mimi_downsample_args.npy"), allow_pickle=True
+        ).item()
+        self.quantization_args = np.load(
+            resolve_file_path(f"onnx/mimi_quantization_args.npy"), allow_pickle=True
         ).item()
         self.upsample_args = np.load(
             resolve_file_path(f"onnx/mimi_upsample_args.npy"), allow_pickle=True
@@ -140,12 +146,14 @@ class MimiVC(AudioConverter):
         # convert the audio
         source_feats = torch.from_numpy(self.downsample_args["x"]).squeeze(0).T
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
-        codes = self.quantizer.encode(conv_feats.unsqueeze(2))
-        conv_feats = self.quantizer.decode(codes)
+        conv_feats = conv_feats.unsqueeze(2)
+        self.quantization_args = run_onnx_model(
+            self.quantization, self.quantization_args, conv_feats.numpy()
+        )
 
         # decode the audio
         self.upsample_args = run_onnx_model(
-            self.upsample, self.upsample_args, conv_feats.numpy()
+            self.upsample, self.upsample_args, self.quantization_args["x"]
         )
 
         self.decoder_transformer_args = run_onnx_model(

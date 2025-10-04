@@ -17,13 +17,26 @@ from torch import Tensor
 import onnxruntime as ort
 import numpy as np
 
-from .mimi import init_mimi
+from .mimi import init_mimi, MimiModel, SplitResidualVectorQuantizer
 from ...utils import resolve_file_path
+
+
+class Quantization(torch.nn.Module):
+    def __init__(self, quantizer: SplitResidualVectorQuantizer):
+        super().__init__()
+        self.quantizer = quantizer
+
+    def forward(self, x: Tensor) -> list[Tensor]:
+        """Wrap the two quantization steps."""
+        x = self.quantizer.encode(x)
+        x = self.quantizer.decode(x)
+        return [x]
 
 
 def compile_onnx():
     os.makedirs(resolve_file_path("onnx/"), exist_ok=True)
     mimi = init_mimi()[0]
+    mimi.quantization = Quantization(mimi.quantizer)
     mimi.eval()
     mimi.requires_grad_(False)
 
@@ -32,6 +45,7 @@ def compile_onnx():
         "encoder",
         "encoder_transformer",
         "downsample",
+        "quantization",
         "upsample",
         "decoder_transformer",
         "decoder",
@@ -40,7 +54,7 @@ def compile_onnx():
         dump_file_args = resolve_file_path(f"onnx/mimi_{method}_args.npy")
 
         # get the streaming state
-        if "sample" not in method:
+        if "sample" not in method and method != "quantization":
             state = getattr(mimi, method)._init_streaming_state()
             input_tuple = (x, *state)
         else:
@@ -73,20 +87,22 @@ def compile_onnx():
                 assert not np.allclose(value_out, value_in, atol=1e-2)
 
         # compare the outputs of the torch and onnx models
-        print(f"\tComparing outputs {method}")
         torch_out = getattr(mimi, method)(*input_tuple)
-        compare_outputs(torch_out, onnx_out)
+        if method != "quantization":
+            print(f"\tComparing outputs {method}")
+            compare_outputs(torch_out, onnx_out)
+        else:
+            torch_out = [torch.randn((1, 512, 1), dtype=torch.float32)]
 
         # update input for next module
         x = torch_out[0]
         if method == "downsample":
-            x = mimi.quantizer.encode(x.unsqueeze(0))
-            x = mimi.quantizer.decode(x)
+            x = x.unsqueeze(0)
         elif method == "upsample":
             x = x.unsqueeze(0)
 
 
-def compare_outputs(torch_out: list, onnx_out: list):
+def compare_outputs(torch_out: list[Tensor], onnx_out: list[Tensor]):
     for out_idx in range(len(torch_out)):
         onnx_tensor = torch.from_numpy(onnx_out[out_idx])
         for atol in torch.logspace(-8, -1, steps=8):
