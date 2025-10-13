@@ -15,3 +15,4 @@ safetensors
 huggingface_hub
 torchaudio
 einops
+onnxscript
