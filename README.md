@@ -1,4 +1,4 @@
-# Real-time Video Anonymization System
+# RAVAS - Real-time Audiovisual Anonymization System
 
 Anonymized audio and video in real-time. Can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
 
