@@ -4,13 +4,6 @@ The feature embeddings output by the encoder's transformer are
 compared with cosine similarity to convert source features to
 target features. They encode cosine similarity due to the WavLM
 distillation.
-
-! moshi must be installed inside this directory:
-
-```bash
-git clone git@github.com:kyutai-labs/moshi.git
-pip install moshi
-```
 """
 
 import logging
@@ -63,8 +56,10 @@ class TorchMimiVC(AudioConverter):
         (
             self.mimi,
             self.enc_state,
-            self.tr_enc_states,
-            self.tr_dec_states,
+            self.tr_enc_state,
+            self.downsample_state,
+            self.upsample_state,
+            self.tr_dec_state,
             self.dec_state,
         ) = init_mimi()
 
@@ -83,20 +78,26 @@ class TorchMimiVC(AudioConverter):
         # gather source features
         audio_in.unsqueeze_(0).unsqueeze_(0)
         source_feats, *self.enc_state = self.mimi.encoder(audio_in, *self.enc_state)
-        source_feats, *self.tr_enc_states = self.mimi.encoder_transformer(
-            source_feats, *self.tr_enc_states
+        source_feats, *self.tr_enc_state = self.mimi.encoder_transformer(
+            source_feats, *self.tr_enc_state
         )
-        source_feats = self.mimi.downsample(source_feats).squeeze(0).T
+        source_feats, *self.downsample_state = self.mimi.downsample(
+            source_feats, *self.downsample_state
+        )
 
         # convert the audio
+        source_feats = source_feats.squeeze(0).T
         conv_feats = convert_vecs(source_feats, self.target_feats, self.n_neighbors)
+        conv_feats = conv_feats.T.unsqueeze(0)
 
         # decode the audio
-        codes = self.mimi.quantizer.encode(conv_feats.unsqueeze(2))
-        conv_feats = self.mimi.quantizer.decode(codes)
-        conv_feats = self.mimi.upsample(conv_feats)
-        conv_feats, *self.tr_dec_states = self.mimi.decoder_transformer(
-            conv_feats, *self.tr_dec_states
+        conv_feats = self.mimi.quantizer.encode(conv_feats)
+        conv_feats = self.mimi.quantizer.decode(conv_feats)
+        conv_feats, *self.downsample_state = self.mimi.upsample(
+            conv_feats, *self.downsample_state
+        )
+        conv_feats, *self.tr_dec_state = self.mimi.decoder_transformer(
+            conv_feats, *self.tr_dec_state
         )
         audio_out, *self.dec_state = self.mimi.decoder(conv_feats, *self.dec_state)
         audio_out.squeeze_()

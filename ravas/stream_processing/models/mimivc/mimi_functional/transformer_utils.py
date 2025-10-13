@@ -3,7 +3,7 @@ import typing as tp
 import torch
 from torch import nn, Tensor
 
-from moshi.utils.compile import torch_compile_lazy
+from .compile_utils import torch_compile_lazy
 
 
 class LayerNormF32(nn.LayerNorm):

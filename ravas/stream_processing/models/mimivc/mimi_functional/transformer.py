@@ -11,18 +11,9 @@ import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 
-from moshi.utils.compile import no_compile
-from moshi.utils import quantize
-from moshi.utils.quantize import replace_linear_with_qlinear
-from moshi.modules.rope import RotaryEmbedding
-from moshi.modules.lora import LoRALinear
-
-from .transformer_utils import (
-    apply_weights_per_step,
-    create_norm_fn,
-    LayerScale,
-    create_sin_embedding,
-)
+from .compile_utils import no_compile
+from .rope import RotaryEmbedding
+from .transformer_utils import apply_weights_per_step, create_norm_fn, LayerScale
 
 
 class StreamingMultiheadAttention(nn.Module):

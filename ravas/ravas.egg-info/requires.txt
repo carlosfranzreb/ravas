@@ -13,5 +13,3 @@ moderngl-window
 torch
 safetensors
 huggingface_hub
-torchaudio
-einops

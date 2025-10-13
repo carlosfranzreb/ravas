@@ -9,7 +9,9 @@ from torch import Tensor
 import onnxruntime as ort
 import numpy as np
 
-from .mimi import init_mimi, SplitResidualVectorQuantizer
+from .mimi import init_mimi
+from .mimi_functional.quantization import SplitResidualVectorQuantizer
+
 from ...utils import resolve_file_path
 
 

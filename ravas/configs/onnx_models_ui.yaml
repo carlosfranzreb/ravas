@@ -1,7 +1,7 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file J:/Datasets/LibriSpeech/dev-clean/8842/304647/8842-304647-0004.flac
+define: &video_file /Users/cafr02/repos/ravas/mou.mp4
 define: &video_width 1280
 define: &video_height 720
 
@@ -67,9 +67,9 @@ audio:
   sampling_rate: 24000
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
-  store: false
+  store: true
   converter:
-    cls: stream_processing.models.MimiVC
+    cls: stream_processing.models.TorchMimiVC
     target_feats_path: ./target_feats/mimivc/1089.pt
     device: cpu
     n_neighbors: 4
