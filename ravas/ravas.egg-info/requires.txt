@@ -10,3 +10,6 @@ onnxruntime
 selenium
 websocket_server
 moderngl-window
+torch
+safetensors
+huggingface_hub

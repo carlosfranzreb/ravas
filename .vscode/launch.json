@@ -11,6 +11,14 @@
       "module":"stream_processing.models.mimivc.compile"
     },
     {
+      "name": "Mimi - compute feats",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ravas.stream_processing.models.mimivc.compute_feats",
+      "console": "integratedTerminal",
+      "args": ["/Users/cafr02/datasets/LibriSpeech/test-clean/1089"]
+    },
+    {
       "name": "Python Debugger: Current File",
       "type": "debugpy",
       "request": "launch",
@@ -21,14 +29,14 @@
       "name": "Run GUI",
       "type": "debugpy",
       "request": "launch",
-      "program": "ras/run_gui.py",
+      "program": "ravas/run_gui.py",
       "console": "integratedTerminal",
     },
     {
       "name": "Run Main",
       "type": "debugpy",
       "request": "launch",
-      "program": "ras/run_main.py",
+      "program": "ravas/run_main.py",
       "console": "integratedTerminal",
     }
   ]

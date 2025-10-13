@@ -4,13 +4,6 @@ The feature embeddings output by the encoder's transformer are
 compared with cosine similarity to convert source features to
 target features. They encode cosine similarity due to the WavLM
 distillation.
-
-! moshi must be installed inside this directory:
-
-```bash
-git clone git@github.com:kyutai-labs/moshi.git
-pip install moshi
-```
 """
 
 import logging
@@ -178,7 +171,7 @@ def run_onnx_model(
     Run the model, update its state and return it along with the output.
     Uses the model's output names to correctly map outputs to inputs.
     """
-    input_key = "args_0" if len(model_args) > 1 else "x"
+    input_key = "args_0" if "args_0" in model_args else "x"
     model_args[input_key] = new_input
     model_out = model.run(None, model_args)
 

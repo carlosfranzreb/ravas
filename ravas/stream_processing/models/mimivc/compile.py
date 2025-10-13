@@ -9,7 +9,9 @@ from torch import Tensor
 import onnxruntime as ort
 import numpy as np
 
-from .mimi import init_mimi, SplitResidualVectorQuantizer
+from .mimi import init_mimi
+from .mimi_functional.quantization import SplitResidualVectorQuantizer
+
 from ...utils import resolve_file_path
 
 
@@ -46,7 +48,7 @@ def compile_onnx():
         dump_file_args = resolve_file_path(f"onnx/mimi_{method}_args.npy")
 
         # get the streaming state
-        if "sample" not in method and method != "quantization":
+        if method != "quantization":
             state = getattr(mimi, method)._init_streaming_state()
             input_tuple = (x, *state)
         else:
@@ -88,10 +90,10 @@ def compile_onnx():
 
         # update input for next module
         x = torch_out[0]
-        if method == "downsample":
-            x = x.unsqueeze(0)
-        elif method == "upsample":
-            x = x.unsqueeze(0)
+        # if method == "downsample":
+        #     x = x.unsqueeze(0)
+        # elif method == "upsample":
+        #     x = x.unsqueeze(0)
 
 
 def compare_outputs(torch_out: list[Tensor], onnx_out: list[Tensor]):

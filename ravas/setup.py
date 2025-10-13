@@ -1,9 +1,9 @@
 from setuptools import setup
 
 
-NAME = "stream_processing"
+NAME = "ravas"
 DESCRIPTION = "Framework for processing audio and video streams."
-URL = "https://github.com/carlosfranzreb/stream_processing"
+URL = "https://github.com/carlosfranzreb/ravas"
 
 
 def req_file(filename: str) -> list[str]:

@@ -5,8 +5,7 @@ from torch import Tensor
 from safetensors.torch import load_file
 from huggingface_hub import hf_hub_download
 
-from moshi.quantization import SplitResidualVectorQuantizer
-
+from .mimi_functional.quantization import SplitResidualVectorQuantizer
 from .mimi_functional.transformer import StreamingTransformer
 from .mimi_functional.seanet import SEANetEncoder
 from .mimi_functional.seanet import SEANetDecoder
@@ -57,10 +56,6 @@ _transformer_kwargs = {
 }
 
 
-def _is_safetensors(path: Path | str) -> bool:
-    return Path(path).suffix in (".safetensors", ".sft", ".sfts")
-
-
 def get_mimi(
     filename: str = None,
     device: str = "cpu",
@@ -74,8 +69,7 @@ def get_mimi(
     quantizer = SplitResidualVectorQuantizer(
         **_quantizer_kwargs,
     )
-    model_cls = MimiModel
-    model = model_cls(
+    model = MimiModel(
         encoder,
         decoder,
         quantizer,
@@ -84,19 +78,14 @@ def get_mimi(
         frame_rate=FRAME_RATE,
         encoder_frame_rate=SAMPLE_RATE / encoder.hop_length,
         causal=True,
-        resample_method="conv",
         encoder_transformer=encoder_transformer,
         decoder_transformer=decoder_transformer,
     ).to(device=device)
     model.eval()
     if filename is not None:
-        if _is_safetensors(filename):
-            state = load_file(filename, device=str(device))
-            consume_prefix(state, "transformer")
-            model.load_state_dict(state)
-        else:
-            pkg = torch.load(filename, "cpu")
-            model.load_state_dict(pkg["model"])
+        state = load_file(filename, device=str(device))
+        consume_prefix(state, "transformer")
+        model.load_state_dict(state)
     model.set_num_codebooks(num_codebooks)
     return model
 
@@ -143,8 +132,23 @@ def hf_get(
         return Path(filename)
 
 
-def init_mimi():
+def init_mimi() -> tuple:
     mimi_weights = hf_get(MIMI_NAME, DEFAULT_REPO)
     mimi = get_mimi(mimi_weights, num_codebooks=8, device=DEVICE)
-    enc_state, tr_enc_state, tr_dec_state, dec_state = mimi._init_streaming_state()
-    return mimi, enc_state, tr_enc_state, tr_dec_state, dec_state
+    (
+        enc_state,
+        tr_enc_state,
+        downsample_state,
+        upsample_state,
+        tr_dec_state,
+        dec_state,
+    ) = mimi._init_streaming_state()
+    return (
+        mimi,
+        enc_state,
+        tr_enc_state,
+        downsample_state,
+        upsample_state,
+        tr_dec_state,
+        dec_state,
+    )

@@ -8,7 +8,6 @@ in wrapping its modules, which I then call directly.
 """
 
 from abc import abstractmethod
-from dataclasses import dataclass
 import logging
 import typing as tp
 
@@ -16,16 +15,15 @@ import torch
 from torch import nn
 
 
-from moshi.quantization import (
+from .quantization import (
     QuantizedResult,
     BaseQuantizer,
     SplitResidualVectorQuantizer,
     ResidualVectorQuantizer,
 )
-from moshi.modules.conv import pad_for_conv1d
-from moshi.modules.resample import ConvDownsample1d, ConvTrUpsample1d
-from moshi.modules.streaming import StreamingModule, State, StateT
-from moshi.utils.compile import CUDAGraphed
+from .conv import pad_for_conv1d
+from .resample import ConvDownsample1d, ConvTrUpsample1d
+from .streaming import StreamingModule, State, StateT
 
 
 logger = logging.getLogger()
@@ -123,7 +121,6 @@ class MimiModel(CompressionModel):
         causal: bool = False,
         encoder_transformer: tp.Optional[nn.Module] = None,
         decoder_transformer: tp.Optional[nn.Module] = None,
-        resample_method: str = "interpolate",
         upsample_channel_wise_bug: bool = True,
         freeze_encoder: bool = False,
         freeze_quantizer: bool = False,
@@ -166,49 +163,36 @@ class MimiModel(CompressionModel):
         ), f"Dimension should be int, got {dimension} of type {type(dimension)}."
         self.dimension = dimension
 
-        assert resample_method in [
-            "interpolate",
-            "conv",
-            "avg_pool",
-        ], f"Invalid resample_method {resample_method}"
-        self.resample_method = resample_method
-        if encoder_frame_rate != frame_rate:
-            assert not (
-                causal and resample_method == "interpolate"
-            ), "Cannot interpolate with causal model."
-            if resample_method in ["conv", "avg_pool"]:
-                assert (
-                    self.encoder_frame_rate > self.frame_rate
-                ), "Cannot upsample with conv."
-                downsample_stride = self.encoder_frame_rate / self.frame_rate
-                assert downsample_stride == int(
-                    downsample_stride
-                ), f"Only integer strides are supported, got {downsample_stride}"
-                learnt = resample_method == "conv"
-                self.downsample = ConvDownsample1d(
-                    int(downsample_stride),
-                    dimension=dimension,
-                    learnt=learnt,
-                    causal=causal,
-                )
-                if freeze_encoder:
-                    for p in self.downsample.parameters():
-                        p.requires_grad = False
-                self.upsample = ConvTrUpsample1d(
-                    int(downsample_stride),
-                    dimension=dimension,
-                    learnt=learnt,
-                    causal=causal,
-                    channel_wise=upsample_channel_wise_bug,
-                )
+        # initialize the resamplers
+        downsample_stride = self.encoder_frame_rate / self.frame_rate
+        self.downsample = ConvDownsample1d(
+            int(downsample_stride),
+            dimension=dimension,
+            causal=causal,
+        )
+        self.upsample = ConvTrUpsample1d(
+            int(downsample_stride),
+            dimension=dimension,
+            causal=causal,
+            channel_wise=upsample_channel_wise_bug,
+        )
 
     def _init_streaming_state(self) -> tuple:
         enc_state = self.encoder._init_streaming_state()
         tr_enc_state = self.encoder_transformer._init_streaming_state()
+        downsample_state = self.downsample._init_streaming_state()
+        upsample_state = self.upsample._init_streaming_state()
         tr_dec_state = self.decoder_transformer._init_streaming_state()
         dec_state = self.decoder._init_streaming_state()
 
-        return enc_state, tr_enc_state, tr_dec_state, dec_state
+        return (
+            enc_state,
+            tr_enc_state,
+            downsample_state,
+            upsample_state,
+            tr_dec_state,
+            dec_state,
+        )
 
     @property
     def channels(self) -> int:

@@ -91,7 +91,7 @@ to audio and camera/video processing.
 
 ## Build Executable
 
-For building / packaging the `python` application as a standalone executable see [ras/BUILD.md](ras/BUILD.md).
+For building / packaging the `python` application as a standalone executable see [ravas/BUILD.md](ravas/BUILD.md).
 
 
 ## Usage
@@ -99,17 +99,17 @@ For building / packaging the `python` application as a standalone executable see
 
 ### Console Program
 
-for starting the main app as a console program, change to directory `ras/` and run
+for starting the main app as a console program, change to directory `ravas/` and run
 ```bash
 python -m stream_processing.main
 ```
 
-You can specify a configration file via `--config <file>`, see [ras/configs](ras/configs) for configuration examples.
+You can specify a configration file via `--config <file>`, see [ravas/configs](ravas/configs) for configuration examples.
 
 
 ### GUI
 
-for starting the main app with a GUI, change to directory `ras/` and run
+for starting the main app with a GUI, change to directory `ravas/` and run
 ```bash
 python run_gui.py
 ```
@@ -134,8 +134,8 @@ There are currently 2 avatar renderers implemented:
 
  1. the new OpenGL renderer, using the [moderngl][5] and [moderngl-window][6] wrappers for OpenGL in `python`, see
     ```
-    ras/stream_processing/models/avatar/opengl_runner.py
-    ras/stream_processing/models/avatar/opengl/*
+    ravas/stream_processing/models/avatar/opengl_runner.py
+    ravas/stream_processing/models/avatar/opengl/*
     ```
     NOTE: to avoid unnecessary duplication, the renderer currently uses the web app's avatar model files in
           `rpm/dist/chrome-extension/*.glb` or `rpm/public/*.glb`
@@ -334,7 +334,7 @@ In the pre-release v0.6, the checkpoints include an additional 320-sample input,
 ### Add new Setting in GUI
 
 A short guide on how to add a new setting (i.e. a configuration item from the `*.yaml` based config) in the GUI
-in [ras/stream_processing/gui/](ras/stream_processing/gui).
+in [ravas/stream_processing/gui/](ravas/stream_processing/gui).
 
 The current implementation uses `ConfigurationItem`s to represent configuration properties in the GUI. They define
  1. the "path" to the configuration property within the YAML configuration (e.g. something like `["video", "use_video"]`)
@@ -344,7 +344,7 @@ The current implementation uses `ConfigurationItem`s to represent configuration 
 
 To add a new setting in the GUI:
 
-1. __New Item:__ create a new `ConfigurationItem` in [gui/config_items.py](ras/stream_processing/gui/config_items.py):  
+1. __New Item:__ create a new `ConfigurationItem` in [gui/config_items.py](ravas/stream_processing/gui/config_items.py):  
    add this to the module constant `CONFIG_ITEMS`.
 
 2. __Validation:__ if the new setting's _valid value validation_ depends on other settings:
@@ -353,7 +353,7 @@ To add a new setting in the GUI:
    * As example, see `_do_set_ignore_validation_helpers()` where this is done for several item defined in `CONFIG_ITEMS`
      (you may modify this function to add your own adjustments).
 
-3. __Add to GUI:__ then add a GUI widget for the new item to `ConfigDialog` in [gui/config_dlg.py](ras/stream_processing/gui/config_dlg.py)
+3. __Add to GUI:__ then add a GUI widget for the new item to `ConfigDialog` in [gui/config_dlg.py](ravas/stream_processing/gui/config_dlg.py)
    * currently, this is done in the class' construction `__init__()`
    * the class provides several helper functions to create some default widgets
      * `_createCheckBoxFor(..)`: for creating a check-box widget (usually used for boolean settings)

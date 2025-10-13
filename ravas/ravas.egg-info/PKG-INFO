@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: ravas
+Version: 0.5.0
+Summary: Framework for processing audio and video streams.
+Home-page: https://github.com/carlosfranzreb/ravas
+Requires-Dist: opencv-python
+Requires-Dist: PyAudio
+Requires-Dist: librosa
+Requires-Dist: mediapipe
+Requires-Dist: psutil
+Requires-Dist: PyQt6
+Requires-Dist: pyvirtualcam
+Requires-Dist: pyyaml
+Requires-Dist: onnxruntime
+Requires-Dist: selenium
+Requires-Dist: websocket_server
+Requires-Dist: moderngl-window
+Requires-Dist: torch
+Requires-Dist: safetensors
+Requires-Dist: huggingface_hub
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
