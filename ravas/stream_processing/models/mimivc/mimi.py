@@ -56,10 +56,6 @@ _transformer_kwargs = {
 }
 
 
-def _is_safetensors(path: Path | str) -> bool:
-    return Path(path).suffix in (".safetensors", ".sft", ".sfts")
-
-
 def get_mimi(
     filename: str = None,
     device: str = "cpu",
@@ -73,8 +69,7 @@ def get_mimi(
     quantizer = SplitResidualVectorQuantizer(
         **_quantizer_kwargs,
     )
-    model_cls = MimiModel
-    model = model_cls(
+    model = MimiModel(
         encoder,
         decoder,
         quantizer,
@@ -88,13 +83,9 @@ def get_mimi(
     ).to(device=device)
     model.eval()
     if filename is not None:
-        if _is_safetensors(filename):
-            state = load_file(filename, device=str(device))
-            consume_prefix(state, "transformer")
-            model.load_state_dict(state)
-        else:
-            pkg = torch.load(filename, "cpu")
-            model.load_state_dict(pkg["model"])
+        state = load_file(filename, device=str(device))
+        consume_prefix(state, "transformer")
+        model.load_state_dict(state)
     model.set_num_codebooks(num_codebooks)
     return model
 
