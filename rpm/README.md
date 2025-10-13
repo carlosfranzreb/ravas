@@ -104,7 +104,7 @@ http://localhost:3000?ws=http://127.0.0.1:8887
 
 **NOTES:**
  * if you want to change the _web socket_ address, you also need to configure the python process (converter configuration for `Avatar`)
-   and, if run from docker container, the port for the `ras` service in (see [../docker-compose.yaml](../docker-compose.yaml))
+   and, if run from docker container, the port for the `ravas` service in (see [../docker-compose.yaml](../docker-compose.yaml))
  * if the _web socket_ address contains illegal characters (w.r.t. to URL query parameters), you should URL-encode the address
 
 

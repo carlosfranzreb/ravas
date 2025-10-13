@@ -14,8 +14,8 @@ pyhton -m pip install pyinstaller
 
 the build process includes the following, additional resources in the bundled executable:
 
- * `ras/configs`: the configuration files (`*.yaml`)
- * `ras/onnx` and `ras/target_feats`: the models & resources ("voices") for anonymizing the audio
+ * `ravas/configs`: the configuration files (`*.yaml`)
+ * `ravas/onnx` and `ravas/target_feats`: the models & resources ("voices") for anonymizing the audio
    * see the GitHub page for [releases][2] for downloading the corresponding `*.onnx` and `*.pt` files, 
      specifically the releases
      * [v0.1][3]: models & default voice (`*.onnx` and `*.pt`)

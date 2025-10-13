@@ -21,14 +21,14 @@
       "name": "Run GUI",
       "type": "debugpy",
       "request": "launch",
-      "program": "ras/run_gui.py",
+      "program": "ravas/run_gui.py",
       "console": "integratedTerminal",
     },
     {
       "name": "Run Main",
       "type": "debugpy",
       "request": "launch",
-      "program": "ras/run_main.py",
+      "program": "ravas/run_main.py",
       "console": "integratedTerminal",
     }
   ]
