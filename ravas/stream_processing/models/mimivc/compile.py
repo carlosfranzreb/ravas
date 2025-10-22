@@ -21,9 +21,15 @@ class Quantization(torch.nn.Module):
         self.quantizer = quantizer
 
     def forward(self, x: Tensor) -> list[Tensor]:
-        """Wrap the two quantization steps."""
-        x = self.quantizer.encode(x)
-        x = self.quantizer.decode(x)
+        """Project the semantic and acoustic tokens and add them."""
+        semantic_feats = self.quantizer.rvq_first.output_proj(
+            self.quantizer.rvq_first.input_proj(x)
+        )
+        acoustic_feats = self.quantizer.rvq_rest.output_proj(
+            self.quantizer.rvq_rest.input_proj(x)
+        )
+        x = semantic_feats + acoustic_feats
+
         return [x]
 
 
@@ -90,10 +96,6 @@ def compile_onnx():
 
         # update input for next module
         x = torch_out[0]
-        # if method == "downsample":
-        #     x = x.unsqueeze(0)
-        # elif method == "upsample":
-        #     x = x.unsqueeze(0)
 
 
 def compare_outputs(torch_out: list[Tensor], onnx_out: list[Tensor]):

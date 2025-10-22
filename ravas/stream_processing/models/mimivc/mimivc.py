@@ -109,10 +109,7 @@ class MimiVC(AudioConverter):
     @torch.inference_mode()
     # @profile
     def convert_audio(self, audio_in: Tensor) -> Tensor:
-        """
-        Convert the audio to the target speaker.
-        """
-
+        """Convert the audio to the target speaker."""
         audio_in = (audio_in / 32768).to(torch.float32)
         if audio_in.shape[0] < 1920:
             audio_in = torch.nn.functional.pad(

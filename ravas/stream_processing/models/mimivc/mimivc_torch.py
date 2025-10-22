@@ -91,8 +91,13 @@ class TorchMimiVC(AudioConverter):
         conv_feats = conv_feats.T.unsqueeze(0)
 
         # decode the audio
-        conv_feats = self.mimi.quantizer.encode(conv_feats)
-        conv_feats = self.mimi.quantizer.decode(conv_feats)
+        semantic_feats = self.mimi.quantizer.rvq_first.output_proj(
+            self.mimi.quantizer.rvq_first.input_proj(conv_feats)
+        )
+        acoustic_feats = self.mimi.quantizer.rvq_rest.output_proj(
+            self.mimi.quantizer.rvq_rest.input_proj(conv_feats)
+        )
+        conv_feats = semantic_feats + acoustic_feats
 
         conv_feats, *self.upsample_state = self.mimi.upsample(
             conv_feats, *self.upsample_state
