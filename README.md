@@ -5,6 +5,8 @@ With [ReadyPlayerMe's avatar](https://readyplayer.me/) and Mimi-VC, our own real
 RAVAS can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
 We built this at [DFKI](https://www.dfki.de/web) for the [AnonymPrevent](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/anonymprevent) and [VERANDA](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/veranda) research projects.
 
+You can read more technical details in [this blog post](https://carlosfranzreb.github.io/ravas).
+
 https://github.com/user-attachments/assets/9f7c5801-3a06-4852-a818-059c51e61592
 
 ## Contributors
