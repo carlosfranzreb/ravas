@@ -17,6 +17,19 @@ Huge thanks to them for their effort.
 2. [@russaa](https://github.com/russaa): implemented the Windows packaging, the GUI and a faster and more robust version of the avatar.
 3. [@HuangJ98](https://github.com/HuangJ98): implemented chunking strategies for kNN-VC and [private kNN-VC](https://github.com/carlosfranzreb/private_knnvc).
 
+## Citation
+
+```latex
+@inproceedings{franzreb24_spsc,
+  title     = {Towards Audiovisual Anonymization for Remote Psychotherapy: a Subjective Evaluation},
+  author    = {Carlos Franzreb and Arnab Das and Hannes Gieseler and Eva Charlotte Jahn and Tim Polzehl and Sebastian Möller},
+  year      = {2024},
+  booktitle = {4th Symposium on Security and Privacy in Speech Communication},
+  pages     = {102--110},
+  doi       = {10.21437/SPSC.2024-17},
+}
+```
+
 ---------
 
 __TOC__
