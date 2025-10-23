@@ -1,7 +1,18 @@
-# RAVAS - Real-time Audiovisual Anonymization System
+# RAVAS 🦑 - Real-time Audiovisual Anonymization System
 
-Anonymized audio and video in real-time. Can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
+System to anonymize audio and video in real-time and locally.
+With ReadyPlayerMe's avatar and Mimi-VC, it runs with a latency of 0.13 seconds in my Macbook pro M1.
+RAVAS can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
 
+## Contributors
+
+Here are the most important contributions by the three colleagues that have helped me develop RAVAS, in chronological order.
+They have all done much more than what is stated here, these are just the highlights.
+Huge thanks to them for their effort.
+
+1. @phipi-a: implemented the first version of the avatar the multi-threaded and sync-preserving architecture.
+2. @russaa: implemented the Windows packaging, the GUI and a faster and more robust version of the avatar.
+3. @HuangJ98: implemented chunking strategies for kNN-VC and [private kNN-VC](https://github.com/carlosfranzreb/private_knnvc).
 
 ---------
 
