@@ -1,9 +1,11 @@
 # RAVAS 🦑 - Real-time Audiovisual Anonymization System
 
 System to anonymize audio and video in real-time and locally.
-With ReadyPlayerMe's avatar and Mimi-VC, it runs with a latency of 0.13 seconds in my Macbook pro M1.
+With [ReadyPlayerMe's avatar](https://readyplayer.me/) and Mimi-VC, our own real-time voice converter based on [Kyutai's speech tokenizer](https://github.com/kyutai-labs/moshi), it runs with a latency of 0.13 seconds in my Macbook pro M1.
 RAVAS can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
-We built this for the [AnonymPrevent](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/anonymprevent) and [VERANDA](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/veranda) research projects.
+We built this at [DFKI](https://www.dfki.de/web) for the [AnonymPrevent](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/anonymprevent) and [VERANDA](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/veranda) research projects.
+
+https://github.com/user-attachments/assets/9f7c5801-3a06-4852-a818-059c51e61592
 
 ## Contributors
 
