@@ -193,16 +193,10 @@ video:
         # OPTIONAL store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
         # NOTE that the last entry in the array will be an empty object, i.e. without "blendshapes" field!
         detection_log: detectionLog.json
-        # for browser renderer: the port for the WebSocket connection
-        ws_port: 8888
-        # for browser renderer: the URL for binding the port of the WebSocket
-        ws_host: 0.0.0.0
         # for browser renderer: if TRUE, start Chrome Browser automatically via Selenium webdriver
         start_chrome_renderer: true
         # for browser renderer: if TRUE, use Chrome Web Extension, if FALSE start a web server for serving web app as a website
         use_chrome_extension: true
-        # for browser renderer: if `start_chrome_renderer` TRUE and `use_chrome_extension` FALSE, the port for serving the web app
-        app_port: 3000
 ```
 
 ### Python-based Avatar Renderer (Default)
@@ -272,6 +266,9 @@ If you want to change or add avatars:
    rpm/public/
    ```
 5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
+
+## Audio Anonymizer
+We currently only support 2 Anonymizers KnnVC and MimiVC 
 
 ### Adding previous context
 Since the input and output are constrained by ONNX, the additional context must be included in the total processing size.
