@@ -11,8 +11,8 @@ pyhton -m pip install pyinstaller
 ```
 
 ## Prepare Resources
-
-the build process includes the following, additional resources in the bundled executable:
+Make sure the Python version can handle the requirements in [v0.5][6]. (for example Python 3.11.7)
+the build process includes the following, additional resources in [releases][2] the bundled executable:
 
 * `ravas/configs`: the configuration files (`*.yaml`)
 * `ravas/onnx` and `ravas/target_feats`: the models & resources ("voices") for anonymizing the audio
@@ -44,3 +44,4 @@ the bundled application will be in sub-directory `dist/`
 [3]: https://github.com/carlosfranzreb/stream_processing/releases/tag/v0.1
 [4]: https://github.com/carlosfranzreb/stream_processing/releases/tag/v0.2
 [5]: ../rpm/README.md
+[6]: https://github.com/carlosfranzreb/ravas/releases/tag/v0.5

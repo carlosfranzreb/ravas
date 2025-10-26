@@ -242,69 +242,6 @@ It is also possible to _"play back"_ previously recorded face expression & head 
 
 
 
-### Web-based Avatar Renderer (Legacy)
-
-
-The web-based avatar renderer is a [react][7] web app that is started via the [Selenium Webdriver][8] for Chrome and
-connected via a `websocket`:  
-the `python` code opens a WebSocket server to which the web app connects.
-
-There are basically 3 ways to use the web-based renderer:
- 1. start the web app as _Chrome Web Extension_ (via the _Selenium_ webdriver)
-    * example configuration:
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_uri: ./default_avatar.glb
-        avatar_renderer: browser
-        start_chrome_renderer: true
-        use_chrome_extension: true
-        # set TRUE for showing the browser window:
-        show_renderer_window: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-    ```
- 2. start the web app served as a single-page website (via the integrated _python_ web server)
-    * example configuration:
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_uri: ./default_avatar.glb
-        avatar_renderer: browser
-        start_chrome_renderer: true
-        use_chrome_extension: false
-        # set TRUE for showing the browser window:
-        show_renderer_window: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-        app_port: 3000
-    ```
- 3. start the web app externally and open it in a web browser (e.g. install Web Extension in Chrome Browser, or
-    start server for website in _dev_ mode, using _npm_ command `npm run start`)  
-    _(recommended web browser: `Google Chrome`)_
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_renderer: browser
-        start_chrome_renderer: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-    ```
-
-The implementation for the web app is located in the project folder
-```
-rpm/**
-```
-
-See [rpm/README.md][3] for more details.
-
-
 ### Changing The Avatar
 
 The avatars are stored in a GLB files in the `rpm/public/` folder, and are used by the default renderer as well as the
