@@ -223,13 +223,13 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
     'video_avatars': ConfigurationItem(['video', 'converter', 'avatar_uri'],
                                        partial(get_avatars_for_config, logger=_logger)),
 
-    'avatar_renderer': ConfigurationItem(['video', 'converter', 'avatar_renderer'], {
-        'OpenGL App (Default)': RenderAppType.OPENGL_APP.value,
-        'Browser (Chrome)':     RenderAppType.BROWSER.value,
-    }),
+    #'avatar_renderer': ConfigurationItem(['video', 'converter', 'avatar_renderer'], {
+    #    'OpenGL App (Default)': RenderAppType.OPENGL_APP.value,
+        #'Browser (Chrome)':     RenderAppType.BROWSER.value,
+    #}),
 
-    'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
-                                        is_valid_value=wrap_simple_validate(is_port_valid)),
+    # 'avatar_ws_port': ConfigurationItem(['video', 'converter', 'ws_port'], None,
+    #                                     is_valid_value=wrap_simple_validate(is_port_valid)),
 
     'output_window': ConfigurationItem(['video', 'output_window'], {
         'Show Video Output Window': True,
@@ -255,18 +255,6 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         '4800':    4800,
         '8000':    8000,
 
-    }),
-
-    'use_lookahead_context': ConfigurationItem(['audio','converter', 'lookahead_ctx','use_lookahead_ctx'], {
-        'Use lookahead context':     True,
-        'Disable lookahead context': False,
-    }),
-
-    'lookahead_max_sample': ConfigurationItem(['audio','converter', 'lookahead_ctx','max_samples'], {
-        '<DEFAULT>': 0,
-        '1600':    1600,
-        '3200':    3200,
-        '4800':    4800,
     }),
     
     # DISABLED selecting virtual-camera backend via combo-box (only enabled/disabled check-box for now):
@@ -411,22 +399,22 @@ def _do_set_ignore_validation_helpers():
         )
         return val != AVATAR_CONVERTER
 
-    def can_ignore_browser_avatar_validation(config: dict):
-        if can_ignore_avatar_validation(config):
-            return True
-        val, _, _ = get_current_value_and_config_path_for(
-            config, CONFIG_ITEMS["avatar_renderer"].config_path
-        )
-        return val != RenderAppType.BROWSER.value
+    # def can_ignore_browser_avatar_validation(config: dict):
+    #     if can_ignore_avatar_validation(config):
+    #         return True
+    #     val, _, _ = get_current_value_and_config_path_for(
+    #         config, CONFIG_ITEMS["avatar_renderer"].config_path
+    #     )
+    #     return val != RenderAppType.BROWSER.value
 
     CONFIG_ITEMS["video_avatars"].is_ignore_validation = can_ignore_avatar_validation
-    CONFIG_ITEMS["avatar_renderer"].is_ignore_validation = can_ignore_avatar_validation
+    #CONFIG_ITEMS["avatar_renderer"].is_ignore_validation = can_ignore_avatar_validation
     CONFIG_ITEMS["avatar_render_window"].is_ignore_validation = (
         can_ignore_avatar_validation
     )
-    CONFIG_ITEMS["avatar_ws_port"].is_ignore_validation = (
-        can_ignore_browser_avatar_validation
-    )
+    # CONFIG_ITEMS["avatar_ws_port"].is_ignore_validation = (
+    #     can_ignore_browser_avatar_validation
+    # )
 
 
 # do apply ignore-validation helpers for config-items:

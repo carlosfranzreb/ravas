@@ -166,6 +166,48 @@ class ConfigDialog(RestorableDialog):
 
         cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
         convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
+        
+        def refresh_voice_list(index):
+            """HELPER: refreshes the voice list and sets the values for processing_size, output_buffersize, record_buffersize and sampling_rate"""
+            try:
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                cbbAudioVoice.setEnabled(False)
+                try:
+                    cbbAudioVoice.disconnect()
+                    anonymizer = cbbAudioAnonymizer.itemData(index)
+                    anonymizer_presets = {
+                            "MimiVC": {
+                                "output_buffersize": 1920,
+                                "processing_size": 1920,
+                                "record_buffersize": 480,
+                                "sampling_rate": 24000
+                            },
+                            "KnnVC": {   
+                                "output_buffersize": 1200,
+                                "processing_size": 9600,
+                                "record_buffersize": 1200,
+                                "sampling_rate": 16000
+                            }
+                        }
+                    selected_preset = anonymizer_presets["MimiVC"] if "Mimi" in anonymizer else anonymizer_presets["KnnVC"]
+                    for key, value in selected_preset.items():
+                        self.config["audio"][key] = value
+                except:
+                    pass
+                cbbAudioVoice.clear()
+
+                # re-initialize the combo box
+                self._initDataComboBox(
+                    cbbAudioVoice,
+                    CONFIG_ITEMS["audio_voices"].get_latest(self.config),
+                    CONFIG_ITEMS["audio_voices"].config_path,
+                )
+
+            finally:
+                cbbAudioVoice.setEnabled(True)
+                QApplication.restoreOverrideCursor()
+
+        cbbAudioAnonymizer.currentIndexChanged.connect(refresh_voice_list)
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
         mainSettingsLayout.addWidget(convertAudioGroup)
@@ -183,7 +225,7 @@ class ConfigDialog(RestorableDialog):
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
-        cbbAvatarRenderer = self._createComboBoxFor(CONFIG_ITEMS["avatar_renderer"])
+        #cbbAvatarRenderer = self._createComboBoxFor(CONFIG_ITEMS["avatar_renderer"])
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
@@ -193,15 +235,15 @@ class ConfigDialog(RestorableDialog):
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
-        iptAvatarPort, lbAvatarPort, containerAvatarPort = self._createPortInput()
+        #iptAvatarPort, lbAvatarPort, containerAvatarPort = self._createPortInput()
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
             enable = selected_video_converter == "Avatar"
             cbbAvatar.setEnabled(enable)
-            cbbAvatarRenderer.setEnabled(enable)
-            iptAvatarPort.setEnabled(enable)
-            lbAvatarPort.setEnabled(enable)
+            #cbbAvatarRenderer.setEnabled(enable)
+            # iptAvatarPort.setEnabled(enable)
+            # lbAvatarPort.setEnabled(enable)
 
         _updateAvatarEnabled(
             cbbVideoConverter.currentText()
@@ -226,7 +268,7 @@ class ConfigDialog(RestorableDialog):
         )
 
         # NOTE cbbAvatarRenderer was created before, so it can be used in _updateAvatarEnabled()
-        advancedSettingsForm.addRow("Avatar Renderer:", cbbAvatarRenderer)
+        #advancedSettingsForm.addRow("Avatar Renderer:", cbbAvatarRenderer)
 
         # NOTE chkShowAvatarRendererWindow was created before, so it can be used in _updateAvatarEnabled()
         advancedSettingsForm.addRow(
@@ -234,23 +276,23 @@ class ConfigDialog(RestorableDialog):
         )
 
         # add port-number-widget here (created above at video-converter-selection widget):
-        advancedSettingsForm.addRow(
-            "Avatar Converter Port (Browser Renderer):", containerAvatarPort
-        )
+        # advancedSettingsForm.addRow(
+        #     "Avatar Converter Port (Browser Renderer):", containerAvatarPort
+        # )
 
         # MOD cbbAvatarRenderer: enable/disable iptAvatarPort when renderer is not browser/Chrome
-        def _updateAvatarRendererSelected(selected_avatar_renderer: str):
-            enable = "browser" in selected_avatar_renderer.lower()
-            containerAvatarPort.setEnabled(enable)
-            iptAvatarPort.setEnabled(enable)
-            lbAvatarPort.setEnabled(enable)
+        #def _updateAvatarRendererSelected(selected_avatar_renderer: str):
+        #     enable = "browser" in selected_avatar_renderer.lower()
+        #     containerAvatarPort.setEnabled(enable)
+        #     iptAvatarPort.setEnabled(enable)
+        #     lbAvatarPort.setEnabled(enable)
 
-        _updateAvatarRendererSelected(
-            cbbAvatarRenderer.currentText()
-        )  # <- update for current config-value
-        cbbAvatarRenderer.currentTextChanged.connect(
-            _updateAvatarRendererSelected
-        )  # <- update for config-changes
+        #_updateAvatarRendererSelected(
+        #    cbbAvatarRenderer.currentText()
+        #)  # <- update for current config-value
+        #cbbAvatarRenderer.currentTextChanged.connect(
+        #    _updateAvatarRendererSelected
+        #)  # <- update for config-changes
 
         chkUseAudio = self._createCheckBoxFor(CONFIG_ITEMS["use_audio"])
         advancedSettingsForm.addRow("Use Audio:", chkUseAudio)
@@ -297,9 +339,9 @@ class ConfigDialog(RestorableDialog):
                 enable_avatar = conv_val == AVATAR_CONVERTER
             cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)
-            cbbAvatarRenderer.setEnabled(enable_avatar)
-            iptAvatarPort.setEnabled(enable_avatar)
-            lbAvatarPort.setEnabled(enable_avatar)
+            #cbbAvatarRenderer.setEnabled(enable_avatar)
+            # iptAvatarPort.setEnabled(enable_avatar)
+            # lbAvatarPort.setEnabled(enable_avatar)
 
         _set_video_widgets_enabled(chkUseVideo)  # <- update for current config
         chkUseVideo.stateChanged.connect(
@@ -324,19 +366,6 @@ class ConfigDialog(RestorableDialog):
         _set_previous_context_widgets_enabled(chkPreviousContext)  # <- update for current config
         chkPreviousContext.stateChanged.connect(_set_previous_context_widgets_enabled)  # <- update on config changes
         contextForm.addRow("Previous Context Size:", cbbPreviousMaxSample)
-
-        #cbbLookaheadMaxSample = self._createComboBoxFor(CONFIG_ITEMS['lookahead_max_sample'])
-        #chkLookaheadContext = self._createCheckBoxFor(CONFIG_ITEMS['use_lookahead_context'])
-        #contextForm.addRow("Use Lookahead:", chkLookaheadContext)
-
-        #def _set_lookahead_context_widgets_enabled(_value):
-        #    enable: bool = chkLookaheadContext.checkState() == QtCore.Qt.CheckState.Checked
-        #    cbbLookaheadMaxSample.setEnabled(enable)
-
-        #_set_lookahead_context_widgets_enabled(chkLookaheadContext)  # <- update for current config
-        #chkLookaheadContext.stateChanged.connect(_set_lookahead_context_widgets_enabled)  # <- update on config changes
-
-        #contextForm.addRow("Lookahead Context Size:", cbbLookaheadMaxSample)
 
         enableContext = self._makeGroupBox("Context Settings", contextForm)
         advancedSettingsLayout.addWidget(enableContext)
@@ -395,20 +424,20 @@ class ConfigDialog(RestorableDialog):
 
         self.is_first_tab_change = True
 
-        def on_tab_changed():
+        #def on_tab_changed():
             # HACK: for some reason, the disabling due to cbbAvatarRenderer's selection is not updated
             #       in the advanced tab on the first time ... force selection change on first tab change
             #       so that the attached disable-updater function gets triggered when it becomes visible
-            if self.is_first_tab_change:
-                curr_idx = cbbAvatarRenderer.currentIndex()
-                cbbAvatarRenderer.setCurrentIndex(-1)
-                cbbAvatarRenderer.setCurrentIndex(curr_idx)
-                self.is_first_tab_change = False
-            self._forceAlignRowLabels()
+            #if self.is_first_tab_change:
+            #    curr_idx = cbbAvatarRenderer.currentIndex()
+            #    cbbAvatarRenderer.setCurrentIndex(-1)
+            #    cbbAvatarRenderer.setCurrentIndex(curr_idx)
+            #    self.is_first_tab_change = False
+            #self._forceAlignRowLabels()
 
         # NOTE cannot align labels in invisible tab(s), since they will all have the tab's width
         #      -> recalculate alignment when tab becomes visible
-        tabs.currentChanged.connect(on_tab_changed)
+        #tabs.currentChanged.connect(on_tab_changed)
 
         dialogLayout = QVBoxLayout()
         dialogLayout.addWidget(tabs)
@@ -535,36 +564,36 @@ class ConfigDialog(RestorableDialog):
         )
         return buttons
 
-    def _createPortInput(self) -> Tuple[QSpinBox, QLabel, QVBoxLayout]:
-        iptAvatarPort = QSpinBox()
-        iptAvatarPort.setRange(0, 65535)
-        port_config_path = CONFIG_ITEMS["avatar_ws_port"].config_path
-        port_val, port_field, port_sub_config = get_current_value_and_config_path_for(
-            self.config, port_config_path
-        )
-        if not isinstance(port_val, int) or port_val < 0:
-            port_val = 0
-        iptAvatarPort.setValue(port_val)
-        # add info-label & also use it for invalid-values feedback (via self.setConfigValueAndValidation(), see below):
-        infoLabel = QLabel(
-            "(local port for converting avatar images with the browser renderer)"
-        )
+    # def _createPortInput(self) -> Tuple[QSpinBox, QLabel, QVBoxLayout]:
+    #     iptAvatarPort = QSpinBox()
+    #     iptAvatarPort.setRange(0, 65535)
+    #     port_config_path = CONFIG_ITEMS["avatar_ws_port"].config_path
+    #     port_val, port_field, port_sub_config = get_current_value_and_config_path_for(
+    #         self.config, port_config_path
+    #     )
+    #     if not isinstance(port_val, int) or port_val < 0:
+    #         port_val = 0
+    #     iptAvatarPort.setValue(port_val)
+    #     # add info-label & also use it for invalid-values feedback (via self.setConfigValueAndValidation(), see below):
+    #     infoLabel = QLabel(
+    #         "(local port for converting avatar images with the browser renderer)"
+    #     )
 
-        iptAvatarPort.valueChanged.connect(
-            partial(
-                self.setConfigValueAndValidation,
-                infoLabel,
-                CONFIG_ITEMS["avatar_ws_port"].is_valid_value,
-                port_config_path,
-                port_sub_config,
-                port_field,
-            )
-        )
+    #     iptAvatarPort.valueChanged.connect(
+    #         partial(
+    #             self.setConfigValueAndValidation,
+    #             infoLabel,
+    #             CONFIG_ITEMS["avatar_ws_port"].is_valid_value,
+    #             port_config_path,
+    #             port_sub_config,
+    #             port_field,
+    #         )
+    #     )
 
-        layout = QVBoxLayout()
-        layout.addWidget(iptAvatarPort)
-        layout.addWidget(infoLabel)
-        return iptAvatarPort, infoLabel, layout
+    #     layout = QVBoxLayout()
+    #     layout.addWidget(iptAvatarPort)
+    #     layout.addWidget(infoLabel)
+    #     return iptAvatarPort, infoLabel, layout
 
     def _createSliderFor(
         self,
