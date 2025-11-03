@@ -55,8 +55,7 @@ fi
 
 # create conda environment and install dependencies
 conda create -p ./venv python=3.10 -y
-conda init bash
-conda init zsh
+eval "$(conda shell.bash hook)"
 conda activate ./venv
 cd ravas
 pip install .
@@ -77,8 +76,10 @@ python -m stream_processing.models.mimivc.compile
 # download Mimi target features
 mkdir target_feats
 cd target_feats
+mkdir mimivc
+cd mimivc
 wget https://github.com/carlosfranzreb/ravas/releases/download/v0.7/1089.pt
-cd ..
+cd ../..
 
 # run GUI
 python -m run_gui
