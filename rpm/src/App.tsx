@@ -1,0 +1,214 @@
+import { useGLTF } from "@react-three/drei";
+import { Canvas, useGraph } from "@react-three/fiber";
+import { useEffect, useRef, useState, ChangeEvent, startTransition  } from "react";
+import { useDropzone } from "react-dropzone";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { Color, Euler, Matrix4 } from "three";
+import "./App.css";
+import Avatar from "./Avatar";
+
+// for logging rendering performance
+let renderStart = 0;
+let totalRender = 0;
+let renderCount = 0;
+// for logging initialization time
+let initStart = performance.now();
+
+// locally available avatars:
+const avatars: {id: number, title: string, file: string, disabled: boolean}[] = [
+  {id: 0, title: 'Select a Default Avatar...', file: '', disabled: true},
+  {id: 1, title: 'Avatar (Female)',    file: 'avatar_1_f.glb', disabled: false},
+  {id: 2, title: 'Avatar (Male)',      file: 'avatar_2_m.glb', disabled: false},
+  {id: 3, title: 'Avatar 2 (Female)',  file: 'avatar_3_f.glb', disabled: false},
+  {id: 4, title: 'Avatar 2 (Male)',    file: 'avatar_4_m.glb', disabled: false}
+];
+
+/**
+ * HELPER store log information that can be read-out by selenium driver
+ * @param {'info_render' | 'info_init'} name     name/type of information (will replace privious log info for same `name`)
+ * @param {string} message  the log message
+ */
+function setLogInfo(name: 'info_render' | 'info_init', message: string): void {
+  // store log information to (global) window, to allow access from selenium driver
+  (window as any)[name] = message;
+}
+
+
+function App() {
+  const queryParameters = new URLSearchParams(window.location.search);
+  const wsParam = queryParameters.get("ws");
+  const displayFps = /^\s*true\s*$/i.test(queryParameters.get("show-fps") || "");
+  const displayAvatarSelection = !/^\s*true\s*$/i.test(queryParameters.get("hide-selection") || "");
+  const avatarUri = queryParameters.get("avatar") || "./avatar_1_f.glb";
+
+  console.log('avatar', avatarUri);
+  console.log('wsParam', wsParam);
+  console.log('displayFps', displayFps);
+
+  const [url, setUrl] = useState<string>(avatarUri);
+  const { scene } = useGLTF(url);
+  const { nodes } = useGraph(scene);
+
+  const [durationRender, setDurationRender] = useState<string>("-");
+
+  // get head mesh
+  const headMesh = [];
+  if (nodes.Wolf3D_Head) headMesh.push(nodes.Wolf3D_Head);
+  if (nodes.Wolf3D_Teeth) headMesh.push(nodes.Wolf3D_Teeth);
+  if (nodes.Wolf3D_Beard) headMesh.push(nodes.Wolf3D_Beard);
+  if (nodes.Wolf3D_Avatar) headMesh.push(nodes.Wolf3D_Avatar);
+  if (nodes.Wolf3D_Head_Custom) headMesh.push(nodes.Wolf3D_Head_Custom);
+  const [rotation, setRotation] = useState<Euler>(new Euler());
+  const [blendshapes, setBlendshapes] = useState<any[]>([]);
+  const updateRef = useRef(false);
+
+  // create websocket connection
+  const wsUrl = wsParam || "ws://localhost:8888";
+  const [socketUrl, setSocketUrl] = useState<string | null>(null);
+  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl, {
+    shouldReconnect: (_closeEvent) => true,
+    reconnectAttempts: 6000, // try to reconnect every second for 100 minutes
+    reconnectInterval: 1000,
+  });
+  const connectionStatus = {
+    [ReadyState.CONNECTING]: "Connecting",
+    [ReadyState.OPEN]: "Connected",
+    [ReadyState.CLOSING]: "Closing",
+    [ReadyState.CLOSED]: "Closed",
+    [ReadyState.UNINSTANTIATED]: "Uninstantiated",
+  }[readyState];
+
+  // for setting up web-socket after app initialization
+  // (run only once -> use empty dependency array)
+  useEffect(() => {
+
+    // show & log initialization time:
+    const infoInit = '' + (performance.now() - initStart).toFixed(3);
+    setLogInfo('info_init', infoInit);
+    if(displayFps) {
+      setDurationRender(` [[ INIT (ms): ${infoInit} ]]`);
+    }
+
+    setSocketUrl(wsUrl);
+  },
+    // eslint-disable-next-line
+    []
+  );
+
+  function get_canvas_url() {
+    // get canvas as image
+    const canvas = document.getElementsByTagName("canvas")[0];
+    const img_data = canvas.toDataURL("image/jpeg");
+    return img_data.split(",")[1];
+  }
+
+  useEffect(() => {
+    if (lastMessage !== null) {
+      const strmessage = lastMessage.data;
+      const message = JSON.parse(strmessage);
+
+      renderStart = performance.now();
+
+      const blendshapes_temp = message.blendshapes;
+      const matrix = new Matrix4().fromArray(message.transformation_matrix);
+      const rotation_temp = new Euler().setFromRotationMatrix(matrix);
+      setBlendshapes(blendshapes_temp);
+      setRotation(rotation_temp);
+      // set updateRef to true to send image to server after the avatar is rendered
+      updateRef.current = true;
+    }
+  }, [lastMessage]);
+
+  // handle paste url or file to load avatar
+  const { getRootProps } = useDropzone({
+    onDrop: (files) => {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    },
+  });
+
+  function onRenderFinished() {
+    if (updateRef.current) {
+      // send image generated from canvas to server
+
+      const b64_img = get_canvas_url();
+      sendMessage(b64_img);
+
+      totalRender += performance.now() - renderStart;
+      const infoRender = `${totalRender.toFixed(3)}  / ${++renderCount} (fps: ${Math.round(renderCount/(totalRender/1000))})`;
+      setLogInfo('info_render', infoRender);
+      if(displayFps) {
+        setDurationRender(infoRender);
+      }
+
+      updateRef.current = false;
+    }
+  }
+
+  function onChangeAvatarSelection(evt: ChangeEvent<HTMLSelectElement>) {
+    const selection: string = evt.target.value || "";
+    if (selection) {
+      startTransition(() => setUrl(selection));
+    }
+  }
+
+  return (
+    <div className="App">
+      {displayAvatarSelection ? (
+          <div>
+            <div {...getRootProps({ className: "dropzone" })}>
+              <p>Drag & drop RPM avatar GLB file here</p>
+            </div>
+            <select onChange={onChangeAvatarSelection} defaultValue={avatars[0].file} className="dropzone">{
+              avatars.map(a => <option value={a.file} disabled={a.disabled}>{a.title}</option>)
+            }</select>
+          </div>
+        ) : (
+          null
+        )
+      }
+      <div className="status-display">WebSocket State: {connectionStatus}</div>
+      {displayFps ? (
+        <div className="info-display">Render (ms / frames): {durationRender}</div>
+      ) : (
+        null
+      )}
+      <Canvas
+        style={{ height: 600 }}
+        camera={{ fov: 25 }}
+        shadows
+        gl={{ preserveDrawingBuffer: true }}
+      >
+        <ambientLight intensity={0.5} />
+        <pointLight
+          position={[10, 10, 10]}
+          color={new Color(1, 1, 0)}
+          intensity={0.5}
+          castShadow
+        />
+        <pointLight
+          position={[-10, 0, 10]}
+          color={new Color(1, 0, 0)}
+          intensity={0.5}
+          castShadow
+        />
+        <pointLight position={[0, 0, 10]} intensity={0.5} castShadow />
+
+        <Avatar
+          scene={scene}
+          nodes={nodes}
+          blendshapes={blendshapes}
+          rotation={rotation}
+          headMesh={headMesh}
+          onRenderFinished={onRenderFinished}
+        />
+      </Canvas>
+    </div>
+  );
+}
+
+export default App;

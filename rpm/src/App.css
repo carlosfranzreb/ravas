@@ -1,0 +1,57 @@
+.App {
+  text-align: center;
+  height: 768px;
+  width: 500px;
+  margin: 0 auto;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.status-display {
+  position: absolute;
+  top: 1em;
+}
+
+.info-display {
+  position: fixed;
+  left: 1em;
+  top: 13em;
+}
+
+.info-display.next-line {
+  margin-top: 2em;
+}
+
+.url {
+  margin: 16px;
+  margin-bottom: 0px;
+  border-radius: 16px;
+  padding: 0 16px;
+  width: 436px;
+  height: 32px;
+  border: 2px dashed #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: aliceblue;
+}
+
+.dropzone {
+  margin: 16px;
+  margin-bottom: 0px;
+  border-radius: 8px;
+  padding: 0 16px;
+  width: 436px;
+  height: 32px;
+  border: 2px dashed #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(240, 248, 255, 0.526);
+  cursor: pointer;
+}
