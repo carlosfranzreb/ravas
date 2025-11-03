@@ -26,6 +26,21 @@ install_miniconda() {
     eval "$(conda shell.bash hook)"
 }
 
+ensure_chrome_installed() {
+    if ls -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "Installing Google Chrome via Homebrew..."
+    if brew list --cask google-chrome >/dev/null 2>&1 || brew install --cask google-chrome; then
+        return 0
+    else
+        echo "Failed to install Google Chrome" >&2
+        return 1
+    fi
+}
+
+
 if check_conda; then
     echo "conda already installed"
 else
@@ -42,4 +57,13 @@ conda create -p ./venv python=3.10 -y
 conda activate ./venv
 cd ravas
 pip install .
+
+
+cd ../rpm
+ensure_chrome_installed || { echo "Could not ensure Google Chrome is installed" >&2; exit 1; }
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --pack-extension=resources/dist/chrome-extension --pack-extension-key=resources/chrome-extension-packing/privkey.pem 
+mkdir resources/dist
+mv resources/chrome-extension.crx resources/dist/chrome-extension.crx
+
+cd ../ravas
 python -m run_gui
