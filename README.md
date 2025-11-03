@@ -1,7 +1,36 @@
-# RAVAS - Real-time Audiovisual Anonymization System
+# RAVAS 🦑 - Real-time Audiovisual Anonymization System
 
-Anonymized audio and video in real-time. Can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
+System to anonymize audio and video in real-time and locally.
+With [ReadyPlayerMe's avatar](https://readyplayer.me/) and Mimi-VC, our own real-time voice converter based on [Kyutai's speech tokenizer](https://github.com/kyutai-labs/moshi), it runs with a latency of 0.13 seconds in my Macbook pro M1.
+RAVAS can also be used to anonymize videos, emulating the real-time scenario, to perform experiments.
+We built this at [DFKI](https://www.dfki.de/web) for the [AnonymPrevent](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/anonymprevent) and [VERANDA](https://www.tu.berlin/en/qu/research/current-past-projects/laufende-projekte/veranda) research projects.
 
+You can read more technical details in [this blog post](https://carlosfranzreb.github.io/ravas).
+
+https://github.com/user-attachments/assets/9f7c5801-3a06-4852-a818-059c51e61592
+
+## Contributors
+
+Here are the most important contributions by the three colleagues that have helped me develop RAVAS, in chronological order.
+They have all done much more than what is stated here, these are just the highlights.
+Huge thanks to them for their effort.
+
+1. [@phipi-a](https://github.com/phipi-a): implemented the first version of the avatar the multi-threaded and sync-preserving architecture.
+2. [@russaa](https://github.com/russaa): implemented the Windows packaging, the GUI and a faster and more robust version of the avatar.
+3. [@HuangJ98](https://github.com/HuangJ98): implemented chunking strategies for kNN-VC and [private kNN-VC](https://github.com/carlosfranzreb/private_knnvc).
+
+## Citation
+
+```latex
+@inproceedings{franzreb24_spsc,
+  title     = {Towards Audiovisual Anonymization for Remote Psychotherapy: a Subjective Evaluation},
+  author    = {Carlos Franzreb and Arnab Das and Hannes Gieseler and Eva Charlotte Jahn and Tim Polzehl and Sebastian Möller},
+  year      = {2024},
+  booktitle = {4th Symposium on Security and Privacy in Speech Communication},
+  pages     = {102--110},
+  doi       = {10.21437/SPSC.2024-17},
+}
+```
 
 ---------
 
@@ -164,16 +193,10 @@ video:
         # OPTIONAL store mediapipe's detection results for facial expression / head movement to an array in a JSON file in the log-dir:
         # NOTE that the last entry in the array will be an empty object, i.e. without "blendshapes" field!
         detection_log: detectionLog.json
-        # for browser renderer: the port for the WebSocket connection
-        ws_port: 8888
-        # for browser renderer: the URL for binding the port of the WebSocket
-        ws_host: 0.0.0.0
         # for browser renderer: if TRUE, start Chrome Browser automatically via Selenium webdriver
         start_chrome_renderer: true
         # for browser renderer: if TRUE, use Chrome Web Extension, if FALSE start a web server for serving web app as a website
         use_chrome_extension: true
-        # for browser renderer: if `start_chrome_renderer` TRUE and `use_chrome_extension` FALSE, the port for serving the web app
-        app_port: 3000
 ```
 
 ### Python-based Avatar Renderer (Default)
@@ -213,69 +236,6 @@ It is also possible to _"play back"_ previously recorded face expression & head 
 
 
 
-### Web-based Avatar Renderer (Legacy)
-
-
-The web-based avatar renderer is a [react][7] web app that is started via the [Selenium Webdriver][8] for Chrome and
-connected via a `websocket`:  
-the `python` code opens a WebSocket server to which the web app connects.
-
-There are basically 3 ways to use the web-based renderer:
- 1. start the web app as _Chrome Web Extension_ (via the _Selenium_ webdriver)
-    * example configuration:
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_uri: ./default_avatar.glb
-        avatar_renderer: browser
-        start_chrome_renderer: true
-        use_chrome_extension: true
-        # set TRUE for showing the browser window:
-        show_renderer_window: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-    ```
- 2. start the web app served as a single-page website (via the integrated _python_ web server)
-    * example configuration:
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_uri: ./default_avatar.glb
-        avatar_renderer: browser
-        start_chrome_renderer: true
-        use_chrome_extension: false
-        # set TRUE for showing the browser window:
-        show_renderer_window: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-        app_port: 3000
-    ```
- 3. start the web app externally and open it in a web browser (e.g. install Web Extension in Chrome Browser, or
-    start server for website in _dev_ mode, using _npm_ command `npm run start`)  
-    _(recommended web browser: `Google Chrome`)_
-    ```yml
-    video:
-        # ...
-        converter:
-        cls: stream_processing.models.Avatar
-        avatar_renderer: browser
-        start_chrome_renderer: false
-        ws_host: 0.0.0.0
-        ws_port: 8888
-    ```
-
-The implementation for the web app is located in the project folder
-```
-rpm/**
-```
-
-See [rpm/README.md][3] for more details.
-
-
 ### Changing The Avatar
 
 The avatars are stored in a GLB files in the `rpm/public/` folder, and are used by the default renderer as well as the
@@ -306,6 +266,9 @@ If you want to change or add avatars:
    rpm/public/
    ```
 5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
+
+## Audio Anonymizer
+We currently only support 2 Anonymizers KnnVC and MimiVC 
 
 ### Adding previous context
 Since the input and output are constrained by ONNX, the additional context must be included in the total processing size.
