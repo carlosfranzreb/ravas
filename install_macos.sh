@@ -65,8 +65,8 @@ pip install .
 cd ../rpm
 ensure_chrome_installed || { echo "Could not ensure Google Chrome is installed" >&2; exit 1; }
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --pack-extension=resources/dist/chrome-extension --pack-extension-key=resources/chrome-extension-packing/privkey.pem 
-mkdir resources/dist
-mv resources/chrome-extension.crx resources/dist/chrome-extension.crx
+mkdir dist
+mv resources/chrome-extension.crx dist/chrome-extension.crx
 
 # compile mimi models
 cd ../ravas
@@ -78,7 +78,11 @@ mkdir target_feats
 cd target_feats
 mkdir mimivc
 cd mimivc
-wget https://github.com/carlosfranzreb/ravas/releases/download/v0.7/1089.pt
+
+for file in jessica jeffrey nadine norbert; do
+  curl -LO "https://github.com/carlosfranzreb/ravas/releases/download/v0.7/${file}.pt"
+done
+
 cd ../..
 
 # run GUI
