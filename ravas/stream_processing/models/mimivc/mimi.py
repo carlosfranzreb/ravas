@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import torch
 from torch import Tensor
 from safetensors.torch import load_file
 from huggingface_hub import hf_hub_download

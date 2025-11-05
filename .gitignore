@@ -4,10 +4,13 @@ venv
 *.pth
 *.pkl
 *.onnx
+*onnx.data
+*.npy
 *.wav
 *.flac
 *.mp3
 *.mp4
+*.mkv
 *.pt
 
 stream_processing.egg-info
