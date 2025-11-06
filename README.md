@@ -110,18 +110,61 @@ __MacOS__
 
 Copy-paste these lines in a terminal:
 
+Before installing RAVAS, you need to install some system packages:
+
+### brew
+
+[brew](https://brew.sh/) is needed to install system packages.
+According to their website, you can install it by running 
+
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+in your terminal.
+Afterwards, you need to restart the terminal.
+You can check if it was correctly installed by running `brew --version`.
+If it wasn't, please check their [list of issues](https://github.com/Homebrew/install/issues?q=is%3Aissue).
+
+### System packages
+
+Once brew is installed, you can install the two system packages required by RAVAS to process audio and create virtual microphones:
+
+```bash
 brew install portaudio
 brew install blackhole-2ch
+```
 
+Afterwards, `blackhole-2ch` should appear in your list of microphones, under "Sound" in the settings.
+You may need to restart your laptop for it to appear.
+
+### conda
+
+[conda](https://www.anaconda.com/docs/getting-started/miniconda/install#macos-linux-installation) is a package and environment manager for Python.
+We need it to create an environment in which to install RAVAS and its dependencies.
+
+You can install it following the instructions on their website.
+Once it is installed, check that it works by running `conda --version` in a terminal.
+
+### Google Chrome
+
+[Chrome](https://support.google.com/chrome/answer/95346?hl=en&co=GENIE.Platform%3DDesktop) is needed to render the avatar.
+It should be visible under your laptop's Applications, for the script below to install the Chrome extension that renders the avatar.
+
+### Download code and install RAVAS
+
+Once everything above is installed, the three lines below download the code from here, and install it with the script `install_macos.sh`:
+
+```bash
 git clone https://github.com/carlosfranzreb/ravas.git
 cd ravas
 bash ./install_macos.sh
 ```
 
-See also the [prerequisites](USAGE.md#prerequisites) section, in the `USAGE.md` file, for other OS prerequisites w.r.t.
-to audio and camera/video processing.
+If you encounter any issues while installing RAVAS, you can write me an e-mail to `carlos.franzreb@dfki.de` or [open an issue](https://github.com/carlosfranzreb/ravas/issues/new).
+
+If you have trouble installing the other dependencies, please contact their maintainers or use Google or an AI to solve your issues.
+These are mostly popular tools; you are likely not the first to encounter any particular problem.
 
 ## Build Executable
 
