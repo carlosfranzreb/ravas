@@ -108,8 +108,6 @@ pickled and unpickled to be sent through the queues, which is very slow.
 
 __MacOS__
 
-Copy-paste these lines in a terminal:
-
 Before installing RAVAS, you need to install some system packages:
 
 ### brew
