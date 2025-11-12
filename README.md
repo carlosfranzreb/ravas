@@ -151,18 +151,35 @@ It should be visible under your laptop's Applications, for the script below to i
 
 ### Download code and install RAVAS
 
-Once everything above is installed, the three lines below download the code from here, and install it with the script `install_macos.sh`:
+Once everything above is installed, the three lines below download the code from here, and install it with the script `macos_install.sh`:
 
 ```bash
 git clone https://github.com/carlosfranzreb/ravas.git
 cd ravas
-bash ./install_macos.sh
+bash ./macos_install.sh
 ```
 
 If you encounter any issues while installing RAVAS, you can write me an e-mail to `carlos.franzreb@dfki.de` or [open an issue](https://github.com/carlosfranzreb/ravas/issues/new).
 
 If you have trouble installing the other dependencies, please contact their maintainers or use Google or an AI to solve your issues.
-These are mostly popular tools; you are likely not the first to encounter any particular problem.
+These are popular tools; you are likely not the first to encounter any particular problem.
+In my experience, restarting the terminal or the laptop solves many issues, so that is worth a try.
+
+### Starting RAVAS again
+
+Once you have correctly installed everything and got it to run, the next time you want to use RAVAS you only need to execute three commands on the terminal, at the root directory where RAVAS is installed:
+
+```bash
+conda activate ./venv
+cd ravas
+python -m run_gui
+```
+
+I've written these three commands in the script `macos_run.sh`, so you can also just run that script:
+
+```bash
+bash ./macos_run.sh
+```
 
 ## Build Executable
 
