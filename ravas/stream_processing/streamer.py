@@ -1,4 +1,4 @@
-from torch.multiprocessing import Queue
+from torch.multiprocessing import Queue, Event
 
 from .audio_processor import AudioProcessor
 from .processor import ProcessingSyncState, ProcessorHandler
@@ -15,6 +15,7 @@ class AudioVideoStreamer:
         """
         audio_sync_state = ProcessingSyncState()
         video_sync_state = ProcessingSyncState()
+        pipeline_sync_state = Event()
         self.use_audio = config["audio"]["use_audio"]
         self.use_video = config["video"]["use_video"]
         log_level = config["log_level"]
@@ -24,6 +25,7 @@ class AudioVideoStreamer:
                 config["audio"],
                 audio_sync_state,
                 video_sync_state,
+                pipeline_sync_state,
                 log_queue=log_queue,
                 log_level=log_level,
             )
@@ -44,6 +46,7 @@ class AudioVideoStreamer:
                 config["video"],
                 video_sync_state,
                 audio_sync_state,
+                pipeline_sync_state,
                 log_queue=log_queue,
                 log_level=log_level,
             )

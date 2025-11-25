@@ -20,7 +20,7 @@ def main():
     # IMPORTANT: do this before starting the windows/dialogs, so that they can access the correct QSettings objects
     app.setOrganizationName("DFKI")
     app.setOrganizationDomain("dfki.de")
-    app.setApplicationVersion("0.5.0")  # TODO read from setup.py
+    app.setApplicationVersion("0.8.0")  # TODO read from setup.py
     app.setApplicationName(
         "RAVAS"
     )  # TODO name/description: should this be the same as in setup.py?

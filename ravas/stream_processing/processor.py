@@ -147,6 +147,7 @@ class Processor:
         config: dict,
         own_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
+        pipeline_sync_state: Event(),
         log_queue: Queue,
         log_level: str,
     ):
@@ -175,6 +176,7 @@ class Processor:
         self.queues = ProcessingQueues()
         self.own_sync_state = own_sync_state
         self.external_sync_state = external_sync_state
+        self.pipeline_sync_state = pipeline_sync_state
         self.max_unsynced_time = config["max_unsynced_time"]
         self.log_queue = log_queue
         self.log_level = log_level

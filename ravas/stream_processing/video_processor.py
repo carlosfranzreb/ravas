@@ -8,7 +8,7 @@ import cv2
 import torch
 import pyvirtualcam
 import cv2 as cv
-from torch.multiprocessing import Queue
+from torch.multiprocessing import Queue, Event
 
 from .processor import ProcessingSyncState, Processor
 from .utils import batchify_input_stream
@@ -21,6 +21,7 @@ class VideoProcessor(Processor):
         config: dict,
         video_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
+        pipeline_sync_state: Event(),
         log_queue: Queue,
         log_level: str,
     ):
@@ -34,10 +35,11 @@ class VideoProcessor(Processor):
         :param log_level: log level for logging messages.
         """
         super().__init__(
-            "video", config, video_sync_state, external_sync_state, log_queue, log_level
+            "video", config, video_sync_state, external_sync_state,pipeline_sync_state, log_queue, log_level
         )
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
+        self.pipeline_sync_state = pipeline_sync_state
         if self.config["store"]:
             self.store_path = os.path.join(
                 config["log_dir"], "video." + config["store_format"]
@@ -91,6 +93,7 @@ class VideoProcessor(Processor):
             logger.info(
                 "video converter is ready, waiting for audio converter to be ready..."
             )
+            self.pipeline_sync_state.set()
             self.external_sync_state.ready.wait()
             logger.info("audio and video converter are ready, start reading video")
         else:

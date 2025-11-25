@@ -1,5 +1,4 @@
 import traceback
-
 from torch.multiprocessing import freeze_support
 
 from stream_processing.main_gui import main

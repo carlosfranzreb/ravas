@@ -8,10 +8,12 @@ datas = [
     ('onnx', 'onnx'),
     ('target_feats', 'target_feats'),
     ('../rpm/dist', 'rpm/dist'),
+    ('huggingface', 'huggingface'),
 ]
 
 hidden_imports = [
-    'stream_processing.models'
+    'stream_processing.models',
+    'hf_xet'
 ]
 
 

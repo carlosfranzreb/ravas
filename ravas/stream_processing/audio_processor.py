@@ -1,4 +1,5 @@
 from queue import Queue, Empty
+from multiprocessing import Event
 import logging
 import time
 import os
@@ -22,6 +23,7 @@ class AudioProcessor(Processor):
         config: dict,
         audio_sync_state: ProcessingSyncState,
         external_sync_state: ProcessingSyncState,
+        pipeline_sync_state: Event(),
         log_queue: Queue,
         log_level: str,
     ):
@@ -35,10 +37,11 @@ class AudioProcessor(Processor):
         :param log_level: log level for logging messages.
         """
         super().__init__(
-            "audio", config, audio_sync_state, external_sync_state, log_queue, log_level
+            "audio", config, audio_sync_state, external_sync_state, pipeline_sync_state, log_queue, log_level
         )
         self.audio_sync_state = audio_sync_state
         self.external_sync_state = external_sync_state
+        self.pipeline_sync_state = pipeline_sync_state
 
         self.config = config
         if not self.config["video_file"]:
@@ -133,6 +136,7 @@ class AudioProcessor(Processor):
                 "audio converter is ready, waiting for video converter to be ready..."
             )
             self.external_sync_state.ready.wait()
+            self.pipeline_sync_state.wait()
             logger.info("audio and video converter are ready, start reading audio")
         else:
             logger.info("audio converter is ready, starting to process input...")
