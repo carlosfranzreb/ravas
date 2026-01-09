@@ -19,7 +19,6 @@ import onnxruntime as ort
 from ...processor import AudioConverter
 from ...utils import resolve_file_path
 from ..knnvc.knnvc import convert_vecs
-from .mimi import init_mimi
 
 
 class MimiVC(AudioConverter):
@@ -77,10 +76,6 @@ class MimiVC(AudioConverter):
         self.decoder_transformer = ort.InferenceSession(
             resolve_file_path(f"onnx/mimi_decoder_transformer.onnx")
         )
-
-        # load mimi and declare its states
-        mimi = init_mimi()[0]
-        self.quantizer = mimi.quantizer
 
         self.encoder_args = np.load(
             resolve_file_path(f"onnx/mimi_encoder_args.npy"), allow_pickle=True
