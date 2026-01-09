@@ -175,7 +175,7 @@ cd ravas
 python -m run_gui
 ```
 
-I've written these three commands in the script `macos_run.sh`, so you can also just run that script:
+I've written these three commands in the script `macos_run.sh`, so you can also just run that script as shown below. If you are encountering a conda error, asking you to run `conda init`, run the three commands from above instead. 
 
 ```bash
 bash ./macos_run.sh
