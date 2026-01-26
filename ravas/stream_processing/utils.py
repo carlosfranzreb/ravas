@@ -4,6 +4,7 @@ import time
 from typing import Callable, Optional
 import torch
 
+from sklearn.cluster import KMeans
 
 APPLICATION_DIR: str = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 """ the path to the application directory (on directory up from this file): `dirname(__file__)/..` """
@@ -71,7 +72,7 @@ def batchify_input_stream(
         in_chunk_size = len(chunk)
         # if a lower fps is desired, wait until the desired time has passed
         if upper_bound_fps is not None:
-            if time.time() - last_frame_time < 1 / upper_bound_fps:
+            if time.perf_counter() - last_frame_time < 1 / upper_bound_fps:
                 continue
 
         # calculate the time corresponding to each sample in current chunk
@@ -255,3 +256,45 @@ def get_config_path(config_name: Optional[str]) -> str:
     # NOTE if not matching a file in the config dir, then DO NOT resolve against app dir,
     #      but against CWD (i.e. leave unchanged):
     return config_file
+    
+class TargetFeats():
+    def __init__(
+           self,
+           target_features_path : str,
+           n_cluster : int, 
+    )->None:
+        # load target features
+        self.target_features_path = target_features_path
+        self.target_feats = torch.load(self.target_features_path)
+
+        # get the cluster file path
+        self.n_cluster = n_cluster
+        filename = os.path.basename(self.target_features_path) 
+        name = os.path.splitext(filename)[0] + "_cluster"
+
+        folder_path = os.path.join(os.path.dirname(self.target_features_path), name)
+        os.makedirs(folder_path, exist_ok=True)
+
+        self.cluster_file_path = os.path.join(folder_path, f"{self.n_cluster}.pt")
+
+    
+    def get_cluster(self, save: bool = True) -> torch.Tensor:
+        """
+        Cluster the target features with KMeans if we have more than 0 n_cluster and save them
+        """
+        # No clustering requested
+        if self.n_cluster == 0:
+            return self.target_feats
+        
+        # Load saved cluster if it exists otherwise compute the clusters and save them
+        if os.path.isfile(self.cluster_file_path):
+            cluster_features = torch.load(self.cluster_file_path)
+            return cluster_features
+        else: 
+            feats_np = self.target_feats.detach().cpu().numpy()
+            kmeans = KMeans(n_clusters=self.n_cluster, n_init="auto").fit(feats_np)
+            clustered_feats = torch.tensor(kmeans.cluster_centers_).float()
+            if save:
+                torch.save(clustered_feats, self.cluster_file_path)
+            return clustered_feats
+        
