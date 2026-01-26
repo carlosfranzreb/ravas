@@ -297,7 +297,6 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         ["audio", "converter", "cls"],
         {
             "kNN-VC": "stream_processing.models.KnnVC",
-            "Private kNN-VC": "stream_processing.models.PrivateKnnVC",
             "Mimi-VC": "stream_processing.models.MimiVC",
         },
     ),
