@@ -20,7 +20,6 @@ npm install
 npm run start
 ```
 
-
 ### Docker (Setup & Run Service)
 
 use `docker compose` to start [../docker-compose.yaml](../docker-compose.yaml) (run in project root directory):
@@ -98,7 +97,6 @@ Overview (for details see below):
    (DEFAULT: `ws://localhost:888`)
 * display FPS information: `show-fps=[false | true]`  
    (DEFAULT: `false`)
-
 
 ##### Web Socket Address
 
