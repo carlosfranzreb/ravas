@@ -161,53 +161,13 @@ class ConfigDialog(RestorableDialog):
 
         convertAudioForm = QFormLayout()
 
-        cbbAudioAnonymizer = self._createComboBoxFor(CONFIG_ITEMS["anonymizers"])
-        convertAudioForm.addRow("Voice anonymizer:", cbbAudioAnonymizer)
+        self.cbbAudioAnonymizer = self._createComboBoxFor(CONFIG_ITEMS["anonymizers"])
+        convertAudioForm.addRow("Voice anonymizer:", self.cbbAudioAnonymizer)
 
-        cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
-        convertAudioForm.addRow("Audio Voice:", cbbAudioVoice)
-        
-        def refresh_voice_list(index):
-            """HELPER: refreshes the voice list and sets the values for processing_size, output_buffersize, record_buffersize and sampling_rate"""
-            try:
-                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-                cbbAudioVoice.setEnabled(False)
-                try:
-                    cbbAudioVoice.disconnect()
-                    anonymizer = cbbAudioAnonymizer.itemData(index)
-                    anonymizer_presets = {
-                            "MimiVC": {
-                                "output_buffersize": 1920,
-                                "processing_size": 1920,
-                                "record_buffersize": 480,
-                                "sampling_rate": 24000
-                            },
-                            "KnnVC": {   
-                                "output_buffersize": 1200,
-                                "processing_size": 9600,
-                                "record_buffersize": 1200,
-                                "sampling_rate": 16000
-                            }
-                        }
-                    selected_preset = anonymizer_presets["MimiVC"] if "Mimi" in anonymizer else anonymizer_presets["KnnVC"]
-                    for key, value in selected_preset.items():
-                        self.config["audio"][key] = value
-                except:
-                    pass
-                cbbAudioVoice.clear()
-
-                # re-initialize the combo box
-                self._initDataComboBox(
-                    cbbAudioVoice,
-                    CONFIG_ITEMS["audio_voices"].get_latest(self.config),
-                    CONFIG_ITEMS["audio_voices"].config_path,
-                )
-
-            finally:
-                cbbAudioVoice.setEnabled(True)
-                QApplication.restoreOverrideCursor()
-
-        cbbAudioAnonymizer.currentIndexChanged.connect(refresh_voice_list)
+        self.cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
+        convertAudioForm.addRow("Audio Voice:", self.cbbAudioVoice)
+    
+        self.cbbAudioAnonymizer.currentIndexChanged.connect(self.sync_anonymizer_settings)
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
         mainSettingsLayout.addWidget(convertAudioGroup)
@@ -301,8 +261,8 @@ class ConfigDialog(RestorableDialog):
             enable: bool = chkUseAudio.checkState() == QtCore.Qt.CheckState.Checked
             cbbAudioIn.setEnabled(enable)
             cbbAudioOut.setEnabled(enable)
-            cbbAudioAnonymizer.setEnabled(enable)
-            cbbAudioVoice.setEnabled(enable)
+            self.cbbAudioAnonymizer.setEnabled(enable)
+            self.cbbAudioVoice.setEnabled(enable)
 
         _set_audio_widgets_enabled(chkUseAudio)  # <- update for current config
         chkUseAudio.stateChanged.connect(
@@ -350,7 +310,8 @@ class ConfigDialog(RestorableDialog):
 
         enableAVGroup = self._makeGroupBox("Advanced Settings", advancedSettingsForm)
         advancedSettingsLayout.addWidget(enableAVGroup)
-                # ############ Context Settings ################
+
+        # ############ Context Settings ################
         contextForm = QFormLayout()
         #header = QLabel("")
         #contextForm.addRow(header) 
@@ -368,6 +329,21 @@ class ConfigDialog(RestorableDialog):
         contextForm.addRow("Previous Context Size:", cbbPreviousMaxSample)
 
         enableContext = self._makeGroupBox("Context Settings", contextForm)
+        advancedSettingsLayout.addWidget(enableContext)
+
+        # ############ Expressiveness Settings ################
+        expressivessForm = QFormLayout()
+        sldOutputAudioCluster, layoutOutputAudioCluster = self._createSliderFor(
+                CONFIG_ITEMS["audio_output_n_cluster"],
+                min=0,
+                max=1024,
+                step=32,
+                descriptors=["reduced expressiveness", "full expressiveness"],
+                additional_config_path=CONFIG_ITEMS["audio_converter_n_cluster"].config_path,
+        )
+        expressivessForm.addRow("Number of Audio Clusters:", layoutOutputAudioCluster)
+
+        enableContext = self._makeGroupBox("Context Settings", expressivessForm)
         advancedSettingsLayout.addWidget(enableContext)
 
         # ############ LOG SETTINGS ################
@@ -444,8 +420,8 @@ class ConfigDialog(RestorableDialog):
 
         buttons = self._createDlgCtrls()
         dialogLayout.addWidget(buttons)
-
         self.setLayout(dialogLayout)
+        self.sync_anonymizer_settings()
 
     def _makeGroupBox(self, title: str, layout: QFormLayout):
         group = QGroupBox(title)
@@ -601,6 +577,7 @@ class ConfigDialog(RestorableDialog):
         min: int,
         max: int,
         step: int,
+        descriptors: Optional[list[str]] = None,
         additional_config_path: Optional[list[str]] = None,
     ) -> Tuple[QSlider, QHBoxLayout]:
 
@@ -616,7 +593,7 @@ class ConfigDialog(RestorableDialog):
         spin = QSpinBox()
         spin.setRange(min, max)
         spin.setSingleStep(step)
-        spin.setMinimumWidth(60)
+        spin.setMinimumWidth(90)
 
         slider.valueChanged.connect(spin.setValue)
         spin.valueChanged.connect(slider.setValue)
@@ -658,9 +635,35 @@ class ConfigDialog(RestorableDialog):
         # set (valid) value (will apply it to configuration, if it was changed above):
         slider.setValue(curr_val)
 
-        layout = QHBoxLayout()
-        layout.addWidget(spin)
-        layout.addWidget(slider)
+        # Horizontal row: spin + slider
+        row = QHBoxLayout()
+        row.addWidget(spin)
+        row.addWidget(slider)
+
+        if descriptors:
+        # Descriptor row aligned under slider
+            desc_row = QHBoxLayout()
+
+            spin_spacer = QWidget()
+            spin_spacer.setFixedWidth(spin.minimumWidth()- 20)
+            desc_row.addWidget(spin_spacer)
+
+            label_left = QLabel(descriptors[0])
+            label_left.setStyleSheet("color: white; font-size: 10px;")
+            desc_row.addWidget(label_left)
+
+            desc_row.addStretch()
+
+            label_right = QLabel(descriptors[1])
+            label_right.setStyleSheet("color: white; font-size: 10px;")
+            desc_row.addWidget(label_right)
+
+        # Combine vertically
+        layout = QVBoxLayout()
+        layout.addLayout(row)
+        if descriptors:
+            layout.addLayout(desc_row)
+
 
         return slider, layout
 
@@ -1081,3 +1084,53 @@ class ConfigDialog(RestorableDialog):
                 "Please select a different value(s) for " + details,
                 QMessageBox.StandardButton.Ok,
             )
+
+    def sync_anonymizer_settings(self, index: int = None):
+        """Logic to sync buffer sizes and sampling rates based on selected anonymizer"""
+        if index is None:
+            index = self.cbbAudioAnonymizer.currentIndex()
+            
+        anonymizer = self.cbbAudioAnonymizer.itemData(index)
+        if not anonymizer or anonymizer == NO_SELECTION:
+            return
+
+        try:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            
+            # BLOCK SIGNALS: This stops the warnings you are seeing
+            self.cbbAudioVoice.blockSignals(True) 
+            self.cbbAudioVoice.setEnabled(False)
+
+            anonymizer_presets = {
+                "MimiVC": {
+                    "output_buffersize": 1920,
+                    "processing_size": 1920,
+                    "record_buffersize": 480,
+                    "sampling_rate": 24000
+                },
+                "KnnVC": {   
+                    "output_buffersize": 1200,
+                    "processing_size": 9600,
+                    "record_buffersize": 1200,
+                    "sampling_rate": 16000
+                }
+            }
+            
+            # 1. Update internal config
+            selected_preset = anonymizer_presets["MimiVC"] if "Mimi" in anonymizer else anonymizer_presets["KnnVC"]
+            for key, value in selected_preset.items():
+                self.config["audio"][key] = value
+
+            # 2. Refresh the voice list
+            self.cbbAudioVoice.clear()
+            self._initDataComboBox(
+                self.cbbAudioVoice,
+                CONFIG_ITEMS["audio_voices"].get_latest(self.config),
+                CONFIG_ITEMS["audio_voices"].config_path,
+            )
+
+        finally:
+            # UNBLOCK SIGNALS: Allow the UI to work normally again
+            self.cbbAudioVoice.blockSignals(False)
+            self.cbbAudioVoice.setEnabled(True)
+            QApplication.restoreOverrideCursor()

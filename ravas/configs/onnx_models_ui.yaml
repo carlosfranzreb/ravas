@@ -1,9 +1,10 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file null
+define: &video_file C:/Users/Jiayue/Documents/dataset/LibriSpeech/test-clean/237/126133/237-126133-0000.flac
 define: &video_width 1280
 define: &video_height 720
+define: &audio_n_cluster 0
 
 video:
   max_unsynced_time: *max_unsynced_time
@@ -39,13 +40,15 @@ audio:
   processing_size: 1920
   record_buffersize: 480
   sampling_rate: 24000
+  n_cluster: *audio_n_cluster
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
-  store: false
+  store: true
   converter:
-    cls: stream_processing.models.TorchMimiVC
+    cls: stream_processing.models.MimiVC
     target_feats_path: ./target_feats/mimivc/1089.pt
     device: cpu
+    n_cluster: *audio_n_cluster
     n_neighbors: 4
     prev_audio_queue:
       max_samples: 9600
