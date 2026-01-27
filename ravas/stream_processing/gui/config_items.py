@@ -197,23 +197,11 @@ config_item_video_output_width.is_valid_value = partial(
     config_path=config_item_video_converter_width.config_path,
 )
 
-
-# prepare configuration-items for video-height that require inter-dependent validation:
+# conifg item for expressiveness
 config_item_audio_n_cluster = ConfigurationItem(
-    ["audio", "n_cluster"], None
-)  # omit validation here & "back-reference", see below
-config_item_converter_n_cluster = ConfigurationItem(
-    ["audio", "converter", "n_cluster"],
+    ["audio", "converter" ,"n_cluster"],
     None,
-    is_valid_value=partial(
-        is_positive_number_and_equal_to_config_path,
-        config_path=config_item_audio_n_cluster.config_path,
-    ),
-)
-# no set "back-reference" validation against config_item_video_converter_height:
-config_item_audio_n_cluster.is_valid_value = partial(
-    is_positive_number_and_equal_to_config_path,
-    config_path=config_item_converter_n_cluster.config_path,
+    is_valid_value=wrap_simple_validate(is_positive_number),
 )
 
 CONFIG_ITEMS: dict[str, ConfigurationItem] = {
@@ -301,8 +289,13 @@ CONFIG_ITEMS: dict[str, ConfigurationItem] = {
         },
     ),
 
+    'use_audio_cluster': ConfigurationItem(['audio','converter','use_expressiveness'], {
+        'Use expressiveness':     True,
+        'Disable expressiveness': False,
+    }),
+
     "audio_output_n_cluster": config_item_audio_n_cluster,
-    "audio_converter_n_cluster": config_item_converter_n_cluster,
+    #"audio_converter_n_cluster": config_item_converter_n_cluster,
 
     "audio_voices": ConfigurationItem(
         ["audio", "converter", "target_feats_path"],
@@ -383,9 +376,6 @@ def _do_set_ignore_validation_helpers():
         is_media_disabled, "audio"
     )
     CONFIG_ITEMS["audio_output_n_cluster"].is_ignore_validation = partial(
-        is_media_disabled, "audio"
-    )
-    CONFIG_ITEMS["audio_converter_n_cluster"].is_ignore_validation = partial(
         is_media_disabled, "audio"
     )
     CONFIG_ITEMS["use_previous_context"].is_ignore_validation = partial(

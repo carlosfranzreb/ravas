@@ -333,13 +333,18 @@ class ConfigDialog(RestorableDialog):
 
         # ############ Expressiveness Settings ################
         expressivessForm = QFormLayout()
+
+        chkEnableExpressiveness = self._createCheckBoxFor(
+            CONFIG_ITEMS["use_audio_cluster"]
+        )
+        expressivessForm.addRow("Use Expressiveness: ",chkEnableExpressiveness)
+
         sldOutputAudioCluster, layoutOutputAudioCluster = self._createSliderFor(
                 CONFIG_ITEMS["audio_output_n_cluster"],
-                min=0,
+                min=25,
                 max=1024,
-                step=32,
+                step=25,
                 descriptors=["reduced expressiveness", "full expressiveness"],
-                additional_config_path=CONFIG_ITEMS["audio_converter_n_cluster"].config_path,
         )
         expressivessForm.addRow("Number of Audio Clusters:", layoutOutputAudioCluster)
 
