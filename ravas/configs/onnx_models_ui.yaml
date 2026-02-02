@@ -1,18 +1,18 @@
 log_dir: logs
 log_level: INFO
 define: &max_unsynced_time 0.01
-define: &video_file C:/Users/Jiayue/Documents/dataset/LibriSpeech/test-clean/237/126133/237-126133-0000.flac
+define: &video_file null
 define: &video_width 1280
 define: &video_height 720
-define: &audio_n_cluster 0
+define: &audio_n_cluster 120
 
 video:
+  use_video: false
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
   width: *video_width
   height: *video_height
   input_device: 0
-  use_video: true
   processing_size: 1
   max_fps: 20
   output_virtual_cam: false
@@ -33,9 +33,9 @@ video:
     avatar_uri: ./default_avatar.glb
 
 audio:
+  use_audio: true
   max_unsynced_time: *max_unsynced_time
   video_file: *video_file
-  use_audio: true
   output_buffersize: 1920
   processing_size: 1920
   record_buffersize: 480
@@ -43,10 +43,10 @@ audio:
   n_cluster: *audio_n_cluster
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
-  store: true
+  store: false
   converter:
-    cls: stream_processing.models.MimiVC
-    target_feats_path: ./target_feats/mimivc/1089.pt
+    cls: stream_processing.models.KnnVC
+    target_feats_path: ./target_feats/knnvc/john.pt
     device: cpu
     n_cluster: *audio_n_cluster
     n_neighbors: 4
@@ -55,7 +55,7 @@ audio:
     prev_ctx:
       use_previous_ctx: false
       max_samples: 0
-    lookahead_ctx:
+
     interpolator:
       n_samples: 450
       weight: 0.75
