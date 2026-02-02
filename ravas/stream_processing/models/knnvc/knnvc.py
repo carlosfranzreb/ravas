@@ -6,7 +6,6 @@ feature classification, as done in URythmic.
 """
 
 import logging
-import queue
 
 import torch
 from torch import Tensor
@@ -14,7 +13,7 @@ from torch.multiprocessing import Queue, Event
 import onnxruntime as ort
 
 from ...processor import AudioConverter
-from ...utils import clear_queue, resolve_file_path , TargetFeats
+from ...utils import resolve_file_path , compute_target_features
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
@@ -71,10 +70,7 @@ class KnnVC(AudioConverter):
         self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{self.model_size}.onnx"))
 
         # load the target features
-        #self.target_feats = torch.load(self.target_feats_path)
-        self.n_cluster = config["n_cluster"]
-        target_feats = TargetFeats(self.target_feats_path, self.n_cluster)
-        self.target_feats = target_feats.get_cluster()
+        self.target_feats = compute_target_features(self.target_feats_path, config["n_cluster"], config["use_expressiveness"])
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
     @torch.inference_mode()
