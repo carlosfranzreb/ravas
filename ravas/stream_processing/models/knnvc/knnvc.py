@@ -13,7 +13,7 @@ from torch.multiprocessing import Queue, Event
 import onnxruntime as ort
 
 from ...processor import AudioConverter
-from ...utils import resolve_file_path , compute_target_features
+from ...utils import resolve_file_path, compute_target_features
 
 from .prev_audio_queue import PrevAudioQueue
 from .interpolator import Interpolator
@@ -58,19 +58,30 @@ class KnnVC(AudioConverter):
         self.interpolator = Interpolator(config["interpolator"])
 
         # initialize previous context
-        self.prev = config["prev_ctx"]["use_previous_ctx"] and config["prev_ctx"]["max_samples"] > 0
+        self.prev = (
+            config["prev_ctx"]["use_previous_ctx"]
+            and config["prev_ctx"]["max_samples"] > 0
+        )
         self.previous_samples = config["prev_ctx"]["max_samples"]
         self.prev_context = PrevAudioQueue(config["prev_ctx"])
 
         self.input_size = config["prev_audio_queue"]["max_samples"]
-        self.model_size = self.input_size + self.previous_samples if self.prev else self.input_size
+        self.model_size = (
+            self.input_size + self.previous_samples if self.prev else self.input_size
+        )
 
         # initialize the WavLM and HiFiGAN models, compiling them if needed
-        self.wavlm = ort.InferenceSession(resolve_file_path(f"onnx/wavlm_{self.model_size}.onnx"))
-        self.hifigan = ort.InferenceSession(resolve_file_path(f"onnx/hifigan_{self.model_size}.onnx"))
+        self.wavlm = ort.InferenceSession(
+            resolve_file_path(f"onnx/wavlm_{self.model_size}.onnx")
+        )
+        self.hifigan = ort.InferenceSession(
+            resolve_file_path(f"onnx/hifigan_{self.model_size}.onnx")
+        )
 
         # load the target features
-        self.target_feats = compute_target_features(self.target_feats_path, config["n_cluster"], config["use_expressiveness"])
+        self.target_feats = compute_target_features(
+            self.target_feats_path, config["n_cluster"], config["use_expressiveness"]
+        )
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
     @torch.inference_mode()
@@ -93,11 +104,11 @@ class KnnVC(AudioConverter):
         # add context if previous context is enabled
         if self.prev:
             prev_ctx = self.prev_context.get()
-            audio_chunk = torch.cat([prev_ctx, audio_chunk],dim=-1)
+            audio_chunk = torch.cat([prev_ctx, audio_chunk], dim=-1)
             self.prev_context.add(audio_concat)
 
         audio_chunk = audio_chunk.unsqueeze(0)
-        
+
         source_feats = self.wavlm.run(["output"], {"input": audio_chunk.numpy()})[0]
         source_feats = torch.tensor(source_feats, dtype=torch.float32)
         if source_feats.ndim == 3:
