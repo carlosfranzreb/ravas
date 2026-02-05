@@ -43,7 +43,6 @@ from .settings_helper import (
     StoreSettingItem,
     applySetting,
 )
-from ..models.avatar.avatar import RenderAppType
 
 
 _logger = logging.getLogger("gui.config_dlg")
@@ -85,7 +84,7 @@ class ConfigDialog(RestorableDialog):
         self.config = deepcopy(config)
         """ (deep copy of) the configuration """
         self.changed_config: dict = {}
-        """ 
+        """
         flattened dictionary containing changed config values (changed w.r.t. to the original config-file)
         (stored/restored from settings; the keys are "flattened" using `CONFIG_PATH_SEP` as separator)
         """
@@ -166,8 +165,10 @@ class ConfigDialog(RestorableDialog):
 
         self.cbbAudioVoice = self._createComboBoxFor(CONFIG_ITEMS["audio_voices"])
         convertAudioForm.addRow("Audio Voice:", self.cbbAudioVoice)
-    
-        self.cbbAudioAnonymizer.currentIndexChanged.connect(self.sync_anonymizer_settings)
+
+        self.cbbAudioAnonymizer.currentIndexChanged.connect(
+            self.sync_anonymizer_settings
+        )
 
         convertAudioGroup = self._makeGroupBox("Convert Audio", convertAudioForm)
         mainSettingsLayout.addWidget(convertAudioGroup)
@@ -185,7 +186,7 @@ class ConfigDialog(RestorableDialog):
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
-        #cbbAvatarRenderer = self._createComboBoxFor(CONFIG_ITEMS["avatar_renderer"])
+        # cbbAvatarRenderer = self._createComboBoxFor(CONFIG_ITEMS["avatar_renderer"])
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
@@ -195,13 +196,13 @@ class ConfigDialog(RestorableDialog):
 
         # NOTE this will be added to ADVANCED SETTINGS group (see below), but we need it here
         #      to enable/disable if avatar-converter is selected
-        #iptAvatarPort, lbAvatarPort, containerAvatarPort = self._createPortInput()
+        # iptAvatarPort, lbAvatarPort, containerAvatarPort = self._createPortInput()
 
         # MOD cbbVideoConverter: enable/disable cbbAvatar when converter "Avatar" is selected/deselected
         def _updateAvatarEnabled(selected_video_converter: str):
             enable = selected_video_converter == "Avatar"
             cbbAvatar.setEnabled(enable)
-            #cbbAvatarRenderer.setEnabled(enable)
+            # cbbAvatarRenderer.setEnabled(enable)
             # iptAvatarPort.setEnabled(enable)
             # lbAvatarPort.setEnabled(enable)
 
@@ -228,7 +229,7 @@ class ConfigDialog(RestorableDialog):
         )
 
         # NOTE cbbAvatarRenderer was created before, so it can be used in _updateAvatarEnabled()
-        #advancedSettingsForm.addRow("Avatar Renderer:", cbbAvatarRenderer)
+        # advancedSettingsForm.addRow("Avatar Renderer:", cbbAvatarRenderer)
 
         # NOTE chkShowAvatarRendererWindow was created before, so it can be used in _updateAvatarEnabled()
         advancedSettingsForm.addRow(
@@ -241,18 +242,18 @@ class ConfigDialog(RestorableDialog):
         # )
 
         # MOD cbbAvatarRenderer: enable/disable iptAvatarPort when renderer is not browser/Chrome
-        #def _updateAvatarRendererSelected(selected_avatar_renderer: str):
+        # def _updateAvatarRendererSelected(selected_avatar_renderer: str):
         #     enable = "browser" in selected_avatar_renderer.lower()
         #     containerAvatarPort.setEnabled(enable)
         #     iptAvatarPort.setEnabled(enable)
         #     lbAvatarPort.setEnabled(enable)
 
-        #_updateAvatarRendererSelected(
+        # _updateAvatarRendererSelected(
         #    cbbAvatarRenderer.currentText()
-        #)  # <- update for current config-value
-        #cbbAvatarRenderer.currentTextChanged.connect(
+        # )  # <- update for current config-value
+        # cbbAvatarRenderer.currentTextChanged.connect(
         #    _updateAvatarRendererSelected
-        #)  # <- update for config-changes
+        # )  # <- update for config-changes
 
         chkUseAudio = self._createCheckBoxFor(CONFIG_ITEMS["use_audio"])
         advancedSettingsForm.addRow("Use Audio:", chkUseAudio)
@@ -299,7 +300,7 @@ class ConfigDialog(RestorableDialog):
                 enable_avatar = conv_val == AVATAR_CONVERTER
             cbbVideoIn.setEnabled(enable_video_in)
             cbbAvatar.setEnabled(enable_avatar)
-            #cbbAvatarRenderer.setEnabled(enable_avatar)
+            # cbbAvatarRenderer.setEnabled(enable_avatar)
             # iptAvatarPort.setEnabled(enable_avatar)
             # lbAvatarPort.setEnabled(enable_avatar)
 
@@ -313,19 +314,29 @@ class ConfigDialog(RestorableDialog):
 
         # ############ Context Settings ################
         contextForm = QFormLayout()
-        #header = QLabel("")
-        #contextForm.addRow(header) 
-        cbbPreviousMaxSample = self._createComboBoxFor(CONFIG_ITEMS['previous_max_sample'])
+        # header = QLabel("")
+        # contextForm.addRow(header)
+        cbbPreviousMaxSample = self._createComboBoxFor(
+            CONFIG_ITEMS["previous_max_sample"]
+        )
 
-        chkPreviousContext = self._createCheckBoxFor(CONFIG_ITEMS['use_previous_context'])
+        chkPreviousContext = self._createCheckBoxFor(
+            CONFIG_ITEMS["use_previous_context"]
+        )
         contextForm.addRow("Use Previous Context:", chkPreviousContext)
 
         def _set_previous_context_widgets_enabled(_value):
-            enable: bool = chkPreviousContext.checkState() == QtCore.Qt.CheckState.Checked
+            enable: bool = (
+                chkPreviousContext.checkState() == QtCore.Qt.CheckState.Checked
+            )
             cbbPreviousMaxSample.setEnabled(enable)
 
-        _set_previous_context_widgets_enabled(chkPreviousContext)  # <- update for current config
-        chkPreviousContext.stateChanged.connect(_set_previous_context_widgets_enabled)  # <- update on config changes
+        _set_previous_context_widgets_enabled(
+            chkPreviousContext
+        )  # <- update for current config
+        chkPreviousContext.stateChanged.connect(
+            _set_previous_context_widgets_enabled
+        )  # <- update on config changes
         contextForm.addRow("Previous Context Size:", cbbPreviousMaxSample)
 
         enableContext = self._makeGroupBox("Context Settings", contextForm)
@@ -337,14 +348,14 @@ class ConfigDialog(RestorableDialog):
         chkEnableExpressiveness = self._createCheckBoxFor(
             CONFIG_ITEMS["use_audio_cluster"]
         )
-        expressivessForm.addRow("Use Expressiveness: ",chkEnableExpressiveness)
+        expressivessForm.addRow("Use Expressiveness: ", chkEnableExpressiveness)
 
-        sldOutputAudioCluster, layoutOutputAudioCluster = self._createSliderFor(
-                CONFIG_ITEMS["audio_output_n_cluster"],
-                min=25,
-                max=1024,
-                step=25,
-                descriptors=["reduced expressiveness", "full expressiveness"],
+        _, layoutOutputAudioCluster = self._createSliderFor(
+            CONFIG_ITEMS["audio_output_n_cluster"],
+            min=25,
+            max=1024,
+            step=25,
+            descriptors=["reduced expressiveness", "full expressiveness"],
         )
         expressivessForm.addRow("Number of Audio Clusters:", layoutOutputAudioCluster)
 
@@ -405,20 +416,20 @@ class ConfigDialog(RestorableDialog):
 
         self.is_first_tab_change = True
 
-        #def on_tab_changed():
-            # HACK: for some reason, the disabling due to cbbAvatarRenderer's selection is not updated
-            #       in the advanced tab on the first time ... force selection change on first tab change
-            #       so that the attached disable-updater function gets triggered when it becomes visible
-            #if self.is_first_tab_change:
-            #    curr_idx = cbbAvatarRenderer.currentIndex()
-            #    cbbAvatarRenderer.setCurrentIndex(-1)
-            #    cbbAvatarRenderer.setCurrentIndex(curr_idx)
-            #    self.is_first_tab_change = False
-            #self._forceAlignRowLabels()
+        # def on_tab_changed():
+        # HACK: for some reason, the disabling due to cbbAvatarRenderer's selection is not updated
+        #       in the advanced tab on the first time ... force selection change on first tab change
+        #       so that the attached disable-updater function gets triggered when it becomes visible
+        # if self.is_first_tab_change:
+        #    curr_idx = cbbAvatarRenderer.currentIndex()
+        #    cbbAvatarRenderer.setCurrentIndex(-1)
+        #    cbbAvatarRenderer.setCurrentIndex(curr_idx)
+        #    self.is_first_tab_change = False
+        # self._forceAlignRowLabels()
 
         # NOTE cannot align labels in invisible tab(s), since they will all have the tab's width
         #      -> recalculate alignment when tab becomes visible
-        #tabs.currentChanged.connect(on_tab_changed)
+        # tabs.currentChanged.connect(on_tab_changed)
 
         dialogLayout = QVBoxLayout()
         dialogLayout.addWidget(tabs)
@@ -585,11 +596,14 @@ class ConfigDialog(RestorableDialog):
         descriptors: Optional[list[str]] = None,
         additional_config_path: Optional[list[str]] = None,
     ) -> Tuple[QSlider, QHBoxLayout]:
-
         # slider for quick-change
         slider = QSlider(Qt.Orientation.Horizontal)
-        slider.setRange(min, max)
-        slider.setSingleStep(step)
+
+        step_count = (max - min) // step
+
+        slider.setRange(0, step_count)
+        slider.setSingleStep(1)
+        slider.setPageStep(1)
         curr_val, field_name, sub_config = get_current_value_and_config_path_for(
             self.config, config_item.config_path
         )
@@ -600,8 +614,10 @@ class ConfigDialog(RestorableDialog):
         spin.setSingleStep(step)
         spin.setMinimumWidth(90)
 
-        slider.valueChanged.connect(spin.setValue)
-        spin.valueChanged.connect(slider.setValue)
+        # slider.valueChanged.connect(spin.setValue)
+        # spin.valueChanged.connect(slider.setValue)
+        slider.valueChanged.connect(lambda i: spin.setValue(min + i * step))
+        spin.valueChanged.connect(lambda v: slider.setValue((v - min) // step))
 
         slider.valueChanged.connect(
             partial(
@@ -646,11 +662,11 @@ class ConfigDialog(RestorableDialog):
         row.addWidget(slider)
 
         if descriptors:
-        # Descriptor row aligned under slider
+            # Descriptor row aligned under slider
             desc_row = QHBoxLayout()
 
             spin_spacer = QWidget()
-            spin_spacer.setFixedWidth(spin.minimumWidth()- 20)
+            spin_spacer.setFixedWidth(spin.minimumWidth() - 20)
             desc_row.addWidget(spin_spacer)
 
             label_left = QLabel(descriptors[0])
@@ -668,7 +684,6 @@ class ConfigDialog(RestorableDialog):
         layout.addLayout(row)
         if descriptors:
             layout.addLayout(desc_row)
-
 
         return slider, layout
 
@@ -1039,7 +1054,6 @@ class ConfigDialog(RestorableDialog):
             for i in range(formLayout.count()):
                 widget = formLayout.itemAt(i).widget()
                 if isinstance(widget, QComboBox):
-
                     # TODO use ConfigurationItem.can_ignore_validation()
                     #      instead of duplicating logic via widget.isEnabled()
                     #      ... or use UnitTesting to make sure both are in sync
@@ -1094,16 +1108,16 @@ class ConfigDialog(RestorableDialog):
         """Logic to sync buffer sizes and sampling rates based on selected anonymizer"""
         if index is None:
             index = self.cbbAudioAnonymizer.currentIndex()
-            
+
         anonymizer = self.cbbAudioAnonymizer.itemData(index)
         if not anonymizer or anonymizer == NO_SELECTION:
             return
 
         try:
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            
+
             # BLOCK SIGNALS: This stops the warnings you are seeing
-            self.cbbAudioVoice.blockSignals(True) 
+            self.cbbAudioVoice.blockSignals(True)
             self.cbbAudioVoice.setEnabled(False)
 
             anonymizer_presets = {
@@ -1111,18 +1125,22 @@ class ConfigDialog(RestorableDialog):
                     "output_buffersize": 1920,
                     "processing_size": 1920,
                     "record_buffersize": 480,
-                    "sampling_rate": 24000
+                    "sampling_rate": 24000,
                 },
-                "KnnVC": {   
+                "KnnVC": {
                     "output_buffersize": 1200,
                     "processing_size": 9600,
                     "record_buffersize": 1200,
-                    "sampling_rate": 16000
-                }
+                    "sampling_rate": 16000,
+                },
             }
-            
+
             # 1. Update internal config
-            selected_preset = anonymizer_presets["MimiVC"] if "Mimi" in anonymizer else anonymizer_presets["KnnVC"]
+            selected_preset = (
+                anonymizer_presets["MimiVC"]
+                if "Mimi" in anonymizer
+                else anonymizer_presets["KnnVC"]
+            )
             for key, value in selected_preset.items():
                 self.config["audio"][key] = value
 
