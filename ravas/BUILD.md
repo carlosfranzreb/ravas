@@ -21,7 +21,7 @@ the build process includes the following, additional resources in [releases][2] 
     * [v0.2][4]: additional voices (`*.pt`)
 * `rpm/dist`: the web-app for the browser-based avatar renderer and the avatar model files
   * see [rpm/README.md][5] for build the Chrome Extension (`*.crx`) for the browser-based avatar renderer
-  * in any case, do include the directory `rpm/dist/chrome-extension/*` which will also contain the avatar model files  
+  * in any case, do include the directory `rpm/dist/chrome-extension/*` which will also contain the avatar model files
     * NOTE: these avatar model files are also required by the non-browser-based avatar renderer, i.e. the `python`-based renderer!
 
 

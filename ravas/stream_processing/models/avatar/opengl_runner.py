@@ -18,7 +18,6 @@ from ...dist_logging import worker_configurer
 def test_render_recorded_blendshapes_to_queue(
     model_path: str, blendshapes_data_path: str, headless: bool = True
 ):
-
     config = init_render_window_and_load_data(
         model_path, blendshapes_data_path, headless
     )
@@ -45,7 +44,6 @@ def test_render_recorded_blendshapes_to_queue(
 def run_renderer_window(
     model_path: str, blendshapes_data_path: Optional[str], headless: bool = True
 ):
-
     config = init_render_window(headless)
     win: GLTFRenderer = config.wnd
     win.load_model(model_path)
@@ -63,7 +61,6 @@ def run_renderer_window(
 def test_render_recorded_blendshapes_in_process(
     model_path: str, blendshapes_data_path: str, out_dir: str, headless: bool = True
 ):
-
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -95,7 +92,7 @@ def test_render_recorded_blendshapes_in_process(
         rendered = out_queue.get()
         if rendered:
             print(
-                f"  rendered image ({i+1} / {size}), size (bytes): ",
+                f"  rendered image ({i + 1} / {size}), size (bytes): ",
                 len(rendered),
                 flush=True,
             )
@@ -128,7 +125,6 @@ def test_render_recorded_blendshapes_in_process(
 def test_store_images_for_recorded_blendshapes(
     model_path: str, blendshapes_data_path: str, out_dir: str, headless: bool = True
 ):
-
     print("storing data rendered images to ", the_out_dir, flush=True)
 
     config = init_render_window_and_load_data(
@@ -154,7 +150,6 @@ def init_render_window_and_load_data(
 
 
 def init_render_window(headless: bool, log_level=None):
-
     if log_level is not None:
         GLTFRenderer.log_level = log_level
 
@@ -243,8 +238,7 @@ if __name__ == "__main__":
         "--avatar",
         type=str,
         help=textwrap.dedent(
-            "path to the avatar model file (*.glb)\n"
-            "DEFAULT:\n  " + default_avatar_path
+            "path to the avatar model file (*.glb)\nDEFAULT:\n  " + default_avatar_path
         ),
         default=default_avatar_path,
     )

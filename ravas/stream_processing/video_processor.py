@@ -35,7 +35,13 @@ class VideoProcessor(Processor):
         :param log_level: log level for logging messages.
         """
         super().__init__(
-            "video", config, video_sync_state, external_sync_state,pipeline_sync_state, log_queue, log_level
+            "video",
+            config,
+            video_sync_state,
+            external_sync_state,
+            pipeline_sync_state,
+            log_queue,
+            log_level,
         )
         self.video_sync_state = video_sync_state
         self.external_sync_state = external_sync_state
@@ -100,9 +106,12 @@ class VideoProcessor(Processor):
             logger.info("video converter is ready, starting to process input...")
 
         while True:
-            (processing_time, processing_data), (
-                chunk_part_for_next_times,
-                chunk_part_for_next,
+            (
+                (processing_time, processing_data),
+                (
+                    chunk_part_for_next_times,
+                    chunk_part_for_next,
+                ),
             ) = batchify_input_stream(
                 read_callback=read_video,
                 out_batch_size=self.config["processing_size"],
@@ -126,7 +135,6 @@ class VideoProcessor(Processor):
             self.queues.input_queue.put((processing_time, processing_data))
 
     def write(self):
-
         # setup logging
         worker_configurer(self.log_queue, self.log_level)
         logger = logging.getLogger("video_output")

@@ -166,7 +166,6 @@ def gui_listener_process(
 
 
 def init_gui_logging(config: dict) -> tuple[LogWorker, QThread]:
-
     thread = QThread()
     log_worker = LogWorker()
     log_worker.moveToThread(thread)

@@ -175,7 +175,6 @@ def select_camera(driver: webdriver.Chrome, selected_camera: str):
 
 
 def finish_browser(driver: webdriver.Chrome, logger: logging.Logger):
-
     # before quitting: print some log information
     try:
         info = driver.execute_script('return window["info_init"]')
@@ -249,7 +248,6 @@ def start_browser(
     driver = None
     was_interrupted = False
     try:
-
         start_extension = StartExtensionType.NO_EXTENSION
         extension_path = None
         extension_id = DEFAULT_EXTENSION_ID
@@ -381,7 +379,7 @@ def start_main():
         while not e.is_set():
             time.sleep(5)
 
-    except Exception as err:
+    except Exception:
         print("start_main: Stopping... ")  # , err)
         if not e.is_set():
             e.set()

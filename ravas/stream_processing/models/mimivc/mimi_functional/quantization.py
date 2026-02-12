@@ -221,7 +221,9 @@ class EuclideanCodebook(nn.Module):
             # First gathering shapes in case not all GPUs have the same effective batch size.
             # then gathering the actual content.
             if rank == 0:
-                other_shapes: tp.List[torch.Size] = [None] * distributed.get_world_size()  # type: ignore
+                other_shapes: tp.List[torch.Size] = [
+                    None
+                ] * distributed.get_world_size()  # type: ignore
                 distributed.gather_object(data.shape, other_shapes)
                 other_data: tp.List[torch.Tensor] = [
                     torch.empty(shape, device=data.device, dtype=data.dtype)
@@ -311,9 +313,9 @@ class EuclideanCodebook(nn.Module):
         """Given a tensor of codes of shape `[*]`, returns a tensor of shape `[*, D]`,
         corresponding to the centroids associated to each code index.
         """
-        assert (
-            not codes.dtype.is_floating_point
-        ), f"Codes should be integers, got {codes.dtype}"
+        assert not codes.dtype.is_floating_point, (
+            f"Codes should be integers, got {codes.dtype}"
+        )
         quantized = F.embedding(codes, self.embedding)
         return quantized
 

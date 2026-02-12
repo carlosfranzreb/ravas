@@ -1,15 +1,13 @@
-import multiprocessing
 import queue
 import time
 import logging
 import importlib
-from ctypes import c_bool
 
 from torch import Tensor
 import numpy as np
 from torch.multiprocessing import Process, Queue, Value, Manager, Event
 
-from .utils import clear_queue, kill_all_child_processes
+from .utils import clear_queue
 from .dist_logging import worker_configurer
 
 
@@ -35,7 +33,7 @@ class ProcessingQueues:
 
         self.finished: Event = manager.Event()
         """
-        signal for finished-processing 
+        signal for finished-processing
         (after output queue did process last data frame and closed any open handles etc.)
         """
         self.ready: Event = manager.Event()
@@ -56,8 +54,8 @@ class ProcessingSyncState:
         self.last_update = Value("d", 0)
         self.ready: Event = None  # set this with ProcessingQueues.ready
         self.disabled = Value("b", False)
-        """ 
-        WARNING [russa: current implementation limitations for `ProcessingSyncState.disabled`] 
+        """
+        WARNING [russa: current implementation limitations for `ProcessingSyncState.disabled`]
         this is actually only read once at start of `Processor.sync()`, i.e. later changes, after sync-ing has started,
         will be IGNORED!
         """

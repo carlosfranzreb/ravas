@@ -233,7 +233,6 @@ class GLTFRenderer(WindowConfig):
         self.do_output_image = set_func
 
     def load_recorded_blend_shapes(self, blend_shapes_path: Optional[str] = None):
-
         if not blend_shapes_path:
             blend_shapes_path = self.play_data_path
         else:
@@ -246,7 +245,6 @@ class GLTFRenderer(WindowConfig):
         self.has_morph_data = True
 
     def load_model(self, model_path: Optional[str] = None):
-
         if not model_path:
             model_path = self.model_path
         else:
@@ -318,7 +316,6 @@ class GLTFRenderer(WindowConfig):
     def update_morph_from_data(
         self, mesh: Mesh, time: float, force: bool = False
     ) -> bool:
-
         if self.morph_data_index >= self.morph_data_size:
             self.morph_data_index = 0
 
@@ -609,7 +606,6 @@ class GLTFRenderer(WindowConfig):
 
 
 if __name__ == "__main__":
-
     import moderngl_window
 
     headless = True

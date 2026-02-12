@@ -111,7 +111,7 @@ void main() {
 	transformed = ( /* bindMatrixInverse * */ skinned ).xyz;
 #endif
 
-    mat4 mv = m_cam * m_model; 
+    mat4 mv = m_cam * m_model;
     vec4 p = mv * vec4( transformed, 1.0 );
 	gl_Position = m_proj * p;
     mat3 m_normal = transpose(inverse(mat3(mv)));

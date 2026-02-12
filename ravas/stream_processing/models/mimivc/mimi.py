@@ -20,12 +20,14 @@ FRAME_SIZE = int(SAMPLE_RATE / FRAME_RATE)
 MIMI_NAME = "tokenizer-e351c8d8-checkpoint125.safetensors"
 DEFAULT_REPO = "kyutai/moshiko-pytorch-bf16"
 
+
 def get_embedded_hf_cache():
     # When packaged with PyInstaller
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, "huggingface")
     # When running from source (development)
-    return os.path.abspath(os.path.join("ravas" ,"huggingface"))
+    return os.path.abspath(os.path.join("ravas", "huggingface"))
+
 
 # Force HuggingFace to use your included cache
 HF_HOME = get_embedded_hf_cache()
@@ -134,9 +136,11 @@ def hf_get(
         filename = filename.removeprefix("file://")
         local_path = Path(filename)
         if not local_path.exists():
-             raise FileNotFoundError(f"Local file specified with 'file://' not found: {local_path}")
+            raise FileNotFoundError(
+                f"Local file specified with 'file://' not found: {local_path}"
+            )
         return local_path
-    
+
     if filename.startswith("hf://"):
         parts = filename.removeprefix("hf://").split("/")
         repo_name = parts[0] + "/" + parts[1]

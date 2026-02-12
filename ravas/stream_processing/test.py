@@ -1,7 +1,5 @@
 from torch.multiprocessing import Process, Queue
 from threading import Event
-import websockets
-import logging
 import time
 from websocket_server import WebsocketServer
 

@@ -33,13 +33,12 @@ class StoreSettingItem:
 
 
 class RestorableDialog(QDialog):
-
     def getSettingsPath(self) -> str:
         """
         must override in inherited classes to return path-like string that identifies the dialog (settings), e.g.
         `my_dialog` or `my_other_dialog/instance1`
         """
-        raise NotImplemented(
+        raise NotImplementedError(
             "must implement getSettingsPath() to return path-like string that identifies dialog"
         )
 

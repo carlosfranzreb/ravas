@@ -158,9 +158,9 @@ class MimiModel(CompressionModel):
         # We will need the dimension for the resampling. In general the encoder will be a SeanetEncoder
         # which exposes a `dimension` attribute.
         dimension = encoder.dimension
-        assert isinstance(
-            dimension, int
-        ), f"Dimension should be int, got {dimension} of type {type(dimension)}."
+        assert isinstance(dimension, int), (
+            f"Dimension should be int, got {dimension} of type {type(dimension)}."
+        )
         self.dimension = dimension
 
         # initialize the resamplers
@@ -309,9 +309,9 @@ class MimiModel(CompressionModel):
         Returns:
             Unquantized embeddings.
         """
-        assert (
-            x.dim() == 3
-        ), f"CompressionModel._encode_to_unquantized_latent expects audio of shape [B, C, T] but got {x.shape}"
+        assert x.dim() == 3, (
+            f"CompressionModel._encode_to_unquantized_latent expects audio of shape [B, C, T] but got {x.shape}"
+        )
 
         state = self._streaming_state
         frame_size = self.frame_size

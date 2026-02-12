@@ -68,8 +68,7 @@ def compute_mask_indices(
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        mask_prob * all_sz / float(mask_length)
-        + np.random.rand()
+        mask_prob * all_sz / float(mask_length) + np.random.rand()
     )
 
     all_num_mask = max(min_masks, all_num_mask)
@@ -80,8 +79,7 @@ def compute_mask_indices(
             sz = all_sz - padding_mask[i].long().sum().item()
             num_mask = int(
                 # add a random number for probabilistic rounding
-                mask_prob * sz / float(mask_length)
-                + np.random.rand()
+                mask_prob * sz / float(mask_length) + np.random.rand()
             )
             num_mask = max(min_masks, num_mask)
         else:
@@ -161,9 +159,7 @@ def compute_mask_indices(
 
 class WavLMConfig:
     def __init__(self, cfg=None):
-        self.extractor_mode: str = (
-            "default"  # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
-        )
+        self.extractor_mode: str = "default"  # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
         self.encoder_layers: int = 12  # num encoder layers in the transformer
 
         self.encoder_embed_dim: int = 768  # encoder embedding dimension
@@ -172,9 +168,7 @@ class WavLMConfig:
         self.activation_fn: str = "gelu"  # activation function to use
 
         self.layer_norm_first: bool = False  # apply layernorm first in the transformer
-        self.conv_feature_layers: str = (
-            "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"  # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
-        )
+        self.conv_feature_layers: str = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"  # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
         self.conv_bias: bool = False  # include bias in conv encoder
         self.feature_grad_mult: float = (
             1.0  # multiply feature extractor var grads by this
@@ -204,9 +198,7 @@ class WavLMConfig:
         self.mask_length: int = 10  # mask length
         self.mask_prob: float = 0.65  # probability of replacing a token with mask
         self.mask_selection: str = "static"  # how to choose mask length
-        self.mask_other: float = (
-            0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indicesh
-        )
+        self.mask_other: float = 0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indicesh
         self.no_mask_overlap: bool = False  # whether to allow masks to overlap
         self.mask_min_space: int = (
             1  # min space between spans (if no overlap is enabled)
@@ -218,9 +210,7 @@ class WavLMConfig:
         self.mask_channel_selection: str = (
             "static"  # how to choose mask length for channel masking
         )
-        self.mask_channel_other: float = (
-            0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indices
-        )
+        self.mask_channel_other: float = 0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indices
         self.no_mask_channel_overlap: bool = (
             False  # whether to allow channel masks to overlap
         )
@@ -365,7 +355,6 @@ class WavLM(nn.Module):
         output_layer: Optional[int] = None,
         ret_layer_results: bool = False,
     ):
-
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -441,9 +430,9 @@ class ConvFeatureExtractionModel(nn.Module):
                 nn.init.kaiming_normal_(conv.weight)
                 return conv
 
-            assert (
-                is_layer_norm and is_group_norm
-            ) == False, "layer norm and group norm are exclusive"
+            assert (is_layer_norm and is_group_norm) == False, (
+                "layer norm and group norm are exclusive"
+            )
 
             if is_layer_norm:
                 return nn.Sequential(
@@ -518,7 +507,6 @@ class ConvFeatureExtractionModel(nn.Module):
             pass
 
     def forward(self, x, mask=None):
-
         # BxT -> BxCxT
         x = x.unsqueeze(1)
         if self.conv_type == "custom":
@@ -609,7 +597,6 @@ class TransformerEncoder(nn.Module):
     def extract_features(
         self, x, padding_mask=None, streaming_mask=None, tgt_layer=None
     ):
-
         if padding_mask is not None:
             x[padding_mask] = 0
 
@@ -678,7 +665,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         rescale_init: bool = False,
         gru_rel_pos: bool = False,
     ) -> None:
-
         super().__init__()
         # Initialize parameters
         self.embedding_dim = embedding_dim

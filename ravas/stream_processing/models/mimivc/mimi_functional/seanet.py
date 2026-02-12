@@ -1,7 +1,6 @@
 # seanet.py (stateless streaming rewrite)
 import typing as tp
 import numpy as np
-import torch
 from torch import nn, Tensor
 
 from .conv import StreamingConv1d, StreamingConvTranspose1d

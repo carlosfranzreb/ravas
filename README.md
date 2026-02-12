@@ -113,7 +113,7 @@ Before installing RAVAS, you need to install some system packages:
 ### brew
 
 [brew](https://brew.sh/) is needed to install system packages.
-According to their website, you can install it by running 
+According to their website, you can install it by running
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -175,7 +175,7 @@ cd ravas
 python -m run_gui
 ```
 
-I've written these three commands in the script `macos_run.sh`, so you can also just run that script as shown below. If you are encountering a conda error, asking you to run `conda init`, run the three commands from above instead. 
+I've written these three commands in the script `macos_run.sh`, so you can also just run that script as shown below. If you are encountering a conda error, asking you to run `conda init`, run the three commands from above instead.
 
 ```bash
 bash ./macos_run.sh
@@ -293,12 +293,12 @@ The naming scheme for the avatar files is `avatar_<number>_<gender: f | m>.glb`
 
 If you want to change or add avatars:
 
-1. create an avatar on the [Ready Player Me][1] website  
+1. create an avatar on the [Ready Player Me][1] website
    _(currently this is free; you do not need an account either)_
 2. get the download ID / link for created avatar, e.g. something like <https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb>
 3. __IMPORTANT__ the avatar model files __must__ include _morph target_ definitions for `ARKit`
    (i.e. `morphTargets=ARKit`, see [Ready Player Me REST API docs][2]),
-   and the texture quality __should__ be set to high (i.e. `quality=high` or `textureAtlas=1024`):  
+   and the texture quality __should__ be set to high (i.e. `quality=high` or `textureAtlas=1024`):
    add these query-parameters to the download link for the avatar, e.g. <https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024>
 4. rename the `*.glb` avatar file (see naming scheme above) and place it in the project folder `rpm/public/`
 5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
@@ -346,13 +346,13 @@ The current implementation uses `ConfigurationItem`s to represent configuration 
 
 To add a new setting in the GUI:
 
-1. __New Item:__ create a new `ConfigurationItem` in [gui/config_items.py](ravas/stream_processing/gui/config_items.py):  
+1. __New Item:__ create a new `ConfigurationItem` in [gui/config_items.py](ravas/stream_processing/gui/config_items.py):
    add this to the module constant `CONFIG_ITEMS`.
 
 2. __Validation:__ if the new setting's _valid value validation_ depends on other settings:
 
    - e.g. a setting that is only relevant in case the avatar video-converter is selected, or if audio processing is enabled,
-     then add a `is_ignore_validation(current_config: Dict) -> bool` helper function to the configuration item.  
+     then add a `is_ignore_validation(current_config: Dict) -> bool` helper function to the configuration item.
    - As example, see `_do_set_ignore_validation_helpers()` where this is done for several item defined in `CONFIG_ITEMS`
      (you may modify this function to add your own adjustments).
 
@@ -362,7 +362,7 @@ To add a new setting in the GUI:
      - `_createCheckBoxFor(..)`: for creating a check-box widget (usually used for boolean settings)
      - `_createComboBoxFor(..)`: for creating a combo-box widget (usually used for settings with a list of valid values)
      - ... as well as some more intricate widgets like `_createSliderFor(..)` for creating slider control for number settings
-   - NOTE that the GUI somewhat duplicates the validation logic in order to enable/disable configuration item widgets:  
+   - NOTE that the GUI somewhat duplicates the validation logic in order to enable/disable configuration item widgets:
      see for example local functions `_updateAvatarEnabled()`, `_updateAvatarRendererSelected()`,
      `_set_audio_widgets_enabled()`, and `_set_video_widgets_enabled()`
 

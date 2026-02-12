@@ -154,9 +154,9 @@ class Loader(BaseLoader):
         if self.path.suffix == ".glb":
             self.load_glb()
 
-        assert (
-            self.gltf is not None
-        ), "There is a problem with your file, could not load gltf"
+        assert self.gltf is not None, (
+            "There is a problem with your file, could not load gltf"
+        )
 
         self.gltf.check_version()
         self.gltf.check_extensions(self.supported_extensions)
@@ -690,7 +690,6 @@ class GLTFMesh:
     def load_targets(
         self, primitive: Primitives, ctx: moderngl.Context
     ) -> Tuple[glm.vec2, moderngl.TextureArray]:
-
         morphTargetsCount = len(primitive.targets)
 
         vertexDataCount = 1  # only position, no normals or colors
@@ -1041,7 +1040,6 @@ class GLTFSkin:
         node_ids: Dict[int, Node],
         meshes: List[List[Mesh]],
     ):  # -> Skeleton:
-
         owner_meta_node, owner_node_id = next(
             ((n, i) for i, n in enumerate(meta_nodes) if n.skin == skin_id)
         )

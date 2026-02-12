@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import torch
 
-from mediapipe.python.solutions import drawing_styles
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import face_mesh as mp_faces
 from ...processor import Converter

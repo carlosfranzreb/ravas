@@ -155,15 +155,15 @@ class Node:
             vao: The vertex array representing the bounding box
         """
         if self._mesh:
-            assert (
-                projection_matrix is not None
-            ), "Can not draw bbox, the projection matrix is empty"
-            assert (
-                self._matrix_global is not None
-            ), "Can not draw bbox, the global matrix is empty"
-            assert (
-                camera_matrix is not None
-            ), "Can not draw bbox, the camera matrix is empty"
+            assert projection_matrix is not None, (
+                "Can not draw bbox, the projection matrix is empty"
+            )
+            assert self._matrix_global is not None, (
+                "Can not draw bbox, the global matrix is empty"
+            )
+            assert camera_matrix is not None, (
+                "Can not draw bbox, the camera matrix is empty"
+            )
             self._mesh.draw_bbox(
                 projection_matrix, self._matrix_global, camera_matrix, program, vao
             )
@@ -185,12 +185,12 @@ class Node:
             program (moderngl.Program): The program to render wireframe
         """
         if self._mesh:
-            assert (
-                projection_matrix is not None
-            ), "Can not draw bbox, the projection matrix is empty"
-            assert (
-                self._matrix_global is not None
-            ), "Can not draw bbox, the global matrix is empty"
+            assert projection_matrix is not None, (
+                "Can not draw bbox, the projection matrix is empty"
+            )
+            assert self._matrix_global is not None, (
+                "Can not draw bbox, the global matrix is empty"
+            )
             self._mesh.draw_wireframe(projection_matrix, self._matrix_global, program)
 
         for child in self.children:

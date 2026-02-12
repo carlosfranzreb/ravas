@@ -93,9 +93,9 @@ To use a query parameter, append it with `?<query parameter` to the URL (separat
 
 Overview (for details see below):
 
-* web socket address: `ws=<ws url>`  
+* web socket address: `ws=<ws url>`
    (DEFAULT: `ws://localhost:888`)
-* display FPS information: `show-fps=[false | true]`  
+* display FPS information: `show-fps=[false | true]`
    (DEFAULT: `false`)
 
 ##### Web Socket Address

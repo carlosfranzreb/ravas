@@ -55,49 +55,45 @@ class MimiVC(AudioConverter):
         self.target_feats = torch.load(self.target_feats_path)
         logging.info(f"Loaded {self.target_feats.shape[0]} target features")
 
-        self.encoder = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_encoder.onnx")
-        )
+        self.encoder = ort.InferenceSession(resolve_file_path("onnx/mimi_encoder.onnx"))
         self.encoder_transformer = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_encoder_transformer.onnx")
+            resolve_file_path("onnx/mimi_encoder_transformer.onnx")
         )
         self.downsample = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_downsample.onnx")
+            resolve_file_path("onnx/mimi_downsample.onnx")
         )
         self.quantization = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_quantization.onnx")
+            resolve_file_path("onnx/mimi_quantization.onnx")
         )
         self.upsample = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_upsample.onnx")
+            resolve_file_path("onnx/mimi_upsample.onnx")
         )
-        self.decoder = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_decoder.onnx")
-        )
+        self.decoder = ort.InferenceSession(resolve_file_path("onnx/mimi_decoder.onnx"))
         self.decoder_transformer = ort.InferenceSession(
-            resolve_file_path(f"onnx/mimi_decoder_transformer.onnx")
+            resolve_file_path("onnx/mimi_decoder_transformer.onnx")
         )
 
         self.encoder_args = np.load(
-            resolve_file_path(f"onnx/mimi_encoder_args.npy"), allow_pickle=True
+            resolve_file_path("onnx/mimi_encoder_args.npy"), allow_pickle=True
         ).item()
         self.encoder_transformer_args = np.load(
-            resolve_file_path(f"onnx/mimi_encoder_transformer_args.npy"),
+            resolve_file_path("onnx/mimi_encoder_transformer_args.npy"),
             allow_pickle=True,
         ).item()
         self.downsample_args = np.load(
-            resolve_file_path(f"onnx/mimi_downsample_args.npy"), allow_pickle=True
+            resolve_file_path("onnx/mimi_downsample_args.npy"), allow_pickle=True
         ).item()
         self.quantization_args = np.load(
-            resolve_file_path(f"onnx/mimi_quantization_args.npy"), allow_pickle=True
+            resolve_file_path("onnx/mimi_quantization_args.npy"), allow_pickle=True
         ).item()
         self.upsample_args = np.load(
-            resolve_file_path(f"onnx/mimi_upsample_args.npy"), allow_pickle=True
+            resolve_file_path("onnx/mimi_upsample_args.npy"), allow_pickle=True
         ).item()
         self.decoder_args = np.load(
-            resolve_file_path(f"onnx/mimi_decoder_args.npy"), allow_pickle=True
+            resolve_file_path("onnx/mimi_decoder_args.npy"), allow_pickle=True
         ).item()
         self.decoder_transformer_args = np.load(
-            resolve_file_path(f"onnx/mimi_decoder_transformer_args.npy"),
+            resolve_file_path("onnx/mimi_decoder_transformer_args.npy"),
             allow_pickle=True,
         ).item()
 

@@ -127,9 +127,9 @@ class Avatar(Converter):
             self.logger.info("Started OpenGL Rendering App (pid %s)", render_app.pid)
             self.logger.info("Waiting for OpenGL Rendering App to send ready signal")
             ready_signal = out_queue.get()
-            assert (
-                ready_signal is False
-            ), "did not expected 'ready' signal (value False)"
+            assert ready_signal is False, (
+                "did not expected 'ready' signal (value False)"
+            )
             self.client_available.set()
             self.logger.info("OpenGL Rendering App is ready")
 
@@ -148,7 +148,6 @@ class Avatar(Converter):
             )
 
     def initializeBrowserRenderer(self):
-
         if not self.config.get("start_chrome_renderer", True):
             self.logger.info(
                 "Disabled automated start of Chrome driver for rendering avatar."
@@ -180,9 +179,7 @@ class Avatar(Converter):
             render_app_server = None
 
         ws_port = int(self.config.get("ws_port", 8888))
-        render_app_stop = (
-            Queue()
-        )  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
+        render_app_stop = Queue()  # NOTE: Event() is not pickable for sub-processes, so use Queue for sending stop signal
         app_args = {
             "ws_addr": "http://127.0.0.1:{}".format(ws_port),
             "stop_signal": render_app_stop,
@@ -253,7 +250,6 @@ class Avatar(Converter):
             render_server.terminate()
 
         if render_app and render_app.is_alive():
-
             app_info_str = (
                 "Chrome Driver for"
                 if renderer_type == RenderAppType.BROWSER

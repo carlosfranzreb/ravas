@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 
 class Skeleton:
-
     def __init__(self, bones: List["Node"] = None, boneInverses=None):
         sorted_bones, indices = (
             self.to_topological_sorted(bones) if bones is not None else ([], [])
@@ -31,7 +30,6 @@ class Skeleton:
         self.boneTextureSize: int = -1
 
     def create_bone_texture(self, ctx: Context):
-
         size = math.sqrt(len(self.bones) * 4)  # 4 pixels needed for 1 matrix
         size = math.ceil(size / 4) * 4
         size = max(size, 4)

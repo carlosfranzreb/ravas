@@ -67,12 +67,12 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         assert self.program is not None, "There is no program to draw"
         assert mesh.vao is not None, "There is no vao to render"
         assert mesh.material is not None, "There is no material to render"
-        assert (
-            mesh.material.mat_texture is not None
-        ), "The material does not have a texture to render"
-        assert (
-            mesh.material.mat_texture.texture is not None
-        ), "The material texture is not linked to a texture, so it can not be rendered"
+        assert mesh.material.mat_texture is not None, (
+            "The material does not have a texture to render"
+        )
+        assert mesh.material.mat_texture.texture is not None, (
+            "The material texture is not linked to a texture, so it can not be rendered"
+        )
         assert mesh.morph_texture is not None, "The are no morph targets"
         assert mesh.skeleton is not None, "The is no skeleton"
 
@@ -111,7 +111,6 @@ class TextureLightSkeletonMorphProgram(MeshProgram):
         skeleton.boneTexture.use(location=2)
 
     def update_morph_texture(self, mesh: Mesh):
-
         if len(mesh.morph_target_influences) < 1:
             mesh.morph_target_influences = numpy.zeros(
                 len(mesh.morph_target_dictionary)

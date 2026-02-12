@@ -37,7 +37,6 @@ def start_server(
     log_queue: Optional[Queue] = None,
     log_level: Optional[str] = None,
 ):
-
     if log_queue:
         worker_configurer(log_queue, log_level if log_level else "INFO")
     logger = logging.getLogger("web_server")

@@ -11,7 +11,7 @@ pip install .
 # prepare chrome extension for the avatar renderer
 cd ../rpm
 # ensure_chrome_installed || { echo "Could not ensure Google Chrome is installed" >&2; exit 1; }
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --pack-extension=resources/dist/chrome-extension --pack-extension-key=resources/chrome-extension-packing/privkey.pem 
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --pack-extension=resources/dist/chrome-extension --pack-extension-key=resources/chrome-extension-packing/privkey.pem
 mkdir dist
 mv resources/chrome-extension.crx dist/chrome-extension.crx
 

@@ -80,10 +80,10 @@ def main(config: dict, runtime: int = None) -> None:
     )  # <- wait a little to give logging process some time to flush its queue & write everything to the log-file
     log_listener.terminate()
     if config["audio"]["store"] and config["video"]["store"]:
-        merge_audio_video(log_dir)
+        merge_audio_video(log_dir, config)
 
 
-def merge_audio_video(log_dir: str) -> None:
+def merge_audio_video(log_dir: str, config: dict) -> None:
     """
     Merge the audio and video files into a single file.
 

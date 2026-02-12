@@ -24,9 +24,12 @@ class TestBatchify(unittest.TestCase):
         def read_callback():
             return torch.randint(0, 255, input_shape, dtype=torch.uint8)
 
-        (processing_time, processing_data), (
-            chunk_part_for_next_times,
-            chunk_part_for_next,
+        (
+            (processing_time, processing_data),
+            (
+                chunk_part_for_next_times,
+                chunk_part_for_next,
+            ),
         ) = batchify_input_stream(
             read_callback=read_callback,
             out_batch_size=out_batch_size,
@@ -69,9 +72,12 @@ class TestBatchify(unittest.TestCase):
         def read_callback():
             return torch.randint(0, 255, input_shape, dtype=torch.uint8)
 
-        (processing_time, processing_data), (
-            chunk_part_for_next_times,
-            chunk_part_for_next,
+        (
+            (processing_time, processing_data),
+            (
+                chunk_part_for_next_times,
+                chunk_part_for_next,
+            ),
         ) = batchify_input_stream(
             read_callback=read_callback,
             out_batch_size=out_batch_size,
@@ -108,9 +114,12 @@ class TestBatchify(unittest.TestCase):
         def read_callback():
             return torch.ones(input_shape, dtype=torch.uint8)
 
-        (processing_time, processing_data), (
-            chunk_part_for_next_times,
-            chunk_part_for_next,
+        (
+            (processing_time, processing_data),
+            (
+                chunk_part_for_next_times,
+                chunk_part_for_next,
+            ),
         ) = batchify_input_stream(
             read_callback=read_callback,
             out_batch_size=out_batch_size,

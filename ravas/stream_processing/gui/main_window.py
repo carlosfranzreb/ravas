@@ -36,7 +36,6 @@ _logger = logging.getLogger("gui.main_window")
 
 
 class MainWindow(QMainWindow):
-
     def __init__(self, config_path: str):
         super().__init__(parent=None)
         self.setWindowTitle("RAVAS")
@@ -175,7 +174,6 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(text)
 
     def startStreaming(self):
-
         self.config_copy = self.getConfig(as_copy=True)
         config_problems = validate_config_values(self.config_copy)
         if config_problems:

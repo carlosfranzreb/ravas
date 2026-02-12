@@ -117,7 +117,6 @@ class StreamingMultiheadAttention(nn.Module):
         cache: Tensor,
         end_offset: Tensor,
     ) -> list[Tensor, Tensor, Tensor, Tensor, Tensor]:
-
         B, H, T, D = keys.shape
         capacity = cache.shape[3]
         exec_mask = torch.ones(B, dtype=torch.bool, device=keys.device)

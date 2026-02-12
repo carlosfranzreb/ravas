@@ -246,7 +246,6 @@ def get_config_path(config_name: Optional[str]) -> str:
     )
     config_dir = resolve_file_path("configs/")
     if os.path.exists(config_dir) and os.path.isdir(config_dir):
-
         config_file_dir = os.path.dirname(config_file)
         if config_file_dir:
             config_file = os.path.basename(config_file)

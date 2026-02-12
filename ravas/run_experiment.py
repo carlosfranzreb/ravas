@@ -24,9 +24,9 @@ def run_experiment(config: dict, params: dict, runtime: int) -> None:
     """
     n_values = len(next(iter(params.values())))
     for param_name, param_values in params.items():
-        assert (
-            len(param_values) == n_values
-        ), "All parameters should have the same number of values"
+        assert len(param_values) == n_values, (
+            "All parameters should have the same number of values"
+        )
 
     for value_idx in range(n_values):
         config_copy = deepcopy(config)
