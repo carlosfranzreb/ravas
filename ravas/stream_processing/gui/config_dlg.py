@@ -349,6 +349,9 @@ class ConfigDialog(RestorableDialog):
             CONFIG_ITEMS["use_audio_cluster"]
         )
         expressivessForm.addRow("Use Expressiveness: ", chkEnableExpressiveness)
+        chkEnableExpressiveness.stateChanged.connect(
+            lambda: self._sync_clustering_neighbors(chkEnableExpressiveness.isChecked())
+        )
 
         _, layoutOutputAudioCluster = self._createSliderFor(
             CONFIG_ITEMS["audio_output_n_cluster"],
@@ -1103,6 +1106,29 @@ class ConfigDialog(RestorableDialog):
                 "Please select a different value(s) for " + details,
                 QMessageBox.StandardButton.Ok,
             )
+
+    def _sync_clustering_neighbors(self, enabled: bool):
+        """
+        When clustering (expressiveness) is enabled, n_neighbors should be 1.
+        When disabled, n_neighbors should be 4.
+        """
+        new_n_neighbors = 1 if enabled else 4
+
+        try:
+            # Ensure the nested path exists before setting to avoid KeyErrors
+            if "audio" in self.config and "converter" in self.config["audio"]:
+                self.config["audio"]["converter"]["n_neighbors"] = new_n_neighbors
+
+                # Also update changed_config so it persists in the RestorableDialog logic
+                # Use the path separator defined in your class
+                path = CONFIG_PATH_SEP.join(["audio", "converter", "n_neighbors"])
+                self.changed_config[path] = new_n_neighbors
+
+                _logger.debug(
+                    f"Syncing n_neighbors to {new_n_neighbors} (Expressiveness: {enabled})"
+                )
+        except Exception as e:
+            _logger.error(f"Failed to sync n_neighbors: {e}")
 
     def sync_anonymizer_settings(self, index: int = None):
         """Logic to sync buffer sizes and sampling rates based on selected anonymizer"""

@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 import torch
-from ..stream_processing.processor import (
+from stream_processing.processor import (
     Processor,
     ProcessingQueues,
     ProcessingSyncState,
