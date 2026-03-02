@@ -8,15 +8,17 @@ from unittest.mock import Mock
 from stream_processing.utils import resolve_file_path
 
 from stream_processing.models.avatar.avatar import Avatar
-'''
+
+"""
 Test the Avatar function `convert_frame` using a real image.
 This test verifies:
 - That a real face image results in a non-black output
 - The count of detections and renders is as expected
 - That a non-face image results in a black output and no rendering
-'''
+"""
 FACE_IMAGE_PATH = resolve_file_path("./test/test_data/test_input/face.jpg")
 NO_FACE_IMAGE_PATH = resolve_file_path("./test/test_data/test_input/no_face.jpg")
+
 
 @pytest.fixture
 def avatar_real(tmp_path):
@@ -40,10 +42,11 @@ def avatar_real(tmp_path):
 
     return avatar
 
+
 def test_convert_frame_real_detection_and_fake_renderer(avatar_real):
-    '''
+    """
     Test that a real image with a face goes through the detection and rendering path, resulting in a non-black output.
-    '''
+    """
     img = cv2.imread(FACE_IMAGE_PATH)
     assert img is not None, "Face image not found"
 
@@ -87,10 +90,11 @@ def test_convert_frame_real_detection_and_fake_renderer(avatar_real):
     # Ensure message was sent to renderer
     avatar_real.server.send_message_to_all.assert_called_once()
 
+
 def test_convert_frame_real_no_face(avatar_real):
-    '''
+    """
     Test that an image with no face results in a black output and no rendering.
-    '''
+    """
     img = cv2.imread(NO_FACE_IMAGE_PATH)
     assert img is not None
 
