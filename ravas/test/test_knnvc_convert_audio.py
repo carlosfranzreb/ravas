@@ -6,6 +6,17 @@ from stream_processing.utils import resolve_file_path
 
 from stream_processing.models import KnnVC
 
+"""
+Test the KnnVC converter.
+
+This test verifies:
+- model loading
+- Correct execution of the `convert_audio` function.
+- Deterministic behavior when using deterministic inputs.
+- That the output shape matches the expected dimensions.
+"""
+
+
 @pytest.fixture
 def knnvc_config():
     return {
@@ -14,22 +25,9 @@ def knnvc_config():
         "n_cluster": 0,
         "n_neighbors": 4,
         "use_expressiveness": False,
-        "prev_audio_queue": {
-            "max_samples": 9600
-        },
-        "prev_ctx": {
-            "use_previous_ctx": False,
-            "max_samples": 0
-        },
-        "interpolator": {
-            "n_samples": 450,
-            "weight": 0.75
-        },
-        "vad": {
-            "frame_length": 2048,
-            "hop_length": 512,
-            "threshold": 0.01
-        }
+        "prev_audio_queue": {"max_samples": 9600},
+        "prev_ctx": {"use_previous_ctx": False, "max_samples": 0},
+        "interpolator": {"n_samples": 450, "weight": 0.75},
     }
 
 
@@ -64,11 +62,12 @@ def knnvc(knnvc_config):
 
     return knnvc
 
+
 def test_knnvc_init_loads_models(knnvc, knnvc_config):
     # Target features sanity
     assert knnvc.target_feats.ndim == 2
     assert knnvc.target_feats.shape[0] > 0
-    
+
     assert knnvc.wavlm is not None  # WavLM should be loadable
     n_samples = knnvc_config["prev_audio_queue"]["max_samples"]
     torch.manual_seed(0)
@@ -78,12 +77,18 @@ def test_knnvc_init_loads_models(knnvc, knnvc_config):
     wavlm_out_2 = knnvc.wavlm.run(["output"], {"input": audio_random.numpy()})[0]
 
     # WavLM should produce deterministic output for same input
-    assert wavlm_out_1.shape == wavlm_out_2.shape   # wavlm output shape should be consistent
-    assert wavlm_out_1.dtype == wavlm_out_2.dtype   # wavlm output dtype should be consistent
-    assert torch.equal(torch.from_numpy(wavlm_out_1), torch.from_numpy(wavlm_out_2)) # wavlm output should be identical for same input
+    assert (
+        wavlm_out_1.shape == wavlm_out_2.shape
+    )  # wavlm output shape should be consistent
+    assert (
+        wavlm_out_1.dtype == wavlm_out_2.dtype
+    )  # wavlm output dtype should be consistent
+    assert torch.equal(
+        torch.from_numpy(wavlm_out_1), torch.from_numpy(wavlm_out_2)
+    )  # wavlm output should be identical for same input
 
     # HiFiGAN should be loadable and produce output of expected shape
-    assert knnvc.hifigan is not None # HiFiGAN should be loadable
+    assert knnvc.hifigan is not None  # HiFiGAN should be loadable
 
     hifigan_input_size = (n_samples // 320) - 1
     hifigan_in = torch.randn((1, hifigan_input_size, 1024), dtype=torch.float32)
@@ -92,9 +97,15 @@ def test_knnvc_init_loads_models(knnvc, knnvc_config):
     hifigan_out_2 = knnvc.hifigan.run(["output"], {"input": hifigan_in.numpy()})[0]
 
     # HiFiGAN should produce deterministic output for same input
-    assert hifigan_out_1.shape == hifigan_out_2.shape # hifigan output shape should be consistent
-    assert hifigan_out_1.dtype == hifigan_out_2.dtype # hifigan output dtype should be consistent
-    assert torch.equal(torch.from_numpy(hifigan_out_1), torch.from_numpy(hifigan_out_2)) # hifigan output should be identical for same input
+    assert (
+        hifigan_out_1.shape == hifigan_out_2.shape
+    )  # hifigan output shape should be consistent
+    assert (
+        hifigan_out_1.dtype == hifigan_out_2.dtype
+    )  # hifigan output dtype should be consistent
+    assert torch.equal(
+        torch.from_numpy(hifigan_out_1), torch.from_numpy(hifigan_out_2)
+    )  # hifigan output should be identical for same input
 
 
 def test_knnvc_convert_audio_output(knnvc, knnvc_config):
@@ -107,7 +118,9 @@ def test_knnvc_convert_audio_output(knnvc, knnvc_config):
 
     assert isinstance(audio_out, torch.Tensor)
     assert audio_out.dtype == torch.int16
-    assert int(audio_out.shape[0]) == int(audio_in.shape[0]) - 320 #-320 due to wavlm's receptive field
+    assert (
+        int(audio_out.shape[0]) == int(audio_in.shape[0]) - 320
+    )  # -320 due to wavlm's receptive field
 
     # Value safety
     assert torch.max(audio_out) <= 32767
@@ -126,4 +139,6 @@ def test_knnvc_convert_audio_output(knnvc, knnvc_config):
     assert out_1.shape == out_2.shape
     assert out_1.dtype == out_2.dtype
 
-    assert torch.equal(out_1, out_2) # convert audio should produce identical output for same input
+    assert torch.equal(
+        out_1, out_2
+    )  # convert audio should produce identical output for same input

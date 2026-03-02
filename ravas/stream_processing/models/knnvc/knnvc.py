@@ -48,11 +48,6 @@ class KnnVC(AudioConverter):
         self.target_feats_path = resolve_file_path(config["target_feats_path"])
         self.n_neighbors = config["n_neighbors"]
 
-        # VAD config
-        self.vad_frame_length = config["vad"]["frame_length"]
-        self.vad_hop_length = config["vad"]["hop_length"]
-        self.vad_threshold = config["vad"]["threshold"]
-
         # initialize the audio queue and the interpolator
         self.audio_queue = PrevAudioQueue(config["prev_audio_queue"])
         self.interpolator = Interpolator(config["interpolator"])
@@ -91,12 +86,6 @@ class KnnVC(AudioConverter):
         """
         audio_in = (audio_in / 32768).to(torch.float32)
         self.audio_queue.add(audio_in)
-
-        # if energy is too low, return silence
-        # energy = rms(audio_in, self.vad_frame_length, self.vad_hop_length)
-        # if torch.max(energy) < self.vad_threshold:
-        #    self.logger.debug(f"Energy too low ({torch.max(energy)}).")
-        #    return torch.zeros_like(audio_in, dtype=torch.int16)
 
         # convert the audio
         audio_concat = self.audio_queue.get()
@@ -163,25 +152,3 @@ def cosine_similarity(tensor_a: Tensor, tensor_b: Tensor) -> Tensor:
     target_norm = torch.norm(tensor_b, dim=-1)
     cos_sim = dot_product / torch.outer(source_norm, target_norm)
     return cos_sim
-
-
-def rms(audio: Tensor, frame_length: int, hop_length: int) -> Tensor:
-    """
-    Compute root-mean-square (RMS) value for each frame from the audio samples.
-
-    Args:
-        audio (shape (n)): audio time series.
-        frame_length : no. of samples for energy calculation.
-        hop_length : hop length for STFT.
-
-    Returns:
-        rms (shape (t)): RMS value for each frame
-    """
-
-    # if the audio comprises only one frame, return its RMS
-    if audio.shape[0] <= frame_length:
-        return audio.pow(2).mean().sqrt()
-
-    return torch.sqrt(
-        torch.mean(audio.unfold(0, frame_length, hop_length).pow(2), dim=-1)
-    )
