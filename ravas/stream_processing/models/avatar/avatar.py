@@ -76,6 +76,11 @@ class Avatar(Converter):
         headless_window = config.get("show_chrome_window")
         if headless_window is not None and config.get("show_renderer_window") is None:
             config["show_renderer_window"] = headless_window
+        
+        self.duration_detect = 0
+        self.duration_render = 0
+        self.count_detect = 0
+        self.count_render = 0
 
     def initializeFaceLandmarkerModel(self):
         """
@@ -340,10 +345,6 @@ class Avatar(Converter):
             self.initializeOpenGLRenderer()
             self.initializeFaceLandmarkerModel()
 
-        self.duration_detect = 0
-        self.duration_render = 0
-        self.count_detect = 0
-        self.count_render = 0
 
         if self.config["video_file"] is None:
             clear_queue(self.input_queue)
