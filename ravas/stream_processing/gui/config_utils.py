@@ -33,6 +33,7 @@ def get_audio_devices(
 ) -> dict[str, int]:
     """Retrieve the device names for audio-input or -output index"""
     devices = sd.query_devices()
+    default_api_idx = sd.default.hostapi
     if logger:
         logger.debug("audio devices: %s", devices)
     result = {}
@@ -40,6 +41,10 @@ def get_audio_devices(
     count = 1
     is_match = False
     for idx, device in enumerate(devices):
+        # filters additional by default hostapi to reduce devices
+        if device["hostapi"] != default_api_idx:
+            continue
+
         if is_input and device["max_input_channels"] > 0:
             is_match = True
         elif not is_input and device["max_output_channels"] > 0:

@@ -622,10 +622,10 @@ class ConfigDialog(RestorableDialog):
         slider.valueChanged.connect(lambda i: spin.setValue(min + i * step))
         spin.valueChanged.connect(lambda v: slider.setValue((v - min) // step))
 
-        slider.valueChanged.connect(
+        spin.valueChanged.connect(
             partial(
                 self.setConfigValueAndValidation,
-                slider,
+                spin,
                 config_item.is_valid_value,
                 config_item.config_path,
                 sub_config,
@@ -637,10 +637,10 @@ class ConfigDialog(RestorableDialog):
             _, add_field_name, add_sub_config = get_current_value_and_config_path_for(
                 self.config, additional_config_path
             )
-            slider.valueChanged.connect(
+            spin.valueChanged.connect(
                 partial(
                     self.setConfigValueAndValidation,
-                    slider,
+                    spin,
                     config_item.is_valid_value,  # FIXME should this be set to None? ... generally the validation should be the same, but there may be some unforseen cases where that is not the case...
                     additional_config_path,
                     add_sub_config,
@@ -657,7 +657,9 @@ class ConfigDialog(RestorableDialog):
             curr_val = min
 
         # set (valid) value (will apply it to configuration, if it was changed above):
-        slider.setValue(curr_val)
+        # slider.setValue(curr_val)
+        slider.setValue((curr_val - min) // step)
+        spin.setValue(curr_val)
 
         # Horizontal row: spin + slider
         row = QHBoxLayout()
