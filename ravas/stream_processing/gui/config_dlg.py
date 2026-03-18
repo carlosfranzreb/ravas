@@ -349,9 +349,7 @@ class ConfigDialog(RestorableDialog):
             CONFIG_ITEMS["use_audio_cluster"]
         )
         expressivessForm.addRow("Use Expressiveness: ", chkEnableExpressiveness)
-        chkEnableExpressiveness.stateChanged.connect(
-            lambda: self._sync_clustering_neighbors(chkEnableExpressiveness.isChecked())
-        )
+        chkEnableExpressiveness.toggled.connect(self._sync_clustering_neighbors)
 
         _, layoutOutputAudioCluster = self._createSliderFor(
             CONFIG_ITEMS["audio_output_n_cluster"],
@@ -619,8 +617,15 @@ class ConfigDialog(RestorableDialog):
 
         # slider.valueChanged.connect(spin.setValue)
         # spin.valueChanged.connect(slider.setValue)
-        slider.valueChanged.connect(lambda i: spin.setValue(min + i * step))
-        spin.valueChanged.connect(lambda v: slider.setValue((v - min) // step))
+        # These functions update the slider/spin values based on the other
+        def update_slider(value):
+            spin.setValue(min + value * step)
+
+        def update_spin(value):
+            slider.setValue((value - min) // step)
+
+        slider.valueChanged.connect(update_slider)
+        spin.valueChanged.connect(update_spin)
 
         spin.valueChanged.connect(
             partial(

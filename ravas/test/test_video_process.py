@@ -53,9 +53,10 @@ VIDEO_TEST_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", VIDEO_TEST_CASES, ids=[c["name"] for c in VIDEO_TEST_CASES])
+@pytest.mark.parametrize(
+    "case", VIDEO_TEST_CASES, ids=[c["name"] for c in VIDEO_TEST_CASES]
+)
 def test_avatar_video_pipeline(case):
-
     input_file = case["input_file"]
     new_output_dir = case["output_dir"]
 

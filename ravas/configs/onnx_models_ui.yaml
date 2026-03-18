@@ -4,7 +4,6 @@ define: &max_unsynced_time 0.01
 define: &video_file null
 define: &video_width 1280
 define: &video_height 720
-define: &audio_n_cluster 120
 
 video:
   use_video: false
@@ -40,7 +39,6 @@ audio:
   processing_size: 1920
   record_buffersize: 480
   sampling_rate: 24000
-  n_cluster: *audio_n_cluster
   input_device: MacBook Pro-Mikrofon
   output_device: MacBook Pro-Lautsprecher
   store: false
@@ -48,8 +46,9 @@ audio:
     cls: stream_processing.models.KnnVC
     target_feats_path: ./target_feats/knnvc/john.pt
     device: cpu
-    n_cluster: *audio_n_cluster
     n_neighbors: 4
+    use_expressiveness: false
+    n_cluster: 0
     prev_audio_queue:
       max_samples: 9600
     prev_ctx:

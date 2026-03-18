@@ -9,7 +9,13 @@ from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import face_mesh as mp_faces
 from ...processor import Converter
 from ...utils import clear_queue
-from .face_mask_connections import *
+from .face_mask_connections import (
+    FACEMESH_FACE_OVAL,
+    FACEMESH_NOSE_VARIANT,
+    FACEMESH_LEFT_EYEBROW,
+    FACEMESH_RIGHT_EYEBROW,
+    FACEMESH_IRISES_FILL,
+)
 
 
 class FaceMask(Converter):
