@@ -301,7 +301,9 @@ If you want to change or add avatars:
    and the texture quality __should__ be set to high (i.e. `quality=high` or `textureAtlas=1024`):
    add these query-parameters to the download link for the avatar, e.g. <https://models.readyplayer.me/6460d95f9ae10f45bffb2864.glb?morphTargets=ARKit&textureAtlas=1024>
 4. rename the `*.glb` avatar file (see naming scheme above) and place it in the project folder `rpm/public/`
-5. you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
+5. Make sure to also change the variable `use_chrome_extension` in `ravas/configs/onnx_models_ui.yaml` from `True` to the path e.g `./rpm/public/`
+6. If you want to use chrome extension keep it as `True` and repack the chrome_extension the guide is mentioned in step 7 
+7. (Optional) you should also rebuild the web app for the avatar rendering (see [rpm/README.md][3])
 
 ## Audio Anonymizer
 
